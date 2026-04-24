@@ -882,6 +882,45 @@
   .locked-bool.empty { color: var(--mute); font-weight: 400; }
   .locked-bool.empty::before { content: '—'; }
 
+  /* ──────────────────────────────────────────────────────────────
+   * Compact boolean chip strip — at the bottom of an asset card's
+   * expanded body. Pulls yes/no status flags out of the main grid
+   * so they read at a glance without consuming full rows.
+   * ────────────────────────────────────────────────────────────── */
+  .asset-bool-strip {
+    display: flex; flex-wrap: wrap;
+    gap: 8px 14px;
+    margin-top: 18px; padding-top: 16px;
+    border-top: 1px dashed var(--line-2);
+  }
+  .bool-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 0.85rem; line-height: 1;
+    padding: 6px 10px; border-radius: 999px;
+    background: var(--paper-warm, var(--cream));
+    border: 1px solid var(--line-2);
+    color: var(--ink);
+  }
+  .bool-chip.yes {
+    background: rgba(14, 139, 94, 0.08);
+    border-color: rgba(14, 139, 94, 0.2);
+    color: var(--ok, #0E8B5E);
+    font-weight: 600;
+  }
+  .bool-chip.no {
+    color: var(--mute);
+    font-weight: 400;
+  }
+  .bool-chip-icon {
+    font-size: 0.9rem; line-height: 1;
+    opacity: 0.9;
+  }
+  .bool-chip.no .bool-chip-icon { opacity: 0.5; }
+  .bool-chip-label {
+    font-size: 0.85rem;
+    letter-spacing: -0.005em;
+  }
+
   /* Locked form-field label — smaller, uppercase eyebrow
      In edit mode, label reverts to normal. */
   .form-field.is-locked { gap: 2px; }
@@ -2119,13 +2158,61 @@ function renderAssetCard(section, group, isEditing) {
     el('div', { className: 'asset-card-chevron' }, isOpen ? '⌃' : '⌄'));
 
   // Expanded body (only if open)
-  const body = isOpen
-    ? el('div', { className: 'asset-card-body' },
-        el('div', { className: 'form-grid' },
-          ...group.fields.filter(f => f.visible !== false).map(f => renderFormField(f, isEditing))))
-    : null;
+  // Split fields into two groups for visual variety:
+  //   - mainFields: rendered in the 2-column grid (Address, Values, Construction, etc.)
+  //   - boolFields: rendered as a compact chip strip below the grid (Status flags)
+  // This avoids the monotony of 30 identical rows of "LABEL / value".
+  const body = isOpen ? (() => {
+    const visible = group.fields.filter(f => f.visible !== false);
+    const { main, bools } = isEditing
+      ? { main: visible, bools: [] }  // in edit mode keep all in grid (toggles need space)
+      : partitionAssetFields(visible);
+    return el('div', { className: 'asset-card-body' },
+      el('div', { className: 'form-grid' },
+        ...main.map(f => renderFormField(f, isEditing))),
+      bools.length > 0
+        ? el('div', { className: 'asset-bool-strip' },
+            ...bools.map(f => renderBoolChip(f)))
+        : null);
+  })() : null;
 
   return el('div', { className: `asset-card ${isOpen ? 'open' : ''}` }, summary, body);
+}
+
+// Decide which fields go in the main grid vs. the compact bool strip.
+// Rule: if a field is boolean-like AND has a value (either truthy or
+// explicitly falsy), it goes in the strip. Empty booleans go in the
+// main grid so the broker can see that slot needs attention.
+function partitionAssetFields(fields) {
+  const main = [];
+  const bools = [];
+  for (const f of fields) {
+    const v = unwrapForInput(f.value);
+    const hasVal = v !== null && v !== undefined && v !== '';
+    if (hasVal && isBooleanField(f, v)) {
+      bools.push(f);
+    } else {
+      main.push(f);
+    }
+  }
+  return { main, bools };
+}
+
+// Render one boolean field as a compact chip in the strip.
+// Style: "✓ Sprinklered" (green) or "— GL Only" (muted strikethrough).
+// The label is the human-readable field name minus any trailing "Status".
+function renderBoolChip(field) {
+  const v = unwrapForInput(field.value);
+  const yes = isTruthyBool(v);
+  const rawLabel = field.label || field.code || '';
+  // Trim " Status" suffix — redundant in a chip context
+  const label = rawLabel.replace(/\s*status\s*$/i, '').trim() || rawLabel;
+  return el('div', {
+    className: `bool-chip ${yes ? 'yes' : 'no'}`,
+    title: rawLabel,
+  },
+    el('span', { className: 'bool-chip-icon' }, yes ? '✓' : '—'),
+    el('span', { className: 'bool-chip-label' }, label));
 }
 
 // Right sidebar: compact asset number list, click to scroll + expand
@@ -2183,30 +2270,56 @@ function renderFieldInput(field, value, locked = false) {
   const cleanValue = unwrapForInput(value);
   const hasValue = cleanValue !== null && cleanValue !== undefined && cleanValue !== '';
 
-  // ── Slider: for Number/Monetary fields with 3+ numeric options
-  // (e.g. AOP Deductible: $1k / $2.5k / $5k / $10k / $25k / $50k)
+  // ── Reliable boolean detection ────────────────────────────
+  // Joshu is inconsistent: sometimes `sprinklered_status` comes through as
+  // type='boolean' with a JS bool value; sometimes as type='text' with
+  // options=[{value:'0',display:'No'},{value:'1',display:'Yes'}]; sometimes
+  // as type='number' the same way. We treat all of these as booleans in
+  // the UI so they render as chips/toggles, not text boxes.
+  const looksLikeBool = isBooleanField(field, cleanValue);
+
+  // ── Empty-value fast path (locked only) ────────────────────
+  // In locked mode, ANY field with no value renders as a minimal em-dash.
+  // No input boxes, no cream rectangles, no framed empty states.
+  // This keeps empty fields from competing visually with populated ones.
+  if (locked && !hasValue) {
+    return lockedValueEl('');
+  }
+
+  // ── Boolean chip/toggle (locked → chip; editing → toggle) ──
+  if (looksLikeBool) {
+    const checked = isTruthyBool(cleanValue);
+    if (locked) {
+      return el('div', {
+        className: `locked-bool ${checked ? 'yes' : 'no'}`,
+      }, checked ? '✓ Yes' : '— No');
+    }
+    return el('label', { className: 'toggle' },
+      el('input', { type: 'checkbox', checked,
+        onChange: (e) => onChange(e.target.checked ? '1' : '0') }),
+      el('span', { className: 'toggle-switch' }),
+      el('span', { className: 'toggle-label' }, checked ? 'Yes' : 'No'));
+  }
+
+  // ── Slider: Number/Monetary with 3+ numeric options
   if (field.options && field.options.length >= 3 &&
       (field.type === 'number' || field.type === 'monetary')) {
     const allNumeric = field.options.every(o => !isNaN(parseFloat(o.value)));
     if (allNumeric) {
-      // In locked mode, sliders become a simple labeled value — sliders
-      // don't read well as disabled controls. In edit mode, use the real slider.
       if (locked) {
         const matching = field.options.find(o => String(o.value) === String(cleanValue));
-        const displayText = matching?.label || matching?.value ||
-                           (hasValue ? formatByType(field, cleanValue) : '');
+        const displayText = matching?.label || matching?.value || formatByType(field, cleanValue);
         return lockedValueEl(displayText);
       }
       return renderSlider(field, cleanValue, onChange);
     }
   }
 
-  // ── Dropdown: for fields with fewer options or non-numeric options
+  // ── Dropdown: fields with options
   if (field.options && field.options.length > 0) {
     if (locked) {
       const matching = field.options.find(o => String(o.value) === String(cleanValue));
-      const displayText = matching?.label || matching?.value ||
-                         (hasValue ? String(cleanValue) : '');
+      const displayText = matching?.label || matching?.value || String(cleanValue);
       return lockedValueEl(displayText);
     }
     return el('select', {
@@ -2218,24 +2331,8 @@ function renderFieldInput(field, value, locked = false) {
       }, o.label || o.value)));
   }
 
-  if (field.type === 'boolean') {
-    const checked = cleanValue === true || cleanValue === 'true' ||
-                    cleanValue === 1 || cleanValue === '1';
-    if (locked) {
-      // Locked booleans show as a compact chip with ✓ or — icon
-      return el('div', {
-        className: `locked-bool ${checked ? 'yes' : 'no'} ${hasValue ? '' : 'empty'}`,
-      }, checked ? '✓ Yes' : (hasValue ? '— No' : ''));
-    }
-    return el('label', { className: 'toggle' },
-      el('input', { type: 'checkbox', checked,
-        onChange: (e) => onChange(e.target.checked) }),
-      el('span', { className: 'toggle-switch' }),
-      el('span', { className: 'toggle-label' }, checked ? 'Yes' : 'No'));
-  }
-
   if (field.type === 'date') {
-    if (locked) return lockedValueEl(hasValue ? formatByType(field, cleanValue) : '');
+    if (locked) return lockedValueEl(formatByType(field, cleanValue));
     return el('input', { type: 'date', value: cleanValue || '',
       onInput: (e) => onChange(e.target.value || null) });
   }
@@ -2243,9 +2340,7 @@ function renderFieldInput(field, value, locked = false) {
   if (field.type === 'number' || field.type === 'monetary') {
     const numVal = typeof cleanValue === 'object' && cleanValue?.amount != null
       ? cleanValue.amount : (cleanValue ?? '');
-    if (locked) {
-      return lockedValueEl(hasValue ? formatByType(field, numVal) : '');
-    }
+    if (locked) return lockedValueEl(formatByType(field, numVal));
     return el('input', { type: 'number', value: numVal,
       placeholder: field.type === 'monetary' ? '0.00' : '',
       onInput: (e) => onChange(e.target.value || null) });
@@ -2262,16 +2357,62 @@ function renderFieldInput(field, value, locked = false) {
       onInput: (e) => onChange(e.target.value || null) });
   }
 
-  // Default: text (includes Array values which format nicely)
-  if (locked) {
-    return lockedValueEl(hasValue ? formatByType(field, cleanValue) : '');
-  }
+  // Default: text (Array values pass through formatByType)
+  if (locked) return lockedValueEl(formatByType(field, cleanValue));
   const inputType = field.format === 'EmailAddress' ? 'email'
     : field.format === 'PhoneNumber' ? 'tel'
     : field.format === 'WebsiteAddress' ? 'url'
     : 'text';
   return el('input', { type: inputType, value: cleanValue || '',
     onInput: (e) => onChange(e.target.value || null) });
+}
+
+// Detect "this is a yes/no field" from field metadata + observed value.
+// Returns true if ANY of these hold:
+//   - schema says type === 'boolean'
+//   - the actual value is a JS boolean
+//   - options look like a 2-option yes/no pattern (values are 0/1 or false/true)
+//   - the code or label ends with "_status" or "Status" (heuristic fallback)
+function isBooleanField(field, value) {
+  if (field.type === 'boolean') return true;
+  if (typeof value === 'boolean') return true;
+
+  const opts = field.options;
+  if (Array.isArray(opts) && opts.length === 2) {
+    const vals = opts.map(o => String(o.value || '').toLowerCase()).sort();
+    const yesNoPairs = [
+      ['0', '1'],
+      ['false', 'true'],
+      ['n', 'y'],
+      ['no', 'yes'],
+    ];
+    for (const pair of yesNoPairs) {
+      if (vals[0] === pair[0] && vals[1] === pair[1]) return true;
+    }
+  }
+
+  // Heuristic: codes ending in "_status" or labels ending in "Status"
+  // (e.g. sprinklered_status, ex_wind_status, surveillance_status, GLonlyStatus)
+  const code = (field.code || '').toLowerCase();
+  const label = (field.label || '').toLowerCase();
+  if (code.endsWith('_status') || label.endsWith(' status') || code.endsWith('status') && !code.includes('.')) {
+    // But ONLY if the value is a clear yes/no type marker, to avoid hitting
+    // text status fields like "renewal_status_description"
+    const v = (value === null || value === undefined) ? '' : String(value).toLowerCase();
+    if (v === '' || v === '0' || v === '1' || v === 'true' || v === 'false' ||
+        v === 'yes' || v === 'no') return true;
+  }
+
+  return false;
+}
+
+// Normalize any of the many "truthy" shapes Joshu sends to a JS bool
+function isTruthyBool(v) {
+  if (v === true) return true;
+  if (v === false) return false;
+  if (v === null || v === undefined) return false;
+  const s = String(v).toLowerCase().trim();
+  return s === '1' || s === 'true' || s === 'yes' || s === 'y';
 }
 
 // A locked (read-only) value — no frame, just the formatted value in place.
