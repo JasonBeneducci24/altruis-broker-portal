@@ -40,6 +40,7 @@ from datetime import datetime
 from typing import Any
 
 import httpx
+import re
 
 from app.config import settings
 from app.joshu.client_base import JoshuClientBase
@@ -256,27 +257,223 @@ def _encode_data_payload(code_values: dict[str, Any], type_hints: dict[str, str]
 # Schema normalization for /submission-status
 # ─────────────────────────────────────────────────────────────
 
+# Acronyms we want to render in UPPERCASE instead of title case
+_UPPERCASE_TERMS = {
+    "aop", "gl", "ui", "tria", "epli", "id", "us", "eb", "dba",
+    "llc", "llp", "ein", "tin", "ssn", "uw", "ex", "iv", "pl",
+    "tiv", "dep", "bpp", "ho", "bop", "cgl", "cpp", "faq", "url",
+    "sr", "jr", "po", "usa", "ny", "ca", "tx", "fl",
+}
+# Words that should stay lowercase (prepositions, articles) when not first
+_LOWERCASE_WORDS = {"of", "and", "or", "the", "a", "an", "in", "on", "at", "to", "for", "by"}
+
+_CAMEL_SPLIT_RE = re.compile(r"([a-z0-9])([A-Z])")
+_CONTIG_CAPS_RE = re.compile(r"([A-Z]+)([A-Z][a-z])")
+
+
+def _split_tokens(segment: str) -> list[str]:
+    """Break a code segment into words.
+
+    Handles:
+      - snake_case: "aop_deductible" → ["aop", "deductible"]
+      - camelCase: "cyberStatus" → ["cyber", "Status"]
+      - PascalCase: "EffectiveDate" → ["Effective", "Date"]
+      - acronym-first: "EPLIstatus" → ["EPLI", "status"]
+      - acronym-mid: "maxEPLILimit" → ["max", "EPLI", "Limit"]
+      - mixed: "split_addressCity" → ["split", "address", "City"]
+
+    Strategy: first split on explicit separators (_, -, space), then for
+    each piece scan for known acronyms from _UPPERCASE_TERMS and extract
+    them, falling back to camelCase splitting on the remainder.
+    """
+    if not segment:
+        return []
+
+    # Split on explicit separators
+    parts = re.split(r"[_\-\s]+", segment)
+    tokens: list[str] = []
+
+    for part in parts:
+        if not part:
+            continue
+        # Scan for known acronyms (sorted longest-first so EPLI wins over EL)
+        remaining = part
+        buf = ""
+
+        def flush_buf():
+            nonlocal buf
+            if buf:
+                # Split the buffer by camelCase
+                pieces = _CAMEL_SPLIT_RE.sub(r"\1_\2", buf).split("_")
+                for piece in pieces:
+                    if piece:
+                        tokens.append(piece)
+                buf = ""
+
+        # Build pattern: longest acronyms first
+        sorted_acronyms = sorted(_UPPERCASE_TERMS, key=len, reverse=True)
+        i = 0
+        while i < len(remaining):
+            matched = False
+            for acr in sorted_acronyms:
+                # Case-insensitive match but require the case in source to be all-upper
+                n = len(acr)
+                if i + n <= len(remaining):
+                    candidate = remaining[i:i + n]
+                    if candidate.upper() == acr.upper() and candidate.isupper():
+                        # Must be followed by a non-letter or a lowercase letter
+                        # (so we don't grab "EPL" out of "EPLOYMENT")
+                        next_char = remaining[i + n] if i + n < len(remaining) else ""
+                        if not next_char or not next_char.isupper() or \
+                           (i + n + 1 < len(remaining) and remaining[i + n + 1].islower()):
+                            flush_buf()
+                            tokens.append(acr.upper())
+                            i += n
+                            matched = True
+                            break
+            if not matched:
+                buf += remaining[i]
+                i += 1
+        flush_buf()
+
+    return [t for t in tokens if t]
+
+
+def _humanize_token(token: str) -> str:
+    """Title-case a single token, respecting acronyms and lowercase words."""
+    if not token:
+        return token
+    low = token.lower()
+    if low in _UPPERCASE_TERMS:
+        return low.upper()
+    return token[0].upper() + token[1:].lower() if token[0].isalpha() else token
+
+
 def _humanize_code(code: str) -> str:
-    """Turn 'insured.split_address.zipcode' → 'Zipcode' and 'app.aop_deductible' → 'AOP Deductible'."""
+    """Turn a dotted code into a human-readable label.
+
+    Examples::
+        insured.name                  → "Name"
+        insured.split_address.zipcode → "Zip Code"   (special case)
+        app.aop_deductible            → "AOP Deductible"
+        app.EPLIstatus                → "EPLI Status"
+        app.named_insured_structure   → "Named Insured Structure"
+        app.claims_history_flag       → "Claims History Flag"
+    """
     if not code:
         return code
-    # Take last segment after the last dot
     last = code.rsplit(".", 1)[-1]
-    # Split on underscores, handle common abbreviations
-    parts = last.split("_")
-    abbreviations = {"aop", "gl", "ui", "tria", "epli", "id", "us", "eb", "dba"}
-    out = []
-    for p in parts:
-        if p.lower() in abbreviations:
-            out.append(p.upper())
+
+    # A few hard-coded specializations that read better than their auto form
+    hardcoded = {
+        "zipcode": "Zip Code",
+        "dob": "Date of Birth",
+        "naics": "NAICS Code",
+        "sic": "SIC Code",
+        "fein": "FEIN",
+        "yoe": "Years of Experience",
+        "yob": "Year of Business",
+    }
+    if last.lower() in hardcoded:
+        return hardcoded[last.lower()]
+
+    tokens = _split_tokens(last)
+    if not tokens:
+        return last
+    out_tokens = []
+    for i, t in enumerate(tokens):
+        if i > 0 and t.lower() in _LOWERCASE_WORDS:
+            out_tokens.append(t.lower())
         else:
-            out.append(p.capitalize())
-    return " ".join(out)
+            out_tokens.append(_humanize_token(t))
+    return " ".join(out_tokens)
 
 
 def _section_from_code(code: str) -> str:
     """Return the first path segment — e.g. 'insured' / 'app' / 'data'."""
     return code.split(".", 1)[0] if "." in code else "other"
+
+
+def _infer_section_label(section_code: str, datapoints: list) -> str:
+    """Guess a human-friendly section name based on its code and contents.
+
+    Joshu section codes are often random-looking identifiers (e.g. "Qv1fziww").
+    The true human label isn't exposed in the submission-status response,
+    so we infer from:
+      1. If the code is human-readable (e.g. "Structures"), humanize it.
+      2. Otherwise look at the datapoints' common prefix —
+         all fields with "app.*" belong to the "Application" section,
+         all "property.*" fields to "Property", etc.
+      3. If that fails, use the code verbatim but prettified.
+    """
+    # Map well-known prefixes to their display names
+    PREFIX_LABELS = {
+        "insured":    "Insured",
+        "app":        "Application",
+        "property":   "Property",
+        "structure":  "Structures",
+        "structures": "Structures",
+        "location":   "Locations",
+        "locations":  "Locations",
+        "asset":      "Assets",
+        "assets":     "Assets",
+        "vehicle":    "Vehicles",
+        "vehicles":   "Vehicles",
+        "driver":     "Drivers",
+        "drivers":    "Drivers",
+        "employee":   "Employees",
+        "employees":  "Employees",
+        "data":       "Coverage",
+        "coverage":   "Coverage",
+        "bind":       "Bind Questions",
+        "peril":      "Perils",
+        "perils":     "Perils",
+        "claim":      "Claims",
+        "claims":     "Claims",
+        "exposure":   "Exposures",
+        "exposures":  "Exposures",
+    }
+
+    # Collect prefixes from the first path segment of each datapoint
+    prefix_counts: dict[str, int] = {}
+    for dp in datapoints or []:
+        if isinstance(dp, dict):
+            dcode = dp.get("code", "")
+            if "." in dcode:
+                prefix = dcode.split(".", 1)[0].lower()
+                prefix_counts[prefix] = prefix_counts.get(prefix, 0) + 1
+
+    # If there's a dominant prefix and we know its label, use that
+    if prefix_counts:
+        dominant = max(prefix_counts, key=prefix_counts.get)
+        if dominant in PREFIX_LABELS:
+            return PREFIX_LABELS[dominant]
+        # Unknown prefix — humanize it
+        return _humanize_code(dominant)
+
+    # Fallback: use the section code itself if it looks readable.
+    # A code is "readable" if it contains underscores, spaces, or is all lowercase letters
+    # that aren't just a random 7-8 char id.
+    if section_code:
+        lower = section_code.lower()
+        # Known section names (case-insensitive match)
+        for key, label in PREFIX_LABELS.items():
+            if key == lower or key in lower:
+                return label
+        # Looks random? (7-10 chars, mix of cases, no underscores) → "Section N"
+        looks_random = (
+            6 <= len(section_code) <= 12
+            and "_" not in section_code
+            and not section_code.islower()
+            and not section_code.isupper()
+            and any(c.isupper() for c in section_code)
+            and any(c.islower() for c in section_code)
+        )
+        if looks_random:
+            return "Section"  # caller will number these
+        # Otherwise humanize the code
+        return _humanize_code(section_code)
+    return "Section"
 
 
 def _parse_field_type(kind: Any) -> dict[str, Any]:
@@ -367,6 +564,31 @@ def _parse_field_type(kind: Any) -> dict[str, Any]:
     return {"type": "unknown", "raw": kind}
 
 
+def _is_underwriter_section(section_code: str, datapoints: list) -> bool:
+    """Return True for sections the broker should never see.
+
+    Perils Scoring Addresses is derived by the underwriter from the
+    broker's Structures input. It has no business appearing in the
+    broker portal's submission flow — it will be auto-populated from
+    Structures in a later update.
+
+    We detect it by either:
+      - The section code containing "peril" (case-insensitive), OR
+      - Any datapoint code starting with "perils" or "PerilsScoring"
+    """
+    if section_code:
+        low = section_code.lower()
+        if "peril" in low:
+            return True
+    # Fallback: inspect the datapoint codes
+    for dp in datapoints or []:
+        if isinstance(dp, dict):
+            dcode = (dp.get("code") or "").lower()
+            if dcode.startswith("peril"):
+                return True
+    return False
+
+
 def normalize_submission_status(raw: Any, data_values: dict[str, Any] | None = None) -> dict[str, Any]:
     """Transform Joshu's /submission-status response into a UI-friendly schema.
 
@@ -438,14 +660,6 @@ def normalize_submission_status(raw: Any, data_values: dict[str, Any] | None = N
     data_values = data_values or {}
     has_errors = False
 
-    def _section_label(code: str) -> str:
-        """Humanize a section code like 'insured' or 'app.equipment' for display."""
-        if not code:
-            return "Other"
-        # Take the last segment for readability
-        last = code.rsplit(".", 1)[-1]
-        return _humanize_code(last) or last.capitalize()
-
     def _validation_error_from(issue: Any) -> str | None:
         """Flatten a Joshu validation_issue into a human-readable string."""
         if not isinstance(issue, dict):
@@ -467,7 +681,7 @@ def normalize_submission_status(raw: Any, data_values: dict[str, Any] | None = N
             return f"Need {info.get('min_count', 0)}-{info.get('max_count', '∞')} items, have {info.get('asset_count', 0)}"
         return next(iter(kind.keys()), "Validation issue")
 
-    def _process_datapoints(dps: list, section_code: str, section_order: int):
+    def _process_datapoints(dps: list, section_code: str, section_label: str, section_order: int):
         """Extract fields from a section's datapoints array."""
         nonlocal has_errors
         results = []
@@ -490,7 +704,7 @@ def normalize_submission_status(raw: Any, data_values: dict[str, Any] | None = N
                 "code": code,
                 "label": _humanize_code(code),
                 "section": section_code,
-                "section_label": _section_label(section_code),
+                "section_label": section_label,
                 "section_order": section_order,
                 "asset_idx": dp.get("asset_idx", 0),
                 "type": type_info.get("type"),
@@ -510,17 +724,33 @@ def normalize_submission_status(raw: Any, data_values: dict[str, Any] | None = N
     fields: list[dict[str, Any]] = []
     section_summaries: list[dict[str, Any]] = []
     section_order = 0
+    # Track how many "generic" sections we've seen for numbering
+    _generic_count = 0
+
+    def _compute_label(section_code: str, datapoints: list, suffix: str = "") -> str:
+        """Compute a human label; number generic ones."""
+        nonlocal _generic_count
+        label = _infer_section_label(section_code, datapoints)
+        if label == "Section":
+            _generic_count += 1
+            label = f"Section {_generic_count}"
+        return f"{label}{suffix}"
 
     # 1. insured_details_section (always comes first)
     insured = raw.get("insured_details_section")
     if isinstance(insured, dict):
         code = insured.get("code") or "insured"
+        dps = insured.get("datapoints", [])
+        # insured_details always gets "Insured" — but let the inference check
+        label = _compute_label(code, dps)
+        if label.startswith("Section"):  # really random, default to Insured
+            label = "Insured"
         sec_error = _validation_error_from(insured.get("section_validation_issue"))
-        sec_fields = _process_datapoints(insured.get("datapoints", []), code, section_order)
+        sec_fields = _process_datapoints(dps, code, label, section_order)
         fields.extend(sec_fields)
         section_summaries.append({
             "code": code,
-            "label": _section_label(code),
+            "label": label,
             "order": section_order,
             "field_count": len(sec_fields),
             "completed": sum(1 for f in sec_fields if f["exists"]),
@@ -541,12 +771,21 @@ def normalize_submission_status(raw: Any, data_values: dict[str, Any] | None = N
             if not isinstance(sec, dict):
                 continue
             code = sec.get("code") or f"section_{section_order}"
+            dps = sec.get("datapoints", [])
+
+            # Skip underwriter-only sections (Perils Scoring Addresses).
+            # These will be derived automatically from Structures on save,
+            # and should never appear in the broker's submission flow.
+            if _is_underwriter_section(code, dps):
+                continue
+
+            label = _compute_label(code, dps)
             sec_error = _validation_error_from(sec.get("section_validation_issue"))
-            sec_fields = _process_datapoints(sec.get("datapoints", []), code, section_order)
+            sec_fields = _process_datapoints(dps, code, label, section_order)
             fields.extend(sec_fields)
             section_summaries.append({
                 "code": code,
-                "label": _section_label(code),
+                "label": label,
                 "order": section_order,
                 "field_count": len(sec_fields),
                 "completed": sum(1 for f in sec_fields if f["exists"]),
@@ -560,44 +799,21 @@ def normalize_submission_status(raw: Any, data_values: dict[str, Any] | None = N
                 has_errors = True
             section_order += 1
 
-    # 3. bind_sections (relevant at bind time — only include if condition_met)
-    bind_sections = raw.get("bind_sections")
-    if isinstance(bind_sections, list):
-        for sec in bind_sections:
-            if not isinstance(sec, dict):
-                continue
-            # Skip bind sections that aren't currently relevant
-            if sec.get("condition_met") is False:
-                continue
-            code = sec.get("code") or f"bind_{section_order}"
-            sec_error = _validation_error_from(sec.get("section_validation_issue"))
-            sec_fields = _process_datapoints(sec.get("datapoints", []), code, section_order)
-            if not sec_fields:
-                continue  # empty bind section — skip
-            fields.extend(sec_fields)
-            section_summaries.append({
-                "code": code,
-                "label": _section_label(code) + " (Bind)",
-                "order": section_order,
-                "field_count": len(sec_fields),
-                "completed": sum(1 for f in sec_fields if f["exists"]),
-                "visible_count": sum(1 for f in sec_fields if f["visible"]),
-                "has_errors": bool(sec_error) or any(f["validation_error"] for f in sec_fields),
-                "is_asset": bool(sec.get("is_asset")),
-                "condition_met": True,
-                "section_error": sec_error,
-                "is_bind": True,
-            })
-            if sec_error:
-                has_errors = True
-            section_order += 1
+    # 3. bind_sections (DELIBERATELY SKIPPED in the broker flow)
+    # Bind questions are collected only when a broker wants to formally bind
+    # a published quote, not during initial submission. Keeping them out of
+    # the editing form reduces friction for brokers during the application
+    # stage. When we build the bind workflow, these will surface as a
+    # dedicated screen separate from the main form.
+    # (The raw bind_sections data remains intact on Joshu's side; we just
+    # don't render it here.)
 
     # 4. Fallback: if nothing was found via the known structure, look for a
     # top-level `datapoints` array (older response shape or unknown variant)
     if not fields:
         top_dps = raw.get("datapoints")
         if isinstance(top_dps, list):
-            fallback_fields = _process_datapoints(top_dps, "other", 0)
+            fallback_fields = _process_datapoints(top_dps, "other", "Other", 0)
             fields.extend(fallback_fields)
             section_summaries.append({
                 "code": "other", "label": "Other", "order": 0,
