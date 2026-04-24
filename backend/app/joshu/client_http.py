@@ -177,22 +177,26 @@ def _extract_simple_value(wrapped: Any) -> Any:
 
 def _wrap_value_for_put(value: Any, type_hint: str | None = None) -> dict[str, Any]:
     """Inverse of _extract_simple_value — wrap a Python value into Joshu's
-    Plain/{TypeTag: value} shape for PUT requests.
+    V1/{TypeTag: value} shape for PUT requests.
+
+    Joshu's read path returns values wrapped with the "Plain" tag, but the
+    write path requires "V1" (per the OpenAPI docs, and confirmed by the
+    error message "unknown variant 'Plain', expected 'V1'").
 
     The shape Joshu expects for PUT /submission-data/{id}::
 
         {"data": [
-          {"code": "insured.name", "value": {"Plain": {"Text": "Acme LLC"}}},
-          {"code": "app.aop_deductible", "value": {"Plain": {"Number": "5000"}}},
-          {"code": "app.cyber_status", "value": {"Plain": {"Boolean": true}}},
-          {"code": "app.effective_date", "value": {"Plain": {"Date": "2026-06-01"}}},
+          {"code": "insured.name", "value": {"V1": {"Text": "Acme LLC"}}},
+          {"code": "app.aop_deductible", "value": {"V1": {"Number": "5000"}}},
+          {"code": "app.cyber_status", "value": {"V1": {"Boolean": true}}},
+          {"code": "app.effective_date", "value": {"V1": {"Date": "2026-06-01"}}},
         ]}
 
     type_hint lets callers force a specific tag ("Text", "Number", etc.) —
     without it we infer from the Python type.
     """
     if value is None:
-        return {"Plain": {"Null": {}}}
+        return {"V1": {"Null": {}}}
     if type_hint:
         tag = type_hint
     elif isinstance(value, bool):
@@ -214,25 +218,37 @@ def _wrap_value_for_put(value: Any, type_hint: str | None = None) -> dict[str, A
         else:
             # Unknown dict; try as Text-encoded JSON fallback
             import json as _json
-            return {"Plain": {"Text": _json.dumps(value)}}
+            return {"V1": {"Text": _json.dumps(value)}}
     elif isinstance(value, list):
-        return {"Plain": {"Array": [_wrap_value_for_put(v).get("Plain", {}) for v in value]}}
+        return {"V1": {"Array": [_wrap_value_for_put(v).get("V1", {}) for v in value]}}
     else:
-        return {"Plain": {"Text": str(value)}}
+        return {"V1": {"Text": str(value)}}
 
     # Numeric values must be sent as strings per the Joshu schema
     if tag == "Number" and not isinstance(value, str):
         value = str(value)
-    return {"Plain": {tag: value}}
+    return {"V1": {tag: value}}
 
 
-def _encode_data_payload(code_values: dict[str, Any]) -> dict[str, Any]:
-    """Turn {code: value} into the body Joshu's PUT /submission-data expects."""
+def _encode_data_payload(code_values: dict[str, Any], type_hints: dict[str, str] | None = None) -> dict[str, Any]:
+    """Turn {code: value} into the body Joshu's PUT /submission-data expects.
+
+    type_hints is an optional {code: type_tag} map. When provided, each
+    value is wrapped using the specified tag. Otherwise the wrapper
+    infers the tag from the Python type.
+    """
+    type_hints = type_hints or {}
     entries = []
     for code, val in code_values.items():
         if code.startswith("_"):  # skip internal keys like _raw
             continue
-        entries.append({"code": code, "value": _wrap_value_for_put(val)})
+
+        hint = type_hints.get(code)
+        # If Joshu expects a Location but the user typed a plain string,
+        # wrap it as NamedParsedAddress so Joshu accepts it.
+        if hint == "Location" and isinstance(val, str):
+            val = {"NamedParsedAddress": {"name": val}}
+        entries.append({"code": code, "value": _wrap_value_for_put(val, type_hint=hint)})
     return {"data": entries}
 
 
@@ -740,20 +756,22 @@ class HttpJoshuClient(JoshuClientBase):
             log.warning("submission-status fetch failed for %s: %s", submission_id, e)
             return {}
 
-    async def update_submission_data(self, token, submission_id, data):
+    async def update_submission_data(self, token, submission_id, data, *, type_hints=None):
         """Save submission data via PUT /submission-data/{id}.
 
         Body shape expected by Joshu::
-          {"data": [{"code": "insured.name", "value": {"Plain": {"Text": "..."}}}]}
+          {"data": [{"code": "insured.name", "value": {"V1": {"Text": "..."}}}]}
 
-        The ``data`` argument is a flat {code: value} dict from the frontend —
-        _encode_data_payload wraps each value into Joshu's Plain-tagged union.
+        The ``data`` argument is a flat {code: value} dict from the frontend.
+        ``type_hints`` lets the caller (router) pre-map codes to Joshu type tags,
+        which we use when the Python value doesn't uniquely determine the tag
+        (e.g. a string could be Text or it could be a Location).
         """
         if not _ENABLE_UPDATE_SUBMISSION_DATA:
             raise _not_ready("update_submission_data")
         self._assert_test_mode_for_write()
 
-        body = _encode_data_payload(data)
+        body = _encode_data_payload(data, type_hints=type_hints)
         log.info("Updating submission %s with %d datapoints", submission_id, len(body["data"]))
         resp = await self._put(
             f"/submission-data/{submission_id}",

@@ -366,7 +366,7 @@ class MockJoshuClient(JoshuClientBase):
         ]
         return {"datapoints": datapoints}
 
-    async def update_submission_data(self, token, submission_id, data):
+    async def update_submission_data(self, token, submission_id, data, *, type_hints=None):
         async with self._lock:
             sub = await self.get_submission(token, submission_id)
             merged = dict(sub.data or {})

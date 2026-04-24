@@ -77,9 +77,16 @@ class JoshuClientBase(ABC):
 
     @abstractmethod
     async def update_submission_data(
-        self, token: str, submission_id: str | int, data: dict[str, Any]
+        self, token: str, submission_id: str | int, data: dict[str, Any],
+        *, type_hints: dict[str, str] | None = None,
     ) -> dict[str, Any]:
-        ...
+        """Save {code: value} data to the submission.
+
+        type_hints is an optional mapping {code: type_tag} where type_tag is
+        "Text" / "Number" / "Boolean" / "Date" / "Monetary" / "Location".
+        When provided, the value is wrapped into Joshu's union format using
+        that specific tag, bypassing Python-type inference.
+        """
 
     @abstractmethod
     async def submit_submission(self, token: str, submission_id: str | int) -> Submission:

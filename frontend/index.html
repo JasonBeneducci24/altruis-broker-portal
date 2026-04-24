@@ -757,6 +757,21 @@ function formatDatapointValue(v) {
   if (typeof v === 'string') return v;
   if (Array.isArray(v)) return v.map(formatDatapointValue).join(', ');
   if (typeof v === 'object') {
+    // Defensive unwrap — if a Plain/V1/V0 wrapper leaks through the backend
+    // unwrap chain, handle it client-side.
+    for (const wrapper of ['Plain', 'V1', 'V0']) {
+      if (v[wrapper] && typeof v[wrapper] === 'object') {
+        const inner = v[wrapper];
+        for (const typeKey of ['Text', 'Number', 'Date', 'DateTime', 'Boolean']) {
+          if (typeKey in inner) return formatDatapointValue(inner[typeKey]);
+        }
+        if ('Null' in inner) return '—';
+        if ('Monetary' in inner) return formatDatapointValue(inner.Monetary);
+        if ('Location' in inner) return formatDatapointValue(inner.Location);
+        if ('Array' in inner) return formatDatapointValue(inner.Array);
+      }
+    }
+    // Monetary: { currency, amount }
     if (v.currency && v.amount != null) {
       const n = parseFloat(v.amount);
       if (!isNaN(n)) return n.toLocaleString('en-US', { style: 'currency', currency: v.currency });
@@ -769,6 +784,33 @@ function formatDatapointValue(v) {
     return JSON.stringify(v);
   }
   return String(v);
+}
+
+// Unwrap for editable inputs — returns a plain value suitable for an HTML input
+function unwrapForInput(v) {
+  if (v == null) return '';
+  if (typeof v === 'boolean' || typeof v === 'number' || typeof v === 'string') return v;
+  if (typeof v === 'object') {
+    for (const wrapper of ['Plain', 'V1', 'V0']) {
+      if (v[wrapper] && typeof v[wrapper] === 'object') {
+        const inner = v[wrapper];
+        for (const typeKey of ['Text', 'Number', 'Date', 'DateTime', 'Boolean']) {
+          if (typeKey in inner) return inner[typeKey];
+        }
+        if ('Null' in inner) return '';
+        if ('Monetary' in inner) return inner.Monetary;
+        if ('Location' in inner) return inner.Location;
+      }
+    }
+    // Location
+    if (v.formatted_address) return v.formatted_address;
+    if (v.name) return v.name;
+    if (v.NamedParsedAddress) return unwrapForInput(v.NamedParsedAddress);
+    if (v.ParsedGoogleAddress) return unwrapForInput(v.ParsedGoogleAddress);
+    // Monetary — return amount as a string for number input
+    if (v.currency && v.amount != null) return v.amount;
+  }
+  return '';
 }
 
 // ═════════════════════════════════════════════════════════════════
@@ -1398,6 +1440,10 @@ function renderFieldInput(field, value) {
     scheduleAutoSave();
   };
 
+  // If the value is still wrapped (shouldn't happen after backend unwrap
+  // but just in case), strip the wrapper for the input
+  const cleanValue = unwrapForInput(value);
+
   // Dropdown for fields with options
   if (field.options && field.options.length > 0) {
     return el('select', {
@@ -1405,12 +1451,12 @@ function renderFieldInput(field, value) {
     }, el('option', { value: '' }, '— Select —'),
       ...field.options.map(o => el('option', {
         value: o.value,
-        selected: String(value) === String(o.value),
+        selected: String(cleanValue) === String(o.value),
       }, o.label || o.value)));
   }
 
   if (field.type === 'boolean') {
-    const checked = value === true || value === 'true';
+    const checked = cleanValue === true || cleanValue === 'true';
     return el('label', { className: 'toggle' },
       el('input', { type: 'checkbox', checked,
         onChange: (e) => onChange(e.target.checked) }),
@@ -1419,20 +1465,26 @@ function renderFieldInput(field, value) {
   }
 
   if (field.type === 'date') {
-    return el('input', { type: 'date', value: value || '',
+    return el('input', { type: 'date', value: cleanValue || '',
       onInput: (e) => onChange(e.target.value || null) });
   }
 
   if (field.type === 'number' || field.type === 'monetary') {
-    const numVal = typeof value === 'object' ? (value?.amount || '') : (value || '');
+    // cleanValue may still be a {currency, amount} object — extract amount
+    const numVal = typeof cleanValue === 'object' && cleanValue?.amount != null
+      ? cleanValue.amount : (cleanValue ?? '');
     return el('input', { type: 'number', value: numVal,
       placeholder: field.type === 'monetary' ? '0.00' : '',
       onInput: (e) => onChange(e.target.value || null) });
   }
 
   if (field.type === 'location') {
-    const strVal = formatDatapointValue(value);
-    return el('input', { type: 'text', value: strVal === '—' ? '' : strVal,
+    // Use formatter to get a clean display string for Location types
+    const strVal = typeof cleanValue === 'object'
+      ? formatDatapointValue(cleanValue)
+      : (cleanValue || '');
+    const displayVal = strVal === '—' ? '' : strVal;
+    return el('input', { type: 'text', value: displayVal,
       placeholder: 'Address, City, State ZIP',
       onInput: (e) => onChange(e.target.value || null) });
   }
@@ -1442,7 +1494,7 @@ function renderFieldInput(field, value) {
     : field.format === 'PhoneNumber' ? 'tel'
     : field.format === 'WebsiteAddress' ? 'url'
     : 'text';
-  return el('input', { type: inputType, value: value || '',
+  return el('input', { type: inputType, value: cleanValue || '',
     onInput: (e) => onChange(e.target.value || null) });
 }
 

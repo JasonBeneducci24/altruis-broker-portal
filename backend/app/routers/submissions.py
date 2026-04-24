@@ -118,9 +118,38 @@ async def update_submission_data(
     """Save partial or full submission data.
 
     Body is a flat {code: value} dict. The backend converts each value
-    into Joshu's Plain/V1-tagged union format before PUT.
+    into Joshu's V1-tagged union format before PUT.
+
+    We fetch the schema first so each field can be type-hinted correctly —
+    a plain string sent for a Location field must be wrapped differently
+    than a string sent for a Text field.
     """
-    merged = await client.update_submission_data(session["t"], submission_id, body)
+    # Look up the field types via the schema
+    type_hints = {}
+    try:
+        status_raw = await client.get_submission_status(session["t"], submission_id)
+        from app.joshu.client_http import normalize_submission_status
+        normalized = normalize_submission_status(status_raw, {})
+        for f in normalized.get("fields", []):
+            code = f.get("code")
+            if not code:
+                continue
+            t = f.get("type")
+            if t == "text": type_hints[code] = "Text"
+            elif t == "number": type_hints[code] = "Number"
+            elif t == "monetary": type_hints[code] = "Monetary"
+            elif t == "boolean": type_hints[code] = "Boolean"
+            elif t == "date": type_hints[code] = "Date"
+            elif t == "datetime": type_hints[code] = "DateTime"
+            elif t == "location": type_hints[code] = "Location"
+    except Exception as e:
+        # If the schema fetch fails we fall back to type inference
+        import logging
+        logging.getLogger("altruis").warning("Schema lookup for write failed: %s", e)
+
+    merged = await client.update_submission_data(
+        session["t"], submission_id, body, type_hints=type_hints,
+    )
     return {"data": merged}
 
 
