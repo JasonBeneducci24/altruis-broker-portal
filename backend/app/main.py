@@ -94,6 +94,15 @@ def diagnostics():
             redacted = f"{scheme} {tok[:8]}…{tok[-4:] if len(tok) > 12 else ''}"
             sample_headers["Authorization"] = redacted
 
+    from app.joshu import client_http as _ch
+    writes = {
+        "update_submission_data": _ch._ENABLE_UPDATE_SUBMISSION_DATA,
+        "update_submission": _ch._ENABLE_UPDATE_SUBMISSION,
+        "create_policy": _ch._ENABLE_CREATE_POLICY,
+        "create_transaction": _ch._ENABLE_CREATE_TRANSACTION,
+        "update_quote": _ch._ENABLE_UPDATE_QUOTE,
+    }
+
     return {
         "mode": settings.joshu_environment,
         "base_url": settings.joshu_base_url,
@@ -102,7 +111,7 @@ def diagnostics():
         "sample_url": f"{settings.joshu_base_url}{sample_path}",
         "sample_params": sample_params,
         "sample_headers": sample_headers,
-        "writes_enabled": False,
+        "writes_enabled": writes,
         "note": "No request was made. This is a description of how the next request will be built.",
     }
 

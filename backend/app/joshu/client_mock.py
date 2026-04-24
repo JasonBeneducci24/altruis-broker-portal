@@ -300,6 +300,72 @@ class MockJoshuClient(JoshuClientBase):
         sub = await self.get_submission(token, submission_id)
         return deepcopy(sub.data or {})
 
+    async def get_submission_status(self, token, submission_id) -> dict[str, Any]:
+        """Mock schema mirroring what Joshu's /submission-status returns.
+
+        This is a simplified version of the Altruis CPP product schema so
+        the portal's form renderer can be exercised in mock mode. The real
+        client returns Joshu's actual schema for the specific product version.
+        """
+        sub = await self.get_submission(token, submission_id)
+
+        def dp(code, kind, required=False, condition_met=True, value=None):
+            d = {
+                "code": code, "asset_idx": 0, "required": required,
+                "condition_met": condition_met, "exists": value is not None,
+                "validation_issue": None, "kind": kind,
+            }
+            return d
+
+        limit_options = [
+            {"value": "250000", "display": "$250,000"},
+            {"value": "500000", "display": "$500,000"},
+            {"value": "1000000", "display": "$1,000,000"},
+        ]
+        aop_options = [
+            {"value": "2500", "display": "$2,500"},
+            {"value": "5000", "display": "$5,000"},
+            {"value": "10000", "display": "$10,000"},
+        ]
+        gl_limit_options = [
+            {"value": "1m/2m/2m", "display": "$1M / $2M / $2M"},
+            {"value": "2m/4m/4m", "display": "$2M / $4M / $4M"},
+        ]
+        structure_options = [
+            {"value": "LLC", "display": "LLC"},
+            {"value": "Corp", "display": "Corporation"},
+            {"value": "Partnership", "display": "Partnership"},
+            {"value": "Sole", "display": "Sole Proprietorship"},
+        ]
+
+        datapoints = [
+            # Insured section
+            dp("insured.name", {"Text": {}}, required=True,
+               value=sub.data.get("insured.name") if sub.data else None),
+            dp("insured.split_address.street1", {"Text": {}}, required=True),
+            dp("insured.split_address.city", {"Text": {}}, required=True),
+            dp("insured.split_address.state", {"Text": {"options": [
+                {"value": s, "display": s} for s in ["FL", "GA", "TX", "CA", "NY"]
+            ]}}, required=True),
+            dp("insured.split_address.zipcode", {"Text": {}}, required=True),
+            dp("insured.phone", {"Text": {"format": "PhoneNumber"}}, required=False),
+            dp("insured.email", {"Text": {"format": "EmailAddress"}}, required=False),
+            # Application section
+            dp("app.effective_date", {"Date": {"format": "MonthDayYear"}}, required=True),
+            dp("app.named_insured_structure", {"Text": {"options": structure_options}}, required=True),
+            dp("app.aop_deductible", {"Number": {"options": aop_options, "format": {"decimal_places": 0}}}, required=True),
+            dp("app.GL_limits", {"Text": {"options": gl_limit_options}}, required=True),
+            dp("app.cyber_status", {"Boolean": {}}, required=True),
+            dp("app.cyber_limit", {"Number": {"options": limit_options, "format": {"decimal_places": 0}}},
+               required=True, condition_met=bool(sub.data and sub.data.get("app.cyber_status"))),
+            dp("app.equipment_breakdown_status", {"Boolean": {}}, required=True),
+            dp("app.EPLIstatus", {"Boolean": {}}, required=True),
+            dp("app.EPLI_limit", {"Number": {"options": limit_options, "format": {"decimal_places": 0}}},
+               required=True, condition_met=bool(sub.data and sub.data.get("app.EPLIstatus"))),
+            dp("app.tria_status", {"Boolean": {}}, required=False),
+        ]
+        return {"datapoints": datapoints}
+
     async def update_submission_data(self, token, submission_id, data):
         async with self._lock:
             sub = await self.get_submission(token, submission_id)
@@ -339,6 +405,15 @@ class MockJoshuClient(JoshuClientBase):
                     "total_invoice": round(total * 1.05 + 300, 2),
                 },
             )
+            return sub
+
+    async def reopen_submission(self, token, submission_id) -> Submission:
+        """Unlock a Submitted/Pending mock submission for editing."""
+        async with self._lock:
+            sub = await self.get_submission(token, submission_id)
+            sub.status = "Incomplete"
+            sub.submitted_at = None
+            sub.modified_at = datetime.now(UTC)
             return sub
 
     # ---------- Policies ----------

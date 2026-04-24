@@ -66,6 +66,16 @@ class JoshuClientBase(ABC):
         """Return the structured data points for a submission (insured.*, app.*, data.*)."""
 
     @abstractmethod
+    async def get_submission_status(self, token: str, submission_id: str | int) -> dict[str, Any]:
+        """Return the submission schema + per-field validation/condition state.
+
+        This is the foundation of the dynamic form: it tells us what fields
+        exist for this submission's product version, their types, required
+        flags, options for dropdowns, conditional visibility, and any
+        current validation errors.
+        """
+
+    @abstractmethod
     async def update_submission_data(
         self, token: str, submission_id: str | int, data: dict[str, Any]
     ) -> dict[str, Any]:
@@ -74,6 +84,15 @@ class JoshuClientBase(ABC):
     @abstractmethod
     async def submit_submission(self, token: str, submission_id: str | int) -> Submission:
         """Move a submission from Incomplete → Submitted (triggers rating)."""
+
+    @abstractmethod
+    async def reopen_submission(self, token: str, submission_id: str | int) -> Submission:
+        """Move a Submitted/Pending submission back to Incomplete for editing.
+
+        This enables the broker's "Edit & resubmit" workflow. Per Joshu v3,
+        the PUT /submissions/{id} endpoint accepts a status change — we
+        send status: Incomplete to unlock the form.
+        """
 
     # ---------- Policies ----------
     @abstractmethod

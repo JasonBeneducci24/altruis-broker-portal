@@ -60,50 +60,10 @@ async def list_submissions(
         "status": status, "flow": flow,
         "page": page, "per_page": per_page,
     }
-    # If broker wants just their own work, filter by user_id
     if mine_only:
         kwargs["user_id"] = session["uid"]
     result = await client.list_submissions(session["t"], **kwargs)
     return result.model_dump(mode="json")
-
-
-import re
-
-_UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
-
-
-async def _resolve_submission_uuid(client: JoshuClientBase, token: str, submission_id: str) -> str:
-    """If submission_id looks numeric, try to find its UUID via the list endpoint.
-
-    Joshu's v3 detail endpoints use unique_id (UUID), not the numeric id. The
-    frontend passes UUIDs for records the user clicked (since those come from
-    the list response). But some callers (e.g. transaction navigation) only
-    know the numeric id — this helper translates if possible, and otherwise
-    just passes through to let Joshu's 404 propagate.
-    """
-    if _UUID_RE.match(submission_id):
-        return submission_id
-    try:
-        numeric = int(submission_id)
-    except ValueError:
-        return submission_id
-
-    # Try a single id-filter query — cheap, and if Joshu doesn't support it
-    # we just fall through and let the numeric id go to Joshu (which 404s).
-    try:
-        # Call the underlying client method directly with a kwarg Joshu might
-        # support. Not all implementations accept this; we tolerate the error.
-        import inspect
-        sig = inspect.signature(client.list_submissions)
-        if "id" in sig.parameters:
-            batch = await client.list_submissions(token, id=numeric, per_page=1)  # type: ignore[call-arg]
-            if batch.items:
-                uid = batch.items[0].get("unique_id")
-                if uid:
-                    return uid
-    except Exception:
-        pass
-    return submission_id
 
 
 @router.get("/{submission_id}")
@@ -112,10 +72,40 @@ async def get_submission(
     session=Depends(require_session),
     client: JoshuClientBase = Depends(get_joshu_client),
 ):
-    uid = await _resolve_submission_uuid(client, session["t"], submission_id)
-    sub = await client.get_submission(session["t"], uid)
-    data = await client.get_submission_data(session["t"], uid)
+    """Submission metadata + flattened data values.
+
+    Submission path params are numeric i32 ids in Joshu. The frontend passes
+    numeric ids from the list response, so submission_id here should be a
+    string-coerced int (FastAPI accepts any string for a str-typed path param,
+    Joshu accepts it because it's still numeric).
+    """
+    sub = await client.get_submission(session["t"], submission_id)
+    data = await client.get_submission_data(session["t"], submission_id)
     return {**sub.model_dump(mode="json"), "data": data}
+
+
+@router.get("/{submission_id}/form")
+async def get_submission_form(
+    submission_id: str,
+    session=Depends(require_session),
+    client: JoshuClientBase = Depends(get_joshu_client),
+):
+    """Return a UI-ready form schema for this submission.
+
+    Combines:
+      - GET /submission-status/{id} — Joshu's per-submission schema +
+        validation state + conditional logic
+      - GET /submission-data/{id} — current values
+      - Normalization → flat {fields, sections} ready for the form renderer
+    """
+    from app.joshu.client_http import normalize_submission_status
+
+    status_raw = await client.get_submission_status(session["t"], submission_id)
+    data_values = await client.get_submission_data(session["t"], submission_id)
+    # Strip internal keys (e.g. "_raw") before merging into fields
+    clean_values = {k: v for k, v in data_values.items() if not k.startswith("_")}
+    normalized = normalize_submission_status(status_raw, clean_values)
+    return normalized
 
 
 @router.put("/{submission_id}/data")
@@ -125,6 +115,11 @@ async def update_submission_data(
     session=Depends(require_session),
     client: JoshuClientBase = Depends(get_joshu_client),
 ):
+    """Save partial or full submission data.
+
+    Body is a flat {code: value} dict. The backend converts each value
+    into Joshu's Plain/V1-tagged union format before PUT.
+    """
     merged = await client.update_submission_data(session["t"], submission_id, body)
     return {"data": merged}
 
@@ -135,5 +130,23 @@ async def submit_submission(
     session=Depends(require_session),
     client: JoshuClientBase = Depends(get_joshu_client),
 ):
+    """Submit an Incomplete submission — moves status to Submitted.
+
+    Joshu triggers its rating engine on status transition to Submitted,
+    which generates the first quote. Also works as "resubmit" on a
+    Submitted record that was re-opened.
+    """
     sub = await client.submit_submission(session["t"], submission_id)
     return sub.model_dump(mode="json")
+
+
+@router.post("/{submission_id}/reopen")
+async def reopen_submission(
+    submission_id: str,
+    session=Depends(require_session),
+    client: JoshuClientBase = Depends(get_joshu_client),
+):
+    """Move a Submitted/Pending submission back to Incomplete for editing."""
+    sub = await client.reopen_submission(session["t"], submission_id)
+    return sub.model_dump(mode="json")
+

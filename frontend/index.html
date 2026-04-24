@@ -9,7 +9,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <style>
   :root {
-    /* Altruis Group brand */
     --blue: #6797EE;
     --blue-hover: #527fdb;
     --blue-soft: #e8f0fc;
@@ -17,21 +16,19 @@
 
     --navy: #0F2542;
     --navy-soft: #1a3358;
-    --navy-deep: #091a31;
 
     --ink: #0F2542;
     --ink-soft: #3d4c63;
     --ink-mute: #6b7689;
     --ink-quiet: #9aa3b3;
 
-    --paper: #F7F5F0;          /* warm off-white page */
+    --paper: #F7F5F0;
     --paper-warm: #efece5;
     --paper-dim: #e6e3dc;
     --white: #ffffff;
 
     --line: #e2e0d8;
     --line-soft: #edebe3;
-    --line-blue: #d8e4f7;
 
     --ok: #2f7d53;
     --ok-soft: #e0f0e7;
@@ -39,6 +36,8 @@
     --warn-soft: #fdf1dc;
     --err: #b03838;
     --err-soft: #f8e3e3;
+    --info: #2c5fb8;
+    --info-soft: #e2ecfb;
 
     --shadow-xs: 0 1px 2px rgba(15, 37, 66, 0.04);
     --shadow-sm: 0 1px 3px rgba(15, 37, 66, 0.05), 0 1px 2px rgba(15, 37, 66, 0.03);
@@ -63,19 +62,15 @@
   }
   h1, h2, h3 { font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; color: var(--ink); }
   h1 { font-size: 2.25rem; letter-spacing: -0.03em; }
-  h2 { font-size: 1.65rem; }
-  h3 { font-size: 1.125rem; font-weight: 600; }
-  .display {
-    font-size: 2.75rem; font-weight: 600; letter-spacing: -0.035em; line-height: 1.05;
-  }
-  .display .accent { color: var(--blue); font-weight: 600; }
+  h2 { font-size: 1.5rem; }
+  h3 { font-size: 1.05rem; font-weight: 600; }
   .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 0.85em; }
   button { font-family: inherit; font-size: inherit; cursor: pointer; border: none; background: none; color: inherit; }
   input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; }
   a { color: var(--blue); text-decoration: none; transition: color 120ms; }
   a:hover { color: var(--blue-hover); }
 
-  /* ─────────── Eyebrow label (blue dash + tiny caps) ─────────── */
+  /* ─────────── Eyebrow ─────────── */
   .eyebrow {
     display: inline-flex; align-items: center; gap: 12px;
     font-size: 0.72rem; font-weight: 600;
@@ -87,9 +82,8 @@
     background: var(--blue);
   }
   .eyebrow.on-dark { color: #b8cdf3; }
-  .eyebrow.on-dark::before { background: var(--blue); }
 
-  /* ─────────── Environment banner (slim, dismissible-looking) ─────────── */
+  /* ─────────── Env banner ─────────── */
   .env-banner {
     padding: 8px 20px; font-size: 0.76rem; font-weight: 500;
     text-align: center; letter-spacing: 0.02em;
@@ -104,13 +98,10 @@
   .env-banner.production { background: #fde3e3; color: #a01f1f; }
 
   /* ═════════════════════════════════════════════════════════════════
-     LOGIN SCREEN — hero split: left blue dark panel, right form
+     LOGIN
      ═════════════════════════════════════════════════════════════════ */
   .login-wrap { min-height: 100vh; display: flex; flex-direction: column; }
-  .login-shell {
-    flex: 1; display: grid; grid-template-columns: 1.1fr 1fr;
-    background: var(--paper);
-  }
+  .login-shell { flex: 1; display: grid; grid-template-columns: 1.1fr 1fr; background: var(--paper); }
   .login-left {
     background: var(--navy);
     background-image:
@@ -119,56 +110,35 @@
     color: #fff;
     padding: 64px 72px;
     display: flex; flex-direction: column; justify-content: space-between;
-    position: relative;
   }
-  .login-brand-mark {
-    display: flex; align-items: center; gap: 10px;
-  }
-  .login-brand-mark-icon {
-    width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
-  }
-  .login-brand-mark-icon svg { width: 100%; height: 100%; }
-  .login-brand-name {
-    font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em;
-  }
+  .login-brand-mark { display: flex; align-items: center; gap: 10px; }
+  .login-brand-name { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; }
   .login-brand-name .sub {
     font-size: 0.65rem; font-weight: 500; letter-spacing: 0.2em;
     text-transform: uppercase; color: #7a90b8; display: block; margin-top: 2px;
   }
-  .login-hero {
-    max-width: 460px; margin-top: auto;
-  }
+  .login-hero { max-width: 460px; margin-top: auto; }
   .login-hero h1 {
     color: #fff; font-size: 2.6rem; font-weight: 600; letter-spacing: -0.035em;
     line-height: 1.1; margin-bottom: 20px;
   }
   .login-hero h1 .accent { color: var(--blue); }
-  .login-hero p {
-    color: #b8c4d9; font-size: 1rem; line-height: 1.6;
-  }
+  .login-hero p { color: #b8c4d9; font-size: 1rem; line-height: 1.6; }
   .login-footnote {
     font-size: 0.75rem; color: #7a90b8; margin-top: 36px;
     display: flex; gap: 16px; flex-wrap: wrap;
   }
-  .login-footnote span {
-    display: inline-flex; align-items: center; gap: 6px;
-  }
+  .login-footnote span { display: inline-flex; align-items: center; gap: 6px; }
   .login-footnote span::before {
     content: ''; width: 4px; height: 4px; border-radius: 50%; background: var(--blue);
   }
-
   .login-right {
     display: flex; align-items: center; justify-content: center;
     padding: 48px; background: var(--paper);
   }
-  .login-card {
-    max-width: 400px; width: 100%;
-  }
-  .login-card h2 {
-    font-size: 1.75rem; margin-bottom: 6px;
-  }
+  .login-card { max-width: 400px; width: 100%; }
+  .login-card h2 { font-size: 1.75rem; margin-bottom: 6px; }
   .login-card p.lead { color: var(--ink-mute); margin-bottom: 32px; font-size: 0.95rem; }
-
   .login-card form { display: flex; flex-direction: column; gap: 18px; }
   .login-card .field { display: flex; flex-direction: column; gap: 6px; }
   .login-card label {
@@ -186,7 +156,7 @@
   .login-card button[type="submit"] {
     padding: 13px 24px; background: var(--blue); color: #fff;
     font-weight: 500; border-radius: var(--radius-pill); font-size: 0.95rem;
-    transition: background 120ms, transform 120ms; margin-top: 10px;
+    transition: background 120ms; margin-top: 10px;
     display: flex; align-items: center; justify-content: center; gap: 8px;
   }
   .login-card button[type="submit"]::after {
@@ -198,7 +168,6 @@
   .login-err {
     background: var(--err-soft); color: var(--err);
     padding: 12px 14px; font-size: 0.88rem; border-radius: var(--radius-md);
-    border: 1px solid rgba(176, 56, 56, 0.15);
   }
   .login-hint {
     margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--line-soft);
@@ -208,15 +177,13 @@
     font-family: 'JetBrains Mono', monospace; background: var(--paper-warm);
     padding: 2px 7px; border-radius: 4px; font-size: 0.85em; color: var(--ink);
   }
-
   @media (max-width: 900px) {
     .login-shell { grid-template-columns: 1fr; }
-    .login-left { padding: 40px; min-height: 200px; }
-    .login-hero h1 { font-size: 2rem; }
+    .login-left { padding: 40px; }
   }
 
   /* ═════════════════════════════════════════════════════════════════
-     MAIN APP
+     APP SHELL
      ═════════════════════════════════════════════════════════════════ */
   .app { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
 
@@ -229,13 +196,7 @@
   .brand-mark {
     display: flex; align-items: center; gap: 10px; padding: 0 10px; margin-bottom: 36px;
   }
-  .brand-mark-icon {
-    width: 32px; height: 32px; flex-shrink: 0;
-  }
-  .brand-mark-icon svg { width: 100%; height: 100%; }
-  .brand-mark-name {
-    font-size: 1.1rem; font-weight: 700; letter-spacing: -0.02em; color: #fff;
-  }
+  .brand-mark-name { font-size: 1.1rem; font-weight: 700; letter-spacing: -0.02em; color: #fff; }
   .brand-mark-name .sub {
     font-size: 0.62rem; font-weight: 500; letter-spacing: 0.18em;
     text-transform: uppercase; color: #7a90b8; display: block; margin-top: 1px;
@@ -250,17 +211,9 @@
     font-weight: 500; font-size: 0.9rem; cursor: pointer;
     transition: all 120ms; text-align: left; display: flex;
     align-items: center; gap: 10px; width: 100%;
-    position: relative;
   }
   .nav-item:hover { background: var(--navy-soft); color: #fff; }
-  .nav-item.active {
-    background: var(--blue);
-    color: #fff;
-  }
-  .nav-item.active::before {
-    content: ''; position: absolute; left: -20px; top: 50%; transform: translateY(-50%);
-    width: 3px; height: 20px; background: var(--blue); border-radius: 0 2px 2px 0;
-  }
+  .nav-item.active { background: var(--blue); color: #fff; }
   .nav-dot {
     width: 4px; height: 4px; background: currentColor; border-radius: 50%;
     opacity: 0.5; flex-shrink: 0;
@@ -276,28 +229,21 @@
     display: inline-flex; align-items: center; justify-content: center;
     color: #fff; font-weight: 600; font-size: 0.82rem; margin-right: 10px;
   }
-  .user-box .u-row {
-    display: flex; align-items: center; padding: 8px 0;
-  }
+  .user-box .u-row { display: flex; align-items: center; padding: 8px 0; }
   .user-box .u-info { flex: 1; min-width: 0; }
   .user-box .u-name {
     color: #fff; font-weight: 500; font-size: 0.88rem;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .user-box .u-meta {
-    color: #7a90b8; font-size: 0.72rem; margin-top: 1px;
-  }
+  .user-box .u-meta { color: #7a90b8; font-size: 0.72rem; margin-top: 1px; }
   .user-box button {
     margin-top: 10px; color: #7a90b8; font-size: 0.75rem;
-    letter-spacing: 0.03em; padding: 6px 10px;
-    border-radius: var(--radius-sm); width: 100%; text-align: left;
-    transition: all 120ms;
+    padding: 6px 10px; border-radius: var(--radius-sm);
+    width: 100%; text-align: left; transition: all 120ms;
   }
   .user-box button:hover { background: var(--navy-soft); color: #fff; }
 
-  .main {
-    padding: 40px 56px 80px; max-width: 1440px;
-  }
+  .main { padding: 40px 56px 80px; max-width: 1440px; }
   .page-header {
     display: flex; justify-content: space-between; align-items: flex-end;
     padding-bottom: 24px; margin-bottom: 32px;
@@ -318,10 +264,11 @@
   .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn-primary::after { content: '→'; transition: transform 150ms; font-weight: 400; }
   .btn-primary:hover:not(:disabled)::after { transform: translateX(3px); }
+  .btn-primary.no-arrow::after { content: none; }
 
   .btn-secondary {
-    background: transparent; color: var(--ink);
-    border-color: var(--line); background: var(--white);
+    background: var(--white); color: var(--ink);
+    border-color: var(--line);
   }
   .btn-secondary:hover { background: var(--paper-warm); border-color: var(--ink-mute); }
   .btn-ghost { color: var(--blue); padding: 6px 12px; font-size: 0.85rem; }
@@ -332,37 +279,103 @@
   .btn-danger:hover { background: var(--err-soft); }
   .btn-sm { padding: 6px 14px; font-size: 0.8rem; }
 
-  /* ─────────── Stats block (matches brand's "by the numbers" treatment) ─────────── */
-  .stats-grid {
+  /* ─────────── Dashboard action cards ─────────── */
+  .action-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
+    margin-bottom: 32px;
+  }
+  .action-card {
+    background: var(--white); border: 1px solid var(--line-soft);
+    border-radius: var(--radius-lg); padding: 24px 26px;
+    transition: all 150ms; cursor: pointer; position: relative; overflow: hidden;
+  }
+  .action-card:hover { border-color: var(--blue); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+  .action-card-pipe {
+    position: absolute; top: 0; left: 0; width: 4px; height: 100%;
+    background: var(--blue);
+  }
+  .action-card.urgent .action-card-pipe { background: var(--warn); }
+  .action-card.ok .action-card-pipe { background: var(--ok); }
+  .action-card-label {
+    font-size: 0.68rem; font-weight: 600; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink-mute); margin-bottom: 12px;
+  }
+  .action-card-value {
+    font-size: 2rem; font-weight: 600; letter-spacing: -0.03em;
+    line-height: 1; color: var(--ink); margin-bottom: 10px;
+  }
+  .action-card-desc { font-size: 0.88rem; color: var(--ink-soft); }
+  .action-card-cta {
+    margin-top: 14px; font-size: 0.82rem; color: var(--blue);
+    font-weight: 500; display: flex; align-items: center; gap: 4px;
+  }
+  .action-card-cta::after { content: '→'; transition: transform 150ms; }
+  .action-card:hover .action-card-cta::after { transform: translateX(3px); }
+
+  /* ─────────── Stats row (supplementary on dashboard) ─────────── */
+  .stats-row {
     display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
     background: var(--white); border: 1px solid var(--line-soft);
-    border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 32px;
+    border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 28px;
   }
   .stat {
-    padding: 28px 32px; border-right: 1px solid var(--line-soft);
+    padding: 20px 24px; border-right: 1px solid var(--line-soft);
     position: relative;
   }
   .stat:last-child { border-right: none; }
   .stat::before {
-    content: ''; position: absolute; top: 28px; left: 32px;
-    width: 6px; height: 6px; border-radius: 50%; background: var(--blue);
+    content: ''; position: absolute; top: 22px; left: 24px;
+    width: 5px; height: 5px; border-radius: 50%; background: var(--blue);
   }
   .stat-label {
-    font-size: 0.65rem; font-weight: 600;
+    font-size: 0.62rem; font-weight: 600;
     letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-mute);
-    margin-left: 16px; margin-bottom: 14px; margin-top: -3px;
-    display: block;
+    margin-left: 14px; margin-bottom: 10px; margin-top: -2px; display: block;
   }
   .stat-value {
-    font-size: 2.5rem; font-weight: 600; color: var(--ink);
-    letter-spacing: -0.03em; line-height: 1; display: flex;
-    align-items: baseline; gap: 6px;
+    font-size: 1.65rem; font-weight: 600; color: var(--ink);
+    letter-spacing: -0.02em; line-height: 1;
   }
-  .stat-value .unit {
-    font-size: 0.95rem; font-weight: 500; color: var(--ink-mute);
+  .stat-sub { font-size: 0.76rem; color: var(--ink-mute); margin-top: 8px; }
+
+  /* ─────────── Filter tabs + search ─────────── */
+  .toolbar {
+    display: flex; align-items: center; gap: 20px;
+    margin-bottom: 18px; flex-wrap: wrap;
   }
-  .stat-sub {
-    font-size: 0.8rem; color: var(--ink-mute); margin-top: 10px;
+  .tabs {
+    display: flex; gap: 4px; background: var(--paper-warm);
+    padding: 4px; border-radius: var(--radius-pill);
+  }
+  .tab {
+    padding: 8px 18px; border-radius: var(--radius-pill);
+    font-size: 0.85rem; font-weight: 500; color: var(--ink-mute);
+    transition: all 120ms; cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .tab:hover { color: var(--ink); }
+  .tab.active { background: var(--white); color: var(--ink); box-shadow: var(--shadow-xs); }
+  .tab-count {
+    font-size: 0.72rem; background: var(--line); color: var(--ink-soft);
+    padding: 1px 8px; border-radius: var(--radius-pill); min-width: 20px;
+    text-align: center;
+  }
+  .tab.active .tab-count { background: var(--blue); color: #fff; }
+
+  .search-box { position: relative; flex: 1; min-width: 240px; max-width: 400px; }
+  .search-box input {
+    width: 100%; padding: 10px 14px 10px 38px;
+    border: 1px solid var(--line); background: var(--white);
+    border-radius: var(--radius-pill); font-size: 0.9rem;
+    transition: border-color 120ms, box-shadow 120ms;
+  }
+  .search-box input:focus {
+    outline: none; border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(103,151,238,0.12);
+  }
+  .search-box::before {
+    content: '⌕'; position: absolute; left: 14px; top: 50%;
+    transform: translateY(-50%); color: var(--ink-mute); font-size: 1rem;
   }
 
   /* ─────────── Cards / tables ─────────── */
@@ -402,61 +415,128 @@
   .badge {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 4px 10px; border-radius: var(--radius-pill);
-    font-size: 0.72rem; font-weight: 500; letter-spacing: 0.01em;
+    font-size: 0.72rem; font-weight: 500;
   }
   .badge::before {
     content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor;
   }
   .badge-incomplete { background: #eceee8; color: #5a6258; }
-  .badge-pending, .badge-quotepending, .badge-binderpending, .badge-coveragepending {
-    background: var(--warn-soft); color: var(--warn);
+  .badge-pending, .badge-quotepending, .badge-binderpending, .badge-coveragepending { background: var(--warn-soft); color: var(--warn); }
+  .badge-submitted, .badge-quotepublished, .badge-binderpublished { background: var(--info-soft); color: var(--info); }
+  .badge-future, .badge-coverageactive, .badge-active, .badge-ready { background: var(--ok-soft); color: var(--ok); }
+  .badge-issued { background: var(--ok); color: #fff; }
+  .badge-declined, .badge-quotedeclined, .badge-binderdeclined, .badge-canceled, .badge-error { background: var(--err-soft); color: var(--err); }
+  .badge-expired, .badge-quoteclosed, .badge-blocked, .badge-closed { background: #ededeb; color: #6b6b6b; }
+  .badge-quoteindication, .badge-quotestoreedit { background: #efeafc; color: #4a3a91; }
+  .badge-processing { background: var(--warn-soft); color: var(--warn); }
+
+  /* ─────────── Lifecycle progress ─────────── */
+  .lifecycle {
+    display: flex; align-items: center; gap: 0;
+    font-size: 0.7rem; color: var(--ink-mute); margin-top: 4px;
   }
-  .badge-submitted, .badge-quotepublished, .badge-binderpublished {
-    background: var(--blue-soft); color: #2c5fb8;
+  .lifecycle-step {
+    display: flex; align-items: center; gap: 4px;
+    padding: 2px 0;
   }
-  .badge-future, .badge-coverageactive, .badge-active, .badge-ready {
-    background: var(--ok-soft); color: var(--ok);
+  .lifecycle-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--line); border: 1px solid var(--line);
   }
-  .badge-issued {
-    background: var(--ok); color: #fff;
+  .lifecycle-step.done .lifecycle-dot { background: var(--blue); border-color: var(--blue); }
+  .lifecycle-step.current .lifecycle-dot {
+    background: var(--white); border: 2px solid var(--blue);
+    box-shadow: 0 0 0 2px var(--blue-soft);
   }
-  .badge-declined, .badge-quotedeclined, .badge-binderdeclined, .badge-canceled, .badge-error {
-    background: var(--err-soft); color: var(--err);
+  .lifecycle-connector {
+    width: 20px; height: 1px; background: var(--line);
   }
-  .badge-expired, .badge-quoteclosed, .badge-blocked, .badge-closed {
-    background: #ededeb; color: #6b6b6b;
-  }
-  .badge-quoteindication, .badge-quotestoreedit {
-    background: #efeafc; color: #4a3a91;
-  }
-  .badge-processing {
-    background: var(--warn-soft); color: var(--warn);
-  }
+  .lifecycle-connector.done { background: var(--blue); }
 
   /* ─────────── Forms ─────────── */
-  .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px 24px; }
-  .form-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
-  .form-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
-  .field { display: flex; flex-direction: column; gap: 6px; }
-  .field label {
-    font-size: 0.78rem; font-weight: 500; color: var(--ink-soft);
+  .form-section { margin-bottom: 32px; }
+  .form-section-head {
+    font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--blue); font-weight: 600; margin-bottom: 14px;
+    padding-bottom: 8px; border-bottom: 1px solid var(--line-soft);
+    display: flex; align-items: center; justify-content: space-between;
   }
-  .field input, .field select, .field textarea {
+  .form-section-count {
+    font-size: 0.7rem; color: var(--ink-mute); font-weight: 500; text-transform: none;
+    letter-spacing: normal;
+  }
+  .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px 24px; }
+  .form-field { display: flex; flex-direction: column; gap: 6px; }
+  .form-field.full { grid-column: 1 / -1; }
+  .form-field label {
+    font-size: 0.82rem; font-weight: 500; color: var(--ink);
+    display: flex; align-items: center; gap: 4px;
+  }
+  .form-field label .code {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;
+    color: var(--ink-quiet); font-weight: 400; margin-left: 4px;
+  }
+  .form-field label .req { color: var(--err); font-weight: 600; }
+  .form-field input[type=text],
+  .form-field input[type=email],
+  .form-field input[type=number],
+  .form-field input[type=date],
+  .form-field input[type=tel],
+  .form-field input[type=url],
+  .form-field select,
+  .form-field textarea {
     padding: 10px 14px; border: 1px solid var(--line);
     background: var(--white); border-radius: var(--radius-md); font-size: 0.92rem;
     transition: border-color 120ms, box-shadow 120ms;
+    width: 100%;
   }
-  .field input:focus, .field select:focus, .field textarea:focus {
+  .form-field input:focus, .form-field select:focus, .form-field textarea:focus {
     outline: none; border-color: var(--blue);
     box-shadow: 0 0 0 3px rgba(103, 151, 238, 0.12);
   }
-  .field.full { grid-column: 1 / -1; }
-  .field-inline { display: flex; align-items: center; gap: 8px; }
-  .field-inline input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--blue); }
-  .field-inline label { font-size: 0.88rem; color: var(--ink); cursor: pointer; }
+  .form-field input:disabled, .form-field select:disabled {
+    background: var(--paper-warm); color: var(--ink-mute); cursor: not-allowed;
+  }
+  .form-field .err-msg {
+    font-size: 0.78rem; color: var(--err); margin-top: 2px;
+  }
+  .form-field .help {
+    font-size: 0.78rem; color: var(--ink-mute); margin-top: 2px;
+  }
+
+  /* Boolean toggle switch */
+  .toggle {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 4px 0;
+  }
+  .toggle input { display: none; }
+  .toggle-switch {
+    position: relative; width: 38px; height: 22px;
+    background: var(--line); border-radius: 11px;
+    transition: background 150ms; cursor: pointer;
+  }
+  .toggle-switch::after {
+    content: ''; position: absolute; top: 2px; left: 2px;
+    width: 18px; height: 18px; background: #fff; border-radius: 50%;
+    transition: transform 150ms; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .toggle input:checked + .toggle-switch { background: var(--blue); }
+  .toggle input:checked + .toggle-switch::after { transform: translateX(16px); }
+  .toggle-label { font-size: 0.88rem; color: var(--ink); }
+  .toggle input:disabled + .toggle-switch { opacity: 0.5; cursor: not-allowed; }
+
+  /* Readonly form display */
+  .readonly-value {
+    padding: 10px 14px; background: var(--paper-warm);
+    border: 1px solid var(--line-soft); border-radius: var(--radius-md);
+    font-size: 0.92rem; color: var(--ink); min-height: 40px;
+    display: flex; align-items: center;
+  }
+  .readonly-value.empty { color: var(--ink-quiet); font-style: italic; }
 
   /* ─────────── Detail layout ─────────── */
   .detail-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
+
   .kv-list dt {
     font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase;
     color: var(--ink-mute); margin-top: 16px; font-weight: 600;
@@ -465,7 +545,41 @@
   .kv-list dd { font-size: 0.95rem; color: var(--ink); margin-top: 4px; font-weight: 500; }
   .kv-list dd.mono { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; word-break: break-all; font-weight: 400; }
 
-  /* ─────────── Empty state ─────────── */
+  /* Status banner at top of detail */
+  .status-banner {
+    display: flex; align-items: center; gap: 16px;
+    padding: 16px 20px; border-radius: var(--radius-md);
+    margin-bottom: 24px; font-size: 0.92rem;
+  }
+  .status-banner-icon {
+    width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600; font-size: 1rem;
+  }
+  .status-banner.locked {
+    background: var(--info-soft); color: var(--info);
+    border-left: 3px solid var(--info);
+  }
+  .status-banner.locked .status-banner-icon { background: var(--info); color: #fff; }
+  .status-banner.editable {
+    background: var(--warn-soft); color: var(--warn);
+    border-left: 3px solid var(--warn);
+  }
+  .status-banner.editable .status-banner-icon { background: var(--warn); color: #fff; }
+  .status-banner.declined {
+    background: var(--err-soft); color: var(--err);
+    border-left: 3px solid var(--err);
+  }
+  .status-banner.declined .status-banner-icon { background: var(--err); color: #fff; }
+  .status-banner.bound {
+    background: var(--ok-soft); color: var(--ok);
+    border-left: 3px solid var(--ok);
+  }
+  .status-banner.bound .status-banner-icon { background: var(--ok); color: #fff; }
+  .status-banner-title { font-weight: 600; margin-bottom: 2px; }
+  .status-banner-desc { color: inherit; opacity: 0.85; font-size: 0.85rem; }
+
+  /* Empty state */
   .empty {
     padding: 72px 20px; text-align: center; color: var(--ink-mute);
     border: 1px dashed var(--line); border-radius: var(--radius-md);
@@ -474,7 +588,7 @@
   .empty h3 { color: var(--ink); margin-bottom: 8px; font-size: 1.05rem; }
   .empty p { font-size: 0.9rem; }
 
-  /* ─────────── Toast ─────────── */
+  /* Toast */
   #toast-host {
     position: fixed; top: 16px; right: 16px; z-index: 1000;
     display: flex; flex-direction: column; gap: 10px; max-width: 420px;
@@ -498,22 +612,20 @@
   .toast.err::before { content: '!'; background: var(--err); }
   @keyframes slidein { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 
-  /* ─────────── Modal ─────────── */
+  /* Modal */
   .modal-backdrop {
     position: fixed; inset: 0; background: rgba(15,37,66,0.5); z-index: 100;
     display: flex; align-items: flex-start; justify-content: center;
-    padding-top: 80px; animation: fadein 150ms ease;
-    backdrop-filter: blur(3px);
+    padding-top: 80px; backdrop-filter: blur(3px);
   }
   .modal {
     background: var(--white); padding: 36px; border-radius: var(--radius-lg);
-    max-width: 640px; width: 90%; max-height: 85vh; overflow-y: auto;
+    max-width: 560px; width: 90%; max-height: 85vh; overflow-y: auto;
     box-shadow: var(--shadow-lg);
   }
-  .modal h2 { font-size: 1.35rem; font-weight: 600; margin-bottom: 8px; }
-  @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+  .modal h2 { font-size: 1.35rem; margin-bottom: 10px; }
 
-  /* ─────────── Misc ─────────── */
+  /* Loading */
   .loading {
     display: flex; align-items: center; justify-content: center; gap: 10px;
     padding: 60px 20px; color: var(--ink-mute); font-size: 0.9rem; width: 100%;
@@ -526,47 +638,25 @@
   @keyframes spin { to { transform: rotate(360deg); } }
 
   hr { border: none; border-top: 1px solid var(--line-soft); margin: 24px 0; }
-  .pill-row { display: flex; gap: 8px; flex-wrap: wrap; }
-  .pill {
-    padding: 4px 12px; background: var(--paper-warm); border-radius: var(--radius-pill);
-    font-size: 0.78rem; color: var(--ink-soft);
-  }
-  .warning-box {
-    background: var(--warn-soft); border-left: 3px solid var(--warn);
-    padding: 14px 18px; font-size: 0.88rem; margin: 16px 0; border-radius: var(--radius-sm);
-  }
-  .data-editor {
-    font-family: 'JetBrains Mono', monospace; font-size: 0.82rem;
-    line-height: 1.65; border: 1px solid var(--line);
-    background: var(--paper); padding: 16px; border-radius: var(--radius-md);
-    min-height: 240px; resize: vertical; width: 100%;
-  }
-  .help { font-size: 0.78rem; color: var(--ink-mute); margin-top: 4px; }
 
-  .insured-name { font-weight: 500; color: var(--ink); }
-  .insured-loc { font-size: 0.78rem; color: var(--ink-mute); margin-top: 2px; }
-
-  /* ─────────── Altruis logo SVG (simple wordmark-icon) ─────────── */
+  .saving-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 0.78rem; color: var(--ink-mute);
+    padding: 4px 10px; background: var(--paper-warm);
+    border-radius: var(--radius-pill);
+  }
+  .saving-chip.saved { color: var(--ok); background: var(--ok-soft); }
 </style>
 </head>
 <body>
 <div id="root"></div>
 <div id="toast-host"></div>
 
-<!-- Altruis icon: a stylized A/peak shape -->
-<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
-  <defs>
-    <symbol id="altruis-icon" viewBox="0 0 32 32">
-      <path d="M16 3 L29 27 L22 27 L16 15 L10 27 L3 27 Z" fill="#6797EE"/>
-      <path d="M16 3 L22 15 L16 15 Z" fill="#0F2542"/>
-    </symbol>
-  </defs>
-</svg>
-
 <script type="module">
-// ─────────────────────────────────────────────────────────────
-// Utilities
-// ─────────────────────────────────────────────────────────────
+
+// ═════════════════════════════════════════════════════════════════
+// CORE UTILITIES
+// ═════════════════════════════════════════════════════════════════
 const $ = (s) => document.querySelector(s);
 const el = (tag, props = {}, ...children) => {
   const n = document.createElement(tag);
@@ -587,7 +677,6 @@ const el = (tag, props = {}, ...children) => {
   return n;
 };
 
-// Embedded SVG icon for the brand mark
 function brandIcon(size = 32) {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', '0 0 32 32');
@@ -599,14 +688,21 @@ function brandIcon(size = 32) {
   return svg;
 }
 
-const money = (n) => {
-  if (n == null) return '—';
-  const sign = n < 0 ? '(' : '';
-  const endSign = n < 0 ? ')' : '';
-  return sign + Math.abs(n).toLocaleString('en-US', { style: 'currency', currency: 'USD' }) + endSign;
-};
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
 const fmtDateTime = (d) => d ? new Date(d).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
+const money = (n) => {
+  if (n == null) return '—';
+  return Math.abs(n).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+};
+
+function userInitials(user) {
+  if (!user) return '?';
+  const name = user.name || user.email || '';
+  const parts = name.split(/[\s@.]+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return '?';
+}
 
 function toast(msg, kind = '') {
   const t = el('div', { className: `toast ${kind}` }, el('div', {}, msg));
@@ -639,115 +735,65 @@ async function api(path, opts = {}) {
 
 function statusBadge(s) {
   if (!s) return el('span', { className: 'badge badge-incomplete' }, '—');
-  const normalized = s.toLowerCase();
-  return el('span', { className: `badge badge-${normalized}` }, s);
+  return el('span', { className: `badge badge-${s.toLowerCase()}` }, s);
 }
 
-// Format a datapoint value for display. Joshu's `/submission-data` returns
-// values already unwrapped by the backend, but some (Monetary, Location)
-// remain as objects because they don't reduce to a single string.
-function formatDatapointValue(v) {
-  if (v == null || v === '') return '—';
-  if (typeof v === 'boolean') return v ? 'Yes' : 'No';
-  if (typeof v === 'number' || typeof v === 'string') return String(v);
-  if (Array.isArray(v)) return v.map(formatDatapointValue).join(', ');
-  if (typeof v === 'object') {
-    // Monetary: { currency, amount }
-    if (v.currency && v.amount != null) {
-      const n = parseFloat(v.amount);
-      if (!isNaN(n)) return n.toLocaleString('en-US', { style: 'currency', currency: v.currency });
-      return `${v.amount} ${v.currency}`;
-    }
-    // NamedParsedAddress: { name }
-    if (v.name && typeof v.name === 'string') return v.name;
-    // ParsedGoogleAddress: { formatted_address }
-    if (v.formatted_address) return v.formatted_address;
-    // Location: {NamedParsedAddress: {...}} or {ParsedGoogleAddress: {...}}
-    if (v.NamedParsedAddress) return formatDatapointValue(v.NamedParsedAddress);
-    if (v.ParsedGoogleAddress) return formatDatapointValue(v.ParsedGoogleAddress);
-    // Fallback — compact JSON
-    return JSON.stringify(v);
-  }
-  return String(v);
-}
-
-// Render a list of datapoint key-values, grouped by their prefix
-// (insured.* / app.* / data.* / other) for readability.
-function renderDataList(data) {
-  // Filter out internal keys
-  const entries = Object.entries(data || {}).filter(([k]) => !k.startsWith('_'));
-  if (entries.length === 0) {
-    return el('div', { className: 'empty' },
-      el('p', {}, 'No data yet. Click Edit data to populate, or this submission may not have data values accessible.'));
-  }
-
-  // Group by prefix
-  const groups = { insured: [], app: [], data: [], other: [] };
-  for (const [k, v] of entries) {
-    const prefix = k.split('.')[0];
-    if (groups[prefix]) groups[prefix].push([k, v]);
-    else groups.other.push([k, v]);
-  }
-
-  const blocks = [];
-  const labels = { insured: 'Insured', app: 'Application', data: 'Coverage', other: 'Other' };
-  for (const [group, items] of Object.entries(groups)) {
-    if (!items.length) continue;
-    blocks.push(el('div', { style: { marginTop: '20px' } },
-      el('div', {
-        style: {
-          fontSize: '0.68rem', letterSpacing: '0.12em', textTransform: 'uppercase',
-          color: 'var(--blue)', fontWeight: 600, marginBottom: '10px',
-          borderBottom: '1px solid var(--line-soft)', paddingBottom: '6px',
-        }
-      }, labels[group]),
-      el('dl', { className: 'kv-list' },
-        ...items.map(([k, v]) => [
-          el('dt', {}, k),
-          el('dd', {}, formatDatapointValue(v)),
-        ]).flat())));
-  }
-  return el('div', {}, ...blocks);
-}
-
-function showModal(title, content, opts = {}) {
+function showModal(title, content) {
   const backdrop = el('div', {
     className: 'modal-backdrop',
     onClick: (e) => { if (e.target === backdrop) closeModal(); }
   }, el('div', { className: 'modal' },
-    el('h2', {}, title),
-    opts.subtitle ? el('p', { className: 'subtle', style: { marginBottom: '24px' } }, opts.subtitle) : null,
-    content));
+    el('h2', {}, title), content));
   backdrop.id = 'modal';
   document.body.appendChild(backdrop);
 }
 function closeModal() { document.getElementById('modal')?.remove(); }
 
-function userInitials(user) {
-  if (!user) return '?';
-  const name = user.name || user.email || '';
-  const parts = name.split(/[\s@.]+/).filter(Boolean);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return '?';
+// Format a datapoint value for display (handles Joshu's Location and Monetary objects)
+function formatDatapointValue(v) {
+  if (v == null || v === '') return '—';
+  if (typeof v === 'boolean') return v ? 'Yes' : 'No';
+  if (typeof v === 'number') return v.toLocaleString();
+  if (typeof v === 'string') return v;
+  if (Array.isArray(v)) return v.map(formatDatapointValue).join(', ');
+  if (typeof v === 'object') {
+    if (v.currency && v.amount != null) {
+      const n = parseFloat(v.amount);
+      if (!isNaN(n)) return n.toLocaleString('en-US', { style: 'currency', currency: v.currency });
+      return `${v.amount} ${v.currency}`;
+    }
+    if (v.formatted_address) return v.formatted_address;
+    if (v.name && typeof v.name === 'string') return v.name;
+    if (v.NamedParsedAddress) return formatDatapointValue(v.NamedParsedAddress);
+    if (v.ParsedGoogleAddress) return formatDatapointValue(v.ParsedGoogleAddress);
+    return JSON.stringify(v);
+  }
+  return String(v);
 }
 
-// ─────────────────────────────────────────────────────────────
-// App state
-// ─────────────────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════
+// APP STATE
+// ═════════════════════════════════════════════════════════════════
 const state = {
   user: null,
   env: 'mock',
   view: 'dashboard',
   subView: null,
+  // Lists
   submissions: { loading: false, items: [], total: 0 },
   quotes: { loading: false, items: [], total: 0 },
   policies: { loading: false, items: [], total: 0 },
   documents: { loading: false, items: [], total: 0 },
+  // Detail
   selectedSubmission: null,
+  submissionForm: null,        // normalized schema + values for the current submission
+  submissionFormState: 'view', // 'view' | 'edit'
+  submissionDirty: {},         // pending edits
+  submissionSaving: 'idle',    // 'idle' | 'saving' | 'saved'
   selectedQuote: null,
   selectedPolicy: null,
-  filter: { mine_only: false, status: null },
+  // Dashboard filter
+  filter: { tab: 'all', search: '' },
 };
 
 function render() {
@@ -760,9 +806,9 @@ function render() {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Env banner
-// ─────────────────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════
+// ENV BANNER
+// ═════════════════════════════════════════════════════════════════
 function envBanner() {
   const labels = {
     mock: 'Mock environment · No data is sent to Joshu · All records are in-memory',
@@ -772,23 +818,20 @@ function envBanner() {
   return el('div', { className: `env-banner ${state.env}` }, labels[state.env] || state.env);
 }
 
-// ─────────────────────────────────────────────────────────────
-// Login screen (hero split)
-// ─────────────────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════
+// LOGIN
+// ═════════════════════════════════════════════════════════════════
 function loginView() {
   return el('div', { className: 'login-wrap' },
     envBanner(),
-    el('div', { className: 'login-shell' },
-      loginLeft(),
-      loginRight()));
+    el('div', { className: 'login-shell' }, loginLeft(), loginRight()));
 }
 
 function loginLeft() {
   return el('div', { className: 'login-left' },
     el('div', { className: 'login-brand-mark' },
-      el('div', { className: 'login-brand-mark-icon' }, brandIcon(36)),
-      el('div', { className: 'login-brand-name' },
-        'Altruis',
+      brandIcon(36),
+      el('div', { className: 'login-brand-name' }, 'Altruis',
         el('span', { className: 'sub' }, 'Broker Portal'))),
     el('div', { className: 'login-hero' },
       el('div', { className: 'eyebrow on-dark' }, 'Specialty Insurance MGA'),
@@ -835,37 +878,29 @@ function loginRight() {
     },
       el('div', { className: 'field' },
         el('label', {}, 'Email'),
-        el('input', {
-          type: 'email', required: true, autofocus: true,
+        el('input', { type: 'email', required: true, autofocus: true,
           placeholder: 'you@agency.com',
-          value: form.email, onInput: (e) => { form.email = e.target.value; },
-        })),
+          value: form.email, onInput: (e) => { form.email = e.target.value; } })),
       el('div', { className: 'field' },
         el('label', {}, 'Password'),
-        el('input', {
-          type: 'password', required: true, placeholder: '••••••••',
-          value: form.password, onInput: (e) => { form.password = e.target.value; },
-        })),
+        el('input', { type: 'password', required: true, placeholder: '••••••••',
+          value: form.password, onInput: (e) => { form.password = e.target.value; } })),
       form.error ? el('div', { className: 'login-err' }, form.error) : null,
       el('button', { type: 'submit', disabled: form.loading },
-        form.loading ? 'Signing in' : 'Sign in')
-    );
+        form.loading ? 'Signing in' : 'Sign in'));
     card.appendChild(fEl);
 
-    if (state.env === 'mock') {
+    if (state.env === 'test') {
+      card.appendChild(el('div', { className: 'login-hint' },
+        el('strong', { style: { color: 'var(--ink)' } }, 'Test environment'),
+        el('div', { style: { marginTop: '8px' } },
+          'Any email works. The portal uses a shared API token for this container.')));
+    } else if (state.env === 'mock') {
       card.appendChild(el('div', { className: 'login-hint' },
         el('strong', { style: { color: 'var(--ink)' } }, 'Demo accounts'),
         el('div', { style: { marginTop: '8px' } },
           'Try ', el('code', {}, 'jane.broker@acmesurplus.com'),
-          ' or ', el('code', {}, 'admin@acmesurplus.com'),
-          '. Any password works in mock mode.')
-      ));
-    } else if (state.env === 'test') {
-      card.appendChild(el('div', { className: 'login-hint' },
-        el('strong', { style: { color: 'var(--ink)' } }, 'Test environment'),
-        el('div', { style: { marginTop: '8px' } },
-          'Any email works. The portal uses a shared API token for this container.')
-      ));
+          '. Any password works in mock mode.')));
     }
 
     setTimeout(() => {
@@ -878,16 +913,13 @@ function loginRight() {
   return el('div', { className: 'login-right' }, card);
 }
 
-// ─────────────────────────────────────────────────────────────
-// Main app shell
-// ─────────────────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════
+// APP SHELL
+// ═════════════════════════════════════════════════════════════════
 function appShell() {
-  return el('div', {},
-    envBanner(),
-    el('div', { className: 'app' },
-      sidebar(),
-      el('main', { className: 'main' }, viewRouter())
-    ));
+  return el('div', {}, envBanner(),
+    el('div', { className: 'app' }, sidebar(),
+      el('main', { className: 'main' }, viewRouter())));
 }
 
 function navItem(key, label) {
@@ -902,10 +934,8 @@ function navItem(key, label) {
 
 function sidebar() {
   return el('aside', { className: 'sidebar' },
-    el('div', { className: 'brand-mark' },
-      el('div', { className: 'brand-mark-icon' }, brandIcon(32)),
-      el('div', { className: 'brand-mark-name' },
-        'Altruis',
+    el('div', { className: 'brand-mark' }, brandIcon(32),
+      el('div', { className: 'brand-mark-name' }, 'Altruis',
         el('span', { className: 'sub' }, 'Broker Portal'))),
 
     el('div', { className: 'nav-section' }, 'Pipeline'),
@@ -931,14 +961,12 @@ function sidebar() {
           await api('/api/auth/logout', { method: 'POST', silent: true });
           state.user = null; render();
         }
-      }, 'Sign out')
-    )
-  );
+      }, 'Sign out')));
 }
 
-// ─────────────────────────────────────────────────────────────
-// View router
-// ─────────────────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════
+// VIEW ROUTER
+// ═════════════════════════════════════════════════════════════════
 function viewRouter() {
   switch (state.view) {
     case 'dashboard': return dashboardView();
@@ -955,30 +983,30 @@ async function loadView() {
   try {
     if (state.view === 'submissions' && !state.subView) {
       state.submissions.loading = true; render();
-      const res = await api(`/api/submissions?mine_only=${state.filter.mine_only}`);
+      const res = await api('/api/submissions?per_page=50');
       state.submissions = { loading: false, items: res.items || [], total: res.total_items || 0 };
       render();
     } else if (state.view === 'quotes' && !state.subView) {
       state.quotes.loading = true; render();
-      const res = await api('/api/quotes');
+      const res = await api('/api/quotes?per_page=50');
       state.quotes = { loading: false, items: res.items || [], total: res.total_items || 0 };
       render();
     } else if (state.view === 'policies' && !state.subView) {
       state.policies.loading = true; render();
-      const res = await api('/api/policies');
+      const res = await api('/api/policies?per_page=50');
       state.policies = { loading: false, items: res.items || [], total: res.total_items || 0 };
       render();
     } else if (state.view === 'documents') {
       state.documents.loading = true; render();
-      const res = await api('/api/documents');
+      const res = await api('/api/documents?per_page=50');
       state.documents = { loading: false, items: res.items || [], total: res.total_items || 0 };
       render();
     } else if (state.view === 'dashboard') {
       const [subs, quotes, pols, docs] = await Promise.all([
-        api('/api/submissions?per_page=8').catch(() => ({ items: [], total_items: 0 })),
-        api('/api/quotes?per_page=5').catch(() => ({ items: [], total_items: 0 })),
-        api('/api/policies?per_page=5').catch(() => ({ items: [], total_items: 0 })),
-        api('/api/documents?per_page=5').catch(() => ({ items: [], total_items: 0 })),
+        api('/api/submissions?per_page=50').catch(() => ({ items: [], total_items: 0 })),
+        api('/api/quotes?per_page=50').catch(() => ({ items: [], total_items: 0 })),
+        api('/api/policies?per_page=50').catch(() => ({ items: [], total_items: 0 })),
+        api('/api/documents?per_page=50').catch(() => ({ items: [], total_items: 0 })),
       ]);
       state.submissions = { loading: false, items: subs.items || [], total: subs.total_items || 0 };
       state.quotes = { loading: false, items: quotes.items || [], total: quotes.total_items || 0 };
@@ -986,87 +1014,149 @@ async function loadView() {
       state.documents = { loading: false, items: docs.items || [], total: docs.total_items || 0 };
       render();
     }
-  } catch (e) { /* toast already shown */ }
+  } catch (e) { /* toast shown */ }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Dashboard — "The pipeline" treatment echoing the marketing site
-// ─────────────────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════
+// DASHBOARD
+// ═════════════════════════════════════════════════════════════════
 function dashboardView() {
-  const recent = (state.submissions.items || []).slice(0, 8);
+  const subs = state.submissions.items || [];
+  const drafts = subs.filter(s => s.status === 'Incomplete').length;
+  const submitted = subs.filter(s => s.status === 'Submitted' || s.status === 'Pending').length;
+  const declined = subs.filter(s => s.status === 'Declined').length;
+
+  // Most recent submissions
+  const recent = [...subs]
+    .sort((a, b) => new Date(b.modified_at || b.created_at) - new Date(a.modified_at || a.created_at))
+    .slice(0, 6);
 
   return el('div', {},
     el('div', { className: 'page-header' },
       el('div', {},
         el('div', { className: 'eyebrow' }, 'Overview'),
-        el('h1', {}, 'Your pipeline')),
-      el('button', {
-        className: 'btn btn-primary',
-        onClick: () => { state.view = 'new-submission'; render(); }
-      }, 'New submission')),
+        el('h1', {}, `Good afternoon, ${(state.user.name || state.user.email || 'Broker').split(' ')[0]}`)),
+      el('button', { className: 'btn btn-primary',
+        onClick: () => { state.view = 'new-submission'; render(); } }, 'New submission')),
 
-    el('div', { className: 'stats-grid' },
-      statCard('Submissions', state.submissions.total, 'Across your agency'),
+    // Action cards
+    el('div', { className: 'action-grid' },
+      actionCard('urgent', 'Drafts need info', drafts,
+        drafts === 1 ? 'One submission is incomplete' : `${drafts} submissions are incomplete`,
+        'Finish drafts', () => { state.view = 'submissions'; state.filter.tab = 'drafts'; render(); loadView(); }),
+      actionCard('', 'Awaiting quote', submitted,
+        submitted === 1 ? 'One submission is in underwriting' : `${submitted} in underwriting`,
+        'View submitted', () => { state.view = 'submissions'; state.filter.tab = 'submitted'; render(); loadView(); }),
+      actionCard('ok', 'Recently declined', declined,
+        declined === 1 ? 'One submission declined' : `${declined} submissions declined`,
+        'Review declined', () => { state.view = 'submissions'; state.filter.tab = 'declined'; render(); loadView(); })),
+
+    // Supplementary stats row
+    el('div', { className: 'stats-row' },
+      statCard('Total submissions', state.submissions.total, 'Across your agency'),
       statCard('Open quotes', state.quotes.total, 'Awaiting action'),
       statCard('Policies in force', state.policies.total, 'Currently bound'),
-      statCard('Documents', state.documents.total, 'Available to download'),
-    ),
+      statCard('Documents', state.documents.total, 'Available')),
 
+    // Recent activity
     el('div', { className: 'card' },
       el('div', { className: 'card-head' },
         el('div', {},
           el('div', { className: 'eyebrow' }, 'Recent activity'),
           el('h2', {}, 'Latest submissions')),
-        el('button', {
-          className: 'btn btn-ghost',
-          onClick: () => { state.view = 'submissions'; render(); loadView(); }
-        }, 'View all →')),
+        el('button', { className: 'btn btn-ghost',
+          onClick: () => { state.view = 'submissions'; render(); loadView(); } }, 'View all →')),
       recent.length === 0
         ? el('div', { className: 'empty' },
           el('h3', {}, 'Nothing yet'),
           el('p', {}, 'Click New submission to begin.'))
-        : submissionsTable(recent)
-    )
-  );
+        : submissionsTable(recent)));
+}
+
+function actionCard(variant, label, value, desc, cta, onClick) {
+  return el('div', { className: `action-card ${variant}`, onClick },
+    el('div', { className: 'action-card-pipe' }),
+    el('div', { className: 'action-card-label' }, label),
+    el('div', { className: 'action-card-value' }, value.toLocaleString()),
+    el('div', { className: 'action-card-desc' }, desc),
+    el('div', { className: 'action-card-cta' }, cta));
 }
 
 function statCard(label, value, sub) {
-  const val = value != null ? value.toLocaleString() : '0';
   return el('div', { className: 'stat' },
     el('div', { className: 'stat-label' }, label),
-    el('div', { className: 'stat-value' }, val),
+    el('div', { className: 'stat-value' }, (value || 0).toLocaleString()),
     el('div', { className: 'stat-sub' }, sub));
 }
 
-// ─────────────────────────────────────────────────────────────
-// Submissions
-// ─────────────────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════
+// SUBMISSIONS LIST
+// ═════════════════════════════════════════════════════════════════
 function submissionsListView() {
+  const items = state.submissions.items || [];
+  const tab = state.filter.tab;
+  const search = state.filter.search.toLowerCase().trim();
+
+  let filtered = items;
+  if (tab === 'drafts') filtered = items.filter(s => s.status === 'Incomplete');
+  else if (tab === 'submitted') filtered = items.filter(s => ['Submitted', 'Pending'].includes(s.status));
+  else if (tab === 'quoted') filtered = items.filter(s => s.bound_at || s.status === 'Submitted');
+  else if (tab === 'declined') filtered = items.filter(s => s.status === 'Declined');
+
+  if (search) {
+    filtered = filtered.filter(s => {
+      const id = String(s.id || '');
+      const name = s.data?.['insured.name'] || s.insured_name || '';
+      return id.includes(search) || name.toLowerCase().includes(search);
+    });
+  }
+
+  // Tab counts (from the full list)
+  const counts = {
+    all: items.length,
+    drafts: items.filter(s => s.status === 'Incomplete').length,
+    submitted: items.filter(s => ['Submitted', 'Pending'].includes(s.status)).length,
+    declined: items.filter(s => s.status === 'Declined').length,
+  };
+
   return el('div', {},
     el('div', { className: 'page-header' },
       el('div', {},
         el('div', { className: 'eyebrow' }, 'Pipeline'),
         el('h1', {}, 'Submissions')),
-      el('div', { style: { display: 'flex', gap: '16px', alignItems: 'center' } },
-        el('label', { className: 'field-inline' },
-          el('input', {
-            type: 'checkbox', checked: state.filter.mine_only,
-            onChange: (e) => { state.filter.mine_only = e.target.checked; loadView(); }
-          }),
-          'My submissions only'),
-        el('button', {
-          className: 'btn btn-primary',
-          onClick: () => { state.view = 'new-submission'; render(); }
-        }, 'New submission'))),
+      el('button', { className: 'btn btn-primary',
+        onClick: () => { state.view = 'new-submission'; render(); } }, 'New submission')),
 
-    el('div', { className: 'card' },
+    el('div', { className: 'toolbar' },
+      el('div', { className: 'tabs' },
+        filterTab('all', 'All', counts.all),
+        filterTab('drafts', 'Drafts', counts.drafts),
+        filterTab('submitted', 'Submitted', counts.submitted),
+        filterTab('declined', 'Declined', counts.declined)),
+      el('div', { className: 'search-box' },
+        el('input', { type: 'search',
+          placeholder: 'Search insured name or submission #',
+          value: state.filter.search,
+          onInput: (e) => {
+            state.filter.search = e.target.value;
+            render();
+          } }))),
+
+    el('div', { className: 'card', style: { padding: 0 } },
       state.submissions.loading
         ? el('div', { className: 'loading' }, 'Loading submissions')
-        : state.submissions.items.length === 0
-          ? el('div', { className: 'empty' },
-            el('h3', {}, 'No submissions yet'),
-            el('p', {}, 'Click New submission to get started.'))
-          : submissionsTable(state.submissions.items)));
+        : filtered.length === 0
+          ? el('div', { className: 'empty', style: { margin: '24px' } },
+            el('h3', {}, search ? 'No matches' : 'No submissions in this view'),
+            el('p', {}, search ? 'Try a different search term.' : 'Try a different filter.'))
+          : submissionsTable(filtered)));
+}
+
+function filterTab(key, label, count) {
+  return el('button', {
+    className: `tab ${state.filter.tab === key ? 'active' : ''}`,
+    onClick: () => { state.filter.tab = key; render(); }
+  }, label, el('span', { className: 'tab-count' }, count));
 }
 
 function submissionsTable(items) {
@@ -1080,41 +1170,66 @@ function submissionsTable(items) {
       el('th', {}, 'Updated'))),
     el('tbody', {}, ...items.map(s => el('tr', {
       className: 'clickable',
-      onClick: () => {
-        // Joshu's submissions endpoint uses the numeric id in path params
-        // (the "can not parse to a i32" error confirmed this). Policies use
-        // UUIDs. Quotes — unknown, try numeric first.
-        state.subView = s.id;
-        loadSubmission(s.id);
-      }
+      onClick: () => { state.subView = s.id; loadSubmission(s.id); }
     },
       el('td', {},
-        el('div', { className: 'insured-name' },
-          s.data?.['insured.name'] || s.insured_name ||
-          (s.clearance_hash?.datapoints ? 'Insured data available on open' : '—')),
-        el('div', { className: 'insured-loc' },
-          s.flow === 'New' ? 'New business' : s.flow)),
+        el('div', { style: { fontWeight: 500 } },
+          (s.data?.['insured.name'] && formatDatapointValue(s.data['insured.name'])) ||
+          s.insured_name || `Submission ${s.id}`),
+        lifecycleIndicator(s.status)),
       el('td', { className: 'mono' }, `#${s.id}`),
       el('td', {}, s.flow || 'New'),
       el('td', {}, fmtDate(s.effective_at)),
       el('td', {}, statusBadge(s.status)),
       el('td', { style: { fontSize: '0.85rem', color: 'var(--ink-mute)' } },
-        fmtDateTime(s.modified_at || s.created_at)),
-    ))));
+        fmtDateTime(s.modified_at || s.created_at))))));
 }
 
+function lifecycleIndicator(status) {
+  // Progress: Draft → Submitted → Quoted → Bound
+  const stages = ['Incomplete', 'Submitted', 'Quoted', 'Bound'];
+  const isDone = (i) => {
+    if (!status) return false;
+    if (status === 'Declined') return i === 0;
+    if (status === 'Incomplete') return i === 0;
+    if (status === 'Submitted' || status === 'Pending') return i <= 1;
+    if (status === 'Active' || status === 'Future') return i <= 3;
+    return i === 0;
+  };
+  const isCurrent = (i) => {
+    if (status === 'Incomplete' && i === 0) return true;
+    if ((status === 'Submitted' || status === 'Pending') && i === 1) return true;
+    if ((status === 'Active' || status === 'Future') && i === 3) return true;
+    return false;
+  };
+  return el('div', { className: 'lifecycle' },
+    ...stages.map((_, i) => [
+      el('div', { className: `lifecycle-step ${isDone(i) ? 'done' : ''} ${isCurrent(i) ? 'current' : ''}` },
+        el('div', { className: 'lifecycle-dot' })),
+      i < stages.length - 1 ? el('div', { className: `lifecycle-connector ${isDone(i + 1) ? 'done' : ''}` }) : null,
+    ].filter(Boolean)).flat());
+}
+
+// ═════════════════════════════════════════════════════════════════
+// SUBMISSION DETAIL — status-aware, dynamic form
+// ═════════════════════════════════════════════════════════════════
 async function loadSubmission(id) {
   state.selectedSubmission = null;
+  state.submissionForm = null;
+  state.submissionFormState = 'view';
+  state.submissionDirty = {};
+  state.submissionSaving = 'idle';
   render();
   try {
-    // id here can be either the UUID or numeric id; the backend handles both.
-    // The submission detail response will include the numeric id which we
-    // then use to fetch related quotes.
-    const sub = await api(`/api/submissions/${id}`);
-    const numericId = sub.id;
-    const quotes = await api(`/api/quotes?submission_id=${numericId}`)
-      .catch(() => ({ items: [] }));
+    const [sub, form, quotes] = await Promise.all([
+      api(`/api/submissions/${id}`),
+      api(`/api/submissions/${id}/form`).catch(() => ({ fields: [], sections: [] })),
+      api(`/api/quotes?submission_id=${id}`).catch(() => ({ items: [] })),
+    ]);
     state.selectedSubmission = { ...sub, quotes: quotes.items || [] };
+    state.submissionForm = form;
+    // Auto-enter edit mode if the submission is Incomplete
+    state.submissionFormState = sub.status === 'Incomplete' ? 'edit' : 'view';
     render();
   } catch (e) { /* toast shown */ }
 }
@@ -1123,127 +1238,328 @@ function submissionDetailView() {
   const s = state.selectedSubmission;
   if (!s) return el('div', { className: 'loading' }, 'Loading');
 
-  const data = s.data || {};
-  const canEdit = s.status === 'Incomplete';
-  const canSubmit = s.status === 'Incomplete';
+  const insuredName = (s.data?.['insured.name'] && formatDatapointValue(s.data['insured.name']))
+    || s.insured_name || `Submission ${s.id}`;
 
   return el('div', {},
     el('div', { className: 'page-header' },
       el('div', {},
         el('div', { className: 'eyebrow' }, `Submission · #${s.id} · ${s.flow || 'New'}`),
-        el('h1', {}, data['insured.name'] || 'Submission ' + s.id)),
-      el('div', { style: { display: 'flex', gap: '10px' } },
-        el('button', {
-          className: 'btn btn-secondary',
-          onClick: () => { state.subView = null; render(); loadView(); }
-        }, '← Back'),
-        canEdit ? el('button', {
-          className: 'btn btn-secondary',
-          onClick: () => openEditDataModal(s)
-        }, 'Edit data') : null,
-        canSubmit ? el('button', {
-          className: 'btn btn-primary',
-          onClick: () => submitSubmission(s.id)
-        }, 'Submit for quote') : null)),
+        el('h1', {}, insuredName)),
+      el('div', { style: { display: 'flex', gap: '10px', alignItems: 'center' } },
+        state.submissionSaving !== 'idle' ?
+          el('div', { className: `saving-chip ${state.submissionSaving === 'saved' ? 'saved' : ''}` },
+            state.submissionSaving === 'saving' ? 'Saving…' : '✓ Saved') : null,
+        el('button', { className: 'btn btn-secondary',
+          onClick: () => { state.subView = null; render(); loadView(); } }, '← Back'))),
+
+    statusBanner(s),
 
     el('div', { className: 'detail-grid' },
-      el('div', {},
-        el('div', { className: 'card' },
-          el('div', { className: 'eyebrow' }, 'Data'),
-          el('h2', {}, 'Submission data'),
-          el('p', { className: 'subtle', style: { marginTop: '8px' } },
-            'Key/value data points defined by the product schema.'),
-          renderDataList(data)),
-
-        s.quotes && s.quotes.length > 0 ? el('div', { className: 'card' },
-          el('div', { className: 'eyebrow' }, 'Quotes'),
-          el('h2', {}, `${s.quotes.length} quote version${s.quotes.length > 1 ? 's' : ''}`),
-          el('table', { style: { marginTop: '16px' } },
-            el('thead', {}, el('tr', {},
-              el('th', {}, 'Quote'),
-              el('th', {}, 'Status'),
-              el('th', { className: 'num' }, 'Total premium'),
-              el('th', { className: 'num' }, 'Total invoice'),
-              el('th', {}, 'Created'))),
-            el('tbody', {}, ...s.quotes.map(q => el('tr', {
-              className: 'clickable',
-              onClick: () => {
-                // Joshu quotes endpoint uses numeric id in path (same as submissions)
-                state.view = 'quotes'; state.subView = q.id;
-                loadQuote(q.id);
-              }
-            },
-              el('td', { className: 'mono' }, `#${q.id}`),
-              el('td', {}, statusBadge(q.status)),
-              el('td', { className: 'num' }, money(q.data?.total_premium)),
-              el('td', { className: 'num' }, money(q.data?.total_invoice)),
-              el('td', { style: { fontSize: '0.85rem', color: 'var(--ink-mute)' } },
-                fmtDateTime(q.created_at))))))) : null
-      ),
-
-      el('div', {},
-        el('div', { className: 'card' },
-          el('div', { className: 'eyebrow' }, 'Details'),
-          el('h3', {}, 'Overview'),
-          el('dl', { className: 'kv-list', style: { marginTop: '16px' } },
-            el('dt', {}, 'Status'), el('dd', {}, statusBadge(s.status)),
-            el('dt', {}, 'Flow'), el('dd', {}, s.flow),
-            el('dt', {}, 'Effective date'), el('dd', {}, fmtDate(s.effective_at)),
-            el('dt', {}, 'Created'), el('dd', {}, fmtDateTime(s.created_at)),
-            el('dt', {}, 'Submitted'), el('dd', {}, fmtDateTime(s.submitted_at)),
-            el('dt', {}, 'Product version'), el('dd', {}, s.product_version_id),
-            s.policy_id ? [
-              el('dt', {}, 'Policy'),
-              el('dd', { className: 'mono' }, s.policy_id)
-            ] : null,
-            el('dt', {}, 'Test flag'), el('dd', {}, s.test ? 'Yes' : 'No')))
-      )
-    ));
+      el('div', {}, submissionMainCard(s)),
+      el('div', {}, submissionSidebar(s))));
 }
 
-function openEditDataModal(sub) {
-  const form = { data_raw: JSON.stringify(sub.data || {}, null, 2) };
-  showModal('Edit submission data', el('div', {},
-    el('textarea', {
-      className: 'data-editor', rows: '16',
-      value: form.data_raw,
-      onInput: (e) => { form.data_raw = e.target.value; }
-    }),
-    el('div', { className: 'help', style: { marginBottom: '20px' } },
-      'Keys follow the Joshu schema (insured.*, app.*, data.*).'),
-    el('div', { style: { display: 'flex', gap: '10px', justifyContent: 'flex-end' } },
-      el('button', { className: 'btn btn-secondary', onClick: closeModal }, 'Cancel'),
-      el('button', {
-        className: 'btn btn-primary',
-        onClick: async () => {
-          try {
-            const parsed = JSON.parse(form.data_raw);
-            const pathId = sub.unique_id || sub.id;
-            await api(`/api/submissions/${pathId}/data`, { method: 'PUT', body: parsed });
-            toast('Data saved', 'ok');
-            closeModal();
-            loadSubmission(pathId);
-          } catch (e) {
-            toast('Invalid JSON: ' + e.message, 'err');
-          }
-        }
-      }, 'Save data'))),
-    { subtitle: 'JSON-formatted submission data.' });
+function statusBanner(s) {
+  const status = s.status;
+  if (status === 'Incomplete') {
+    return el('div', { className: 'status-banner editable' },
+      el('div', { className: 'status-banner-icon' }, '✎'),
+      el('div', {},
+        el('div', { className: 'status-banner-title' }, 'Draft — in progress'),
+        el('div', { className: 'status-banner-desc' },
+          'Fill in the fields below, then submit for a quote.')));
+  }
+  if (status === 'Submitted' || status === 'Pending') {
+    return el('div', { className: 'status-banner locked' },
+      el('div', { className: 'status-banner-icon' }, '🔒'),
+      el('div', { style: { flex: 1 } },
+        el('div', { className: 'status-banner-title' },
+          `Submitted${s.submitted_at ? ' ' + fmtDate(s.submitted_at) : ''}`),
+        el('div', { className: 'status-banner-desc' },
+          state.submissionFormState === 'edit'
+            ? 'You are editing a submitted record. Save your changes to resubmit for rating.'
+            : 'Awaiting quote from the underwriter. You can reopen this submission to edit and resubmit.')),
+      state.submissionFormState === 'view'
+        ? el('button', { className: 'btn btn-primary btn-sm no-arrow',
+            onClick: () => reopenForEdit(s.id) }, 'Edit & Resubmit')
+        : null);
+  }
+  if (status === 'Declined') {
+    return el('div', { className: 'status-banner declined' },
+      el('div', { className: 'status-banner-icon' }, '✕'),
+      el('div', {},
+        el('div', { className: 'status-banner-title' }, 'Declined'),
+        el('div', { className: 'status-banner-desc' },
+          s.decline_reason || 'This submission was declined by the underwriter.')));
+  }
+  if (s.bound_at) {
+    return el('div', { className: 'status-banner bound' },
+      el('div', { className: 'status-banner-icon' }, '✓'),
+      el('div', {},
+        el('div', { className: 'status-banner-title' }, 'Bound'),
+        el('div', { className: 'status-banner-desc' },
+          `Policy is in force as of ${fmtDate(s.bound_at)}.`)));
+  }
+  return null;
 }
 
-async function submitSubmission(id) {
+function submissionMainCard(s) {
+  const form = state.submissionForm;
+  const isEditing = state.submissionFormState === 'edit';
+
+  if (!form || !form.fields || form.fields.length === 0) {
+    return el('div', { className: 'card' },
+      el('div', { className: 'eyebrow' }, 'Data'),
+      el('h2', {}, 'Submission data'),
+      el('div', { className: 'empty', style: { marginTop: '20px' } },
+        el('h3', {}, 'No form schema available'),
+        el('p', {}, 'This submission doesn’t have a dynamic schema from the product version, or the schema endpoint returned empty.')));
+  }
+
+  // Group visible fields by section
+  const visibleFields = form.fields.filter(f => f.visible !== false);
+  const sections = {};
+  for (const f of visibleFields) {
+    if (!sections[f.section]) sections[f.section] = [];
+    sections[f.section].push(f);
+  }
+  const sectionOrder = ['insured', 'app', 'data', ...Object.keys(sections).filter(k => !['insured', 'app', 'data'].includes(k))];
+  const sectionLabels = { insured: 'Insured', app: 'Application', data: 'Coverage', other: 'Other' };
+
+  return el('div', { className: 'card' },
+    el('div', { className: 'eyebrow' }, isEditing ? 'Edit form' : 'Submission data'),
+    el('h2', {}, isEditing ? 'Complete the submission' : 'Application details'),
+    el('div', { className: 'subtle' },
+      isEditing
+        ? 'Fields are specific to this submission’s product version. Changes save as you type.'
+        : 'Data captured at the time of submission.'),
+
+    el('div', { style: { marginTop: '24px' } },
+      ...sectionOrder
+        .filter(key => sections[key])
+        .map(key => renderFormSection(sectionLabels[key] || key, sections[key], isEditing))),
+
+    isEditing ? el('div', {
+      style: {
+        marginTop: '28px', paddingTop: '20px',
+        borderTop: '1px solid var(--line-soft)',
+        display: 'flex', justifyContent: 'flex-end', gap: '12px',
+      }
+    },
+      el('button', { className: 'btn btn-secondary',
+        onClick: () => cancelEdit(s.id) }, 'Cancel'),
+      el('button', { className: 'btn btn-primary',
+        onClick: () => submitForQuote(s.id) },
+        s.status === 'Incomplete' ? 'Submit for quote' : 'Save & resubmit')) : null);
+}
+
+function renderFormSection(title, fields, isEditing) {
+  const completed = fields.filter(f => f.exists || f.value != null).length;
+  return el('div', { className: 'form-section' },
+    el('div', { className: 'form-section-head' },
+      title,
+      el('span', { className: 'form-section-count' },
+        `${completed} of ${fields.length}`)),
+    el('div', { className: 'form-grid' },
+      ...fields.map(f => renderFormField(f, isEditing))));
+}
+
+function renderFormField(field, isEditing) {
+  const displayLabel = field.label || field.code;
+  const currentValue = state.submissionDirty[field.code] !== undefined
+    ? state.submissionDirty[field.code]
+    : field.value;
+
+  const isFullWidth = ['location'].includes(field.type) ||
+                      (field.code && (field.code.endsWith('.address') || field.code.endsWith('.location')));
+
+  const labelEl = el('label', {},
+    displayLabel,
+    field.required ? el('span', { className: 'req' }, '*') : null,
+    el('span', { className: 'code' }, field.code));
+
+  if (!isEditing) {
+    return el('div', { className: `form-field ${isFullWidth ? 'full' : ''}` }, labelEl,
+      el('div', { className: `readonly-value ${currentValue == null || currentValue === '' ? 'empty' : ''}` },
+        currentValue == null || currentValue === '' ? 'Not provided' : formatDatapointValue(currentValue)),
+      field.validation_error ? el('div', { className: 'err-msg' }, field.validation_error) : null);
+  }
+
+  // Editing mode — render input based on type
+  const input = renderFieldInput(field, currentValue);
+  return el('div', { className: `form-field ${isFullWidth ? 'full' : ''}` }, labelEl, input,
+    field.validation_error ? el('div', { className: 'err-msg' }, field.validation_error) : null);
+}
+
+function renderFieldInput(field, value) {
+  const onChange = (newVal) => {
+    state.submissionDirty[field.code] = newVal;
+    scheduleAutoSave();
+  };
+
+  // Dropdown for fields with options
+  if (field.options && field.options.length > 0) {
+    return el('select', {
+      onChange: (e) => onChange(e.target.value || null),
+    }, el('option', { value: '' }, '— Select —'),
+      ...field.options.map(o => el('option', {
+        value: o.value,
+        selected: String(value) === String(o.value),
+      }, o.label || o.value)));
+  }
+
+  if (field.type === 'boolean') {
+    const checked = value === true || value === 'true';
+    return el('label', { className: 'toggle' },
+      el('input', { type: 'checkbox', checked,
+        onChange: (e) => onChange(e.target.checked) }),
+      el('span', { className: 'toggle-switch' }),
+      el('span', { className: 'toggle-label' }, checked ? 'Yes' : 'No'));
+  }
+
+  if (field.type === 'date') {
+    return el('input', { type: 'date', value: value || '',
+      onInput: (e) => onChange(e.target.value || null) });
+  }
+
+  if (field.type === 'number' || field.type === 'monetary') {
+    const numVal = typeof value === 'object' ? (value?.amount || '') : (value || '');
+    return el('input', { type: 'number', value: numVal,
+      placeholder: field.type === 'monetary' ? '0.00' : '',
+      onInput: (e) => onChange(e.target.value || null) });
+  }
+
+  if (field.type === 'location') {
+    const strVal = formatDatapointValue(value);
+    return el('input', { type: 'text', value: strVal === '—' ? '' : strVal,
+      placeholder: 'Address, City, State ZIP',
+      onInput: (e) => onChange(e.target.value || null) });
+  }
+
+  // Default: text
+  const inputType = field.format === 'EmailAddress' ? 'email'
+    : field.format === 'PhoneNumber' ? 'tel'
+    : field.format === 'WebsiteAddress' ? 'url'
+    : 'text';
+  return el('input', { type: inputType, value: value || '',
+    onInput: (e) => onChange(e.target.value || null) });
+}
+
+// Autosave: debounce-save dirty fields every 1.5s
+let _autoSaveTimer = null;
+function scheduleAutoSave() {
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(saveDirtyData, 1500);
+}
+
+async function saveDirtyData() {
+  const s = state.selectedSubmission;
+  if (!s) return;
+  const dirty = state.submissionDirty;
+  if (!Object.keys(dirty).length) return;
+
+  state.submissionSaving = 'saving';
+  render();
   try {
-    // Use the currently-loaded submission's unique_id if available
-    const pathId = state.selectedSubmission?.unique_id || id;
-    await api(`/api/submissions/${pathId}/submit`, { method: 'POST' });
-    toast('Submission submitted for rating', 'ok');
-    loadSubmission(pathId);
+    await api(`/api/submissions/${s.id}/data`, { method: 'PUT', body: dirty, silent: false });
+    // Merge the saved values into the form state so the UI stays in sync
+    if (state.submissionForm) {
+      for (const f of state.submissionForm.fields) {
+        if (f.code in dirty) f.value = dirty[f.code];
+      }
+    }
+    state.submissionDirty = {};
+    state.submissionSaving = 'saved';
+    render();
+    setTimeout(() => {
+      if (state.submissionSaving === 'saved') {
+        state.submissionSaving = 'idle';
+        render();
+      }
+    }, 2000);
+  } catch (e) {
+    state.submissionSaving = 'idle';
+    render();
+  }
+}
+
+async function reopenForEdit(id) {
+  if (!confirm('Reopen this submission for editing? The underwriter will see that you reopened it and can re-review after you resubmit.')) return;
+  try {
+    await api(`/api/submissions/${id}/reopen`, { method: 'POST' });
+    toast('Submission reopened', 'ok');
+    loadSubmission(id);
   } catch (e) { /* toast shown */ }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Quotes
-// ─────────────────────────────────────────────────────────────
+async function cancelEdit(id) {
+  // If there are pending edits, ask
+  if (Object.keys(state.submissionDirty).length > 0) {
+    if (!confirm('Discard your unsaved changes?')) return;
+  }
+  state.submissionDirty = {};
+  state.submissionFormState = 'view';
+  loadSubmission(id);
+}
+
+async function submitForQuote(id) {
+  // Flush any pending edits first
+  if (Object.keys(state.submissionDirty).length > 0) {
+    await saveDirtyData();
+  }
+  if (!confirm('Submit this to underwriting for a quote?')) return;
+  try {
+    await api(`/api/submissions/${id}/submit`, { method: 'POST' });
+    toast('Submitted for quote — underwriting will review', 'ok');
+    loadSubmission(id);
+  } catch (e) { /* toast shown */ }
+}
+
+function submissionSidebar(s) {
+  return el('div', {},
+    el('div', { className: 'card' },
+      el('div', { className: 'eyebrow' }, 'Details'),
+      el('h3', {}, 'Overview'),
+      el('dl', { className: 'kv-list', style: { marginTop: '16px' } },
+        el('dt', {}, 'Status'), el('dd', {}, statusBadge(s.status)),
+        el('dt', {}, 'Flow'), el('dd', {}, s.flow),
+        el('dt', {}, 'Effective date'), el('dd', {}, fmtDate(s.effective_at)),
+        el('dt', {}, 'Created'), el('dd', {}, fmtDateTime(s.created_at)),
+        el('dt', {}, 'Submitted'), el('dd', {}, fmtDateTime(s.submitted_at)),
+        el('dt', {}, 'Product version'), el('dd', {}, s.product_version_id || '—'),
+        s.policy_id ? [
+          el('dt', {}, 'Policy'),
+          el('dd', { className: 'mono' }, s.policy_id)
+        ] : null,
+        el('dt', {}, 'Test flag'), el('dd', {}, s.test ? 'Yes' : 'No'))),
+
+    s.quotes && s.quotes.length > 0 ? el('div', { className: 'card' },
+      el('div', { className: 'eyebrow' }, 'Quotes'),
+      el('h3', {}, `${s.quotes.length} quote version${s.quotes.length > 1 ? 's' : ''}`),
+      el('div', { style: { marginTop: '16px' } },
+        ...s.quotes.map(q => el('div', {
+          style: {
+            padding: '12px 0', borderBottom: '1px solid var(--line-soft)',
+            cursor: 'pointer',
+          },
+          onClick: () => {
+            state.view = 'quotes'; state.subView = q.id; loadQuote(q.id);
+          }
+        },
+          el('div', {
+            style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' }
+          },
+            el('div', { style: { fontFamily: 'JetBrains Mono, monospace', fontSize: '0.82rem' } },
+              `Quote #${q.id}`),
+            statusBadge(q.status)),
+          el('div', { style: { fontSize: '0.78rem', color: 'var(--ink-mute)', marginTop: '4px' } },
+            `Total ${money(q.data?.total_premium)} · ${fmtDateTime(q.created_at)}`))))) : null);
+}
+
+// ═════════════════════════════════════════════════════════════════
+// QUOTES
+// ═════════════════════════════════════════════════════════════════
 function quotesListView() {
   return el('div', {},
     el('div', { className: 'page-header' },
@@ -1263,21 +1579,16 @@ function quotesListView() {
               el('th', {}, 'Submission'),
               el('th', {}, 'Status'),
               el('th', { className: 'num' }, 'Total premium'),
-              el('th', { className: 'num' }, 'Total invoice'),
               el('th', {}, 'Expires'),
               el('th', {}, 'Updated'))),
             el('tbody', {}, ...state.quotes.items.map(q => el('tr', {
               className: 'clickable',
-              onClick: () => {
-                // Joshu quotes endpoint uses numeric id
-                state.subView = q.id; loadQuote(q.id);
-              }
+              onClick: () => { state.subView = q.id; loadQuote(q.id); }
             },
               el('td', { className: 'mono' }, `#${q.id}`),
               el('td', { className: 'mono' }, `#${q.submission_id}`),
               el('td', {}, statusBadge(q.status)),
               el('td', { className: 'num' }, money(q.data?.total_premium)),
-              el('td', { className: 'num' }, money(q.data?.total_invoice)),
               el('td', { style: { fontSize: '0.85rem' } }, fmtDate(q.quote_expires_at)),
               el('td', { style: { fontSize: '0.85rem', color: 'var(--ink-mute)' } },
                 fmtDateTime(q.modified_at || q.created_at))))))));
@@ -1286,10 +1597,8 @@ function quotesListView() {
 async function loadQuote(id) {
   state.selectedQuote = null; render();
   try {
-    // id may be UUID or numeric; fetch detail, then use numeric id for related filters
     const q = await api(`/api/quotes/${id}`);
-    const docs = await api(`/api/documents?quote_id=${q.id}`)
-      .catch(() => ({ items: [] }));
+    const docs = await api(`/api/documents?quote_id=${q.id}`).catch(() => ({ items: [] }));
     state.selectedQuote = { ...q, documents: docs.items || [] };
     render();
   } catch (e) { /* toast shown */ }
@@ -1298,24 +1607,15 @@ async function loadQuote(id) {
 function quoteDetailView() {
   const q = state.selectedQuote;
   if (!q) return el('div', { className: 'loading' }, 'Loading');
-
   const data = q.data || {};
-  const canRequestBinder = q.status === 'QuotePublished';
 
   return el('div', {},
     el('div', { className: 'page-header' },
       el('div', {},
         el('div', { className: 'eyebrow' }, `Quote · Submission #${q.submission_id}`),
         el('h1', {}, 'Quote #' + q.id)),
-      el('div', { style: { display: 'flex', gap: '10px' } },
-        el('button', {
-          className: 'btn btn-secondary',
-          onClick: () => { state.subView = null; render(); loadView(); }
-        }, '← Back'),
-        canRequestBinder ? el('button', {
-          className: 'btn btn-primary',
-          onClick: () => requestBinder(q.id)
-        }, 'Request binder') : null)),
+      el('button', { className: 'btn btn-secondary',
+        onClick: () => { state.subView = null; render(); loadView(); } }, '← Back')),
 
     el('div', { className: 'detail-grid' },
       el('div', {},
@@ -1342,32 +1642,7 @@ function quoteDetailView() {
                 el('tr', { style: { background: 'var(--blue-tint)' } },
                   el('td', { style: { fontWeight: 700 } }, 'Total invoice'),
                   el('td', { className: 'num', style: { fontWeight: 700, color: 'var(--blue)' } },
-                    money(data.total_invoice)))))),
-
-        q.documents && q.documents.length > 0 ? el('div', { className: 'card' },
-          el('div', { className: 'eyebrow' }, 'Documents'),
-          el('h3', {}, 'Quote documents'),
-          el('table', { style: { marginTop: '16px' } },
-            el('thead', {}, el('tr', {},
-              el('th', {}, 'Type'),
-              el('th', {}, 'Name'),
-              el('th', {}, 'Status'),
-              el('th', {}, 'Created'),
-              el('th', {}, ''))),
-            el('tbody', {}, ...q.documents.map(d => el('tr', {},
-              el('td', {}, d.document_type),
-              el('td', {}, d.name || '—'),
-              el('td', {}, statusBadge(d.status)),
-              el('td', { style: { fontSize: '0.85rem', color: 'var(--ink-mute)' } },
-                fmtDateTime(d.created_time)),
-              el('td', {},
-                el('a', {
-                  className: 'btn btn-ghost btn-sm',
-                  href: `/api/documents/${d.id}/download`,
-                  target: '_blank'
-                }, 'Open'))))))) : null
-      ),
-
+                    money(data.total_invoice))))))),
       el('div', {},
         el('div', { className: 'card' },
           el('div', { className: 'eyebrow' }, 'Details'),
@@ -1377,10 +1652,7 @@ function quoteDetailView() {
             el('dt', {}, 'Status'), el('dd', {}, statusBadge(q.status)),
             el('dt', {}, 'Submission'), el('dd', { className: 'mono' }, q.submission_id),
             el('dt', {}, 'Expires'), el('dd', {}, fmtDate(q.quote_expires_at)),
-            el('dt', {}, 'Created'), el('dd', {}, fmtDateTime(q.created_at)),
-            el('dt', {}, 'Authority level'), el('dd', {}, q.authority_level || '—')))
-      )
-    ));
+            el('dt', {}, 'Created'), el('dd', {}, fmtDateTime(q.created_at)))))));
 }
 
 function premRow(label, val) {
@@ -1390,18 +1662,9 @@ function premRow(label, val) {
     el('td', { className: 'num' }, money(val)));
 }
 
-async function requestBinder(id) {
-  if (!confirm('Request a binder for this quote? The underwriter will be notified.')) return;
-  try {
-    await api(`/api/quotes/${id}/bind`, { method: 'POST' });
-    toast('Binder requested', 'ok');
-    loadQuote(id);
-  } catch (e) { /* toast shown */ }
-}
-
-// ─────────────────────────────────────────────────────────────
-// Policies
-// ─────────────────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════
+// POLICIES
+// ═════════════════════════════════════════════════════════════════
 function policiesListView() {
   return el('div', {},
     el('div', { className: 'page-header' },
@@ -1428,8 +1691,7 @@ function policiesListView() {
               onClick: () => { state.subView = p.id; loadPolicy(p.id); }
             },
               el('td', {},
-                el('div', { className: 'insured-name' }, p.insured_name || '—'),
-                el('div', { className: 'insured-loc' }, p.product_name || '')),
+                el('div', { style: { fontWeight: 500 } }, p.insured_name || '—')),
               el('td', { className: 'mono' },
                 p.id ? (p.id.length > 12 ? p.id.slice(0, 8) + '…' : p.id) : '—'),
               el('td', {}, fmtDate(p.effective_date)),
@@ -1451,32 +1713,13 @@ function policyDetailView() {
   const p = state.selectedPolicy;
   if (!p) return el('div', { className: 'loading' }, 'Loading');
 
-  const canEndorse = p.status === 'Active';
-  const canRenew = ['Active', 'Future', 'Expired'].includes(p.status);
-  const canCancel = ['Active', 'Future'].includes(p.status);
-
   return el('div', {},
     el('div', { className: 'page-header' },
       el('div', {},
         el('div', { className: 'eyebrow' }, `Policy · ${p.id ? p.id.slice(0, 8) + '…' : ''}`),
         el('h1', {}, p.insured_name || 'Policy')),
-      el('div', { style: { display: 'flex', gap: '10px', flexWrap: 'wrap' } },
-        el('button', {
-          className: 'btn btn-secondary',
-          onClick: () => { state.subView = null; render(); loadView(); }
-        }, '← Back'),
-        canEndorse ? el('button', {
-          className: 'btn btn-secondary',
-          onClick: () => startLifecycleTxn(p, 'Endorsement')
-        }, 'Endorse') : null,
-        canRenew ? el('button', {
-          className: 'btn btn-secondary',
-          onClick: () => startLifecycleTxn(p, 'Renewal')
-        }, 'Renew') : null,
-        canCancel ? el('button', {
-          className: 'btn btn-danger',
-          onClick: () => startLifecycleTxn(p, 'ManualCancellation')
-        }, 'Cancel') : null)),
+      el('button', { className: 'btn btn-secondary',
+        onClick: () => { state.subView = null; render(); loadView(); } }, '← Back')),
 
     el('div', { className: 'detail-grid' },
       el('div', {},
@@ -1488,39 +1731,7 @@ function policyDetailView() {
             el('dt', {}, 'Product'), el('dd', {}, p.product_name || '—'),
             el('dt', {}, 'Effective date'), el('dd', {}, fmtDate(p.effective_date)),
             el('dt', {}, 'Renews'), el('dd', {}, fmtDate(p.renews_at)),
-            el('dt', {}, 'Status'), el('dd', {}, statusBadge(p.status)),
-            p.ongoing_change ? [
-              el('dt', {}, 'Ongoing change'),
-              el('dd', {}, `${p.ongoing_change} (${p.ongoing_change_user_role || 'Broker'})`)
-            ] : null)),
-
-        p.transactions && p.transactions.length > 0 ? el('div', { className: 'card' },
-          el('div', { className: 'eyebrow' }, 'Ledger'),
-          el('h3', {}, 'Transactions'),
-          el('table', { style: { marginTop: '16px' } },
-            el('thead', {}, el('tr', {},
-              el('th', {}, 'Flow'),
-              el('th', {}, 'Effective'),
-              el('th', {}, 'Status'),
-              el('th', {}, 'Submission'),
-              el('th', {}, 'Created'))),
-            el('tbody', {}, ...p.transactions.map(t => el('tr', {},
-              el('td', {}, t.flow),
-              el('td', {}, fmtDate(t.effective_at)),
-              el('td', {}, statusBadge(t.status)),
-              el('td', {
-                className: 'mono',
-                style: { cursor: t.latest_submission_id ? 'pointer' : 'default' },
-                onClick: () => {
-                  if (!t.latest_submission_id) return;
-                  state.view = 'submissions'; state.subView = t.latest_submission_id;
-                  loadSubmission(t.latest_submission_id);
-                }
-              }, t.latest_submission_id ? `#${t.latest_submission_id}` : '—'),
-              el('td', { style: { fontSize: '0.85rem', color: 'var(--ink-mute)' } },
-                fmtDateTime(t.created_at))))))) : null
-      ),
-
+            el('dt', {}, 'Status'), el('dd', {}, statusBadge(p.status))))),
       el('div', {},
         el('div', { className: 'card' },
           el('div', { className: 'eyebrow' }, 'Details'),
@@ -1528,34 +1739,12 @@ function policyDetailView() {
           el('dl', { className: 'kv-list', style: { marginTop: '16px' } },
             el('dt', {}, 'Policy UUID'), el('dd', { className: 'mono' }, p.id),
             el('dt', {}, 'Created'), el('dd', {}, fmtDateTime(p.created_at)),
-            el('dt', {}, 'Product version'), el('dd', {}, p.product_version_id || '—'),
-            el('dt', {}, 'Insured ID'), el('dd', {}, p.insured_id || '—')))
-      )
-    ));
+            el('dt', {}, 'Product version'), el('dd', {}, p.product_version_id || '—'))))));
 }
 
-async function startLifecycleTxn(policy, flow) {
-  const names = {
-    Endorsement: 'endorsement request',
-    Renewal: 'renewal',
-    ManualCancellation: 'cancellation request',
-  };
-  const label = names[flow] || flow;
-  if (!confirm(`Start a new ${label}? A new submission will be created for you to fill in.`)) return;
-  try {
-    const res = await api(`/api/policies/${policy.id}/transactions`, {
-      method: 'POST',
-      body: { flow, effective_date: new Date().toISOString().split('T')[0] },
-    });
-    toast(`${label.charAt(0).toUpperCase() + label.slice(1)} started`, 'ok');
-    state.view = 'submissions'; state.subView = res.submission_id;
-    loadSubmission(res.submission_id);
-  } catch (e) { /* toast shown */ }
-}
-
-// ─────────────────────────────────────────────────────────────
-// Documents
-// ─────────────────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════
+// DOCUMENTS
+// ═════════════════════════════════════════════════════════════════
 function documentsView() {
   return el('div', {},
     el('div', { className: 'page-header' },
@@ -1567,8 +1756,7 @@ function documentsView() {
         ? el('div', { className: 'loading' }, 'Loading documents')
         : state.documents.items.length === 0
           ? el('div', { className: 'empty' },
-            el('h3', {}, 'No documents yet'),
-            el('p', {}, 'Quote letters, binders, and policies appear here as they’re generated.'))
+            el('h3', {}, 'No documents yet'))
           : el('table', {},
             el('thead', {}, el('tr', {},
               el('th', {}, 'Name'),
@@ -1592,16 +1780,14 @@ function documentsView() {
                 }, 'Open'))))))));
 }
 
-// ─────────────────────────────────────────────────────────────
-// New submission
-// ─────────────────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════
+// NEW SUBMISSION
+// ═════════════════════════════════════════════════════════════════
 function newSubmissionView() {
   const form = {
     effective_date: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
-    product_version_id: 301,
     creating: false,
   };
-
   const container = el('div', {});
   const rerender = () => {
     container.innerHTML = '';
@@ -1610,71 +1796,47 @@ function newSubmissionView() {
         el('div', {},
           el('div', { className: 'eyebrow' }, 'New submission'),
           el('h1', {}, 'Start a new risk')),
-        el('button', {
-          className: 'btn btn-secondary',
-          onClick: () => { state.view = 'dashboard'; render(); loadView(); }
-        }, '← Back')));
+        el('button', { className: 'btn btn-secondary',
+          onClick: () => { state.view = 'dashboard'; render(); loadView(); } }, '← Back')));
 
     container.appendChild(
       el('div', { className: 'card' },
         el('p', { className: 'subtle' },
-          'Create a new submission record. Insured and coverage details are filled in on the next screen.'),
-
+          'Create a new submission. Insured and coverage details are filled in on the next screen using the product’s current schema.'),
         el('div', { className: 'form-grid', style: { marginTop: '24px' } },
-          el('div', { className: 'field' },
+          el('div', { className: 'form-field' },
             el('label', {}, 'Requested effective date'),
-            el('input', {
-              type: 'date', value: form.effective_date,
-              onInput: (e) => { form.effective_date = e.target.value; }
-            })),
-          el('div', { className: 'field' },
+            el('input', { type: 'date', value: form.effective_date,
+              onInput: (e) => { form.effective_date = e.target.value; } })),
+          el('div', { className: 'form-field' },
             el('label', {}, 'Product'),
-            el('input', {
-              type: 'text', disabled: true,
-              value: 'Altruis Commercial Package Policy (v59)',
-              style: { background: 'var(--paper-warm)', color: 'var(--ink-mute)' }
-            }),
-            el('div', { className: 'help' },
-              'Product is selected automatically based on effective date'))),
-
-        el('div', {
-          style: { marginTop: '28px', display: 'flex', justifyContent: 'flex-end', gap: '12px' }
-        },
-          el('button', {
-            className: 'btn btn-secondary',
-            onClick: () => { state.view = 'dashboard'; render(); loadView(); }
-          }, 'Cancel'),
-          el('button', {
-            className: 'btn btn-primary', disabled: form.creating,
+            el('div', { className: 'readonly-value' },
+              'Altruis Commercial Package Policy (auto-selected)'))),
+        el('div', { style: { marginTop: '28px', display: 'flex', justifyContent: 'flex-end', gap: '12px' } },
+          el('button', { className: 'btn btn-secondary',
+            onClick: () => { state.view = 'dashboard'; render(); loadView(); } }, 'Cancel'),
+          el('button', { className: 'btn btn-primary', disabled: form.creating,
             onClick: async () => {
               form.creating = true; rerender();
               try {
                 const res = await api('/api/submissions/start', {
                   method: 'POST',
-                  body: {
-                    product_version_id: form.product_version_id,
-                    effective_date: form.effective_date,
-                  }
+                  body: { effective_date: form.effective_date }
                 });
                 toast('Submission created', 'ok');
-                state.view = 'submissions';
-                state.subView = res.submission_id;
+                state.view = 'submissions'; state.subView = res.submission_id;
                 loadSubmission(res.submission_id);
-              } catch (e) {
-                form.creating = false; rerender();
-              }
+              } catch (e) { form.creating = false; rerender(); }
             }
-          }, form.creating ? 'Creating' : 'Create submission'))
-      )
-    );
+          }, form.creating ? 'Creating' : 'Create submission'))));
   };
   rerender();
   return container;
 }
 
-// ─────────────────────────────────────────────────────────────
-// Boot
-// ─────────────────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════
+// BOOT
+// ═════════════════════════════════════════════════════════════════
 async function boot() {
   try {
     const [cfg, me] = await Promise.all([
@@ -1682,12 +1844,8 @@ async function boot() {
       api('/api/auth/me', { silent: true }).catch(() => ({ authenticated: false })),
     ]);
     state.env = cfg.environment;
-    if (me.authenticated) {
-      state.user = me.user;
-    }
-  } catch (e) {
-    console.error('Boot failed', e);
-  }
+    if (me.authenticated) state.user = me.user;
+  } catch (e) { console.error('Boot failed', e); }
   render();
   if (state.user) loadView();
 }

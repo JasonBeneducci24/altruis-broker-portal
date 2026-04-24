@@ -78,14 +78,23 @@ class _MockAsyncClient:
     async def get(self, url, params=None, headers=None):
         req = _Request("GET", url, params, headers)
         self.captured_requests.append(req)
-        # Return a minimal paginated success response
         return _Response(
             200,
             json_data={
                 "page": 1, "per_page": 25, "total_items": 0, "total_pages": 0,
-                "items": [],
+                "items": [], "id": 42, "status": "Submitted",
             },
         )
+
+    async def put(self, url, params=None, headers=None, json=None):
+        req = _Request("PUT", url, params, headers, content=json)
+        self.captured_requests.append(req)
+        return _Response(200, json_data={"ok": True})
+
+    async def post(self, url, params=None, headers=None, json=None):
+        req = _Request("POST", url, params, headers, content=json)
+        self.captured_requests.append(req)
+        return _Response(200, json_data={"ok": True})
 
     async def aclose(self):
         pass
@@ -300,24 +309,51 @@ async def test_pagination_params_underscore_prefixed():
           f"_per_page=50 (got {req.url.params.get('_per_page')})")
 
 
-async def test_all_writes_raise_not_ready():
-    print("\n[7] All write methods raise HttpClientNotReadyError")
+async def test_locked_writes_raise_not_ready():
+    print("\n[7] Writes NOT yet enabled still raise HttpClientNotReadyError")
     client = HttpJoshuClient()
 
-    writes = [
+    # These three remain locked for phase 2 (edit workflow)
+    locked = [
         ("create_policy", lambda c: c.create_policy("t")),
         ("create_transaction", lambda c: c.create_transaction("t", flow="New", policy_id="x")),
-        ("update_submission_data", lambda c: c.update_submission_data("t", 1, {})),
-        ("submit_submission", lambda c: c.submit_submission("t", 1)),
         ("update_quote_status", lambda c: c.update_quote_status("t", 1, "QuotePublished")),
     ]
-    for name, op in writes:
+    for name, op in locked:
         raised = False
         try:
             await op(client)
         except HttpClientNotReadyError:
             raised = True
         check(raised, f"{name} raised HttpClientNotReadyError")
+
+
+async def test_enabled_writes_force_container_test():
+    """Newly enabled writes (phase 2) still inject ?container=Test."""
+    print("\n[7b] Enabled writes inject container=Test (verification after write unlock)")
+    client = HttpJoshuClient()
+
+    # update_submission_data
+    await client.update_submission_data("tok", 42, {"insured.name": "Test LLC"})
+    req = [r for r in client._client.captured_requests if r.method == "PUT"][0]
+    check(req.url.params.get("container") == "Test",
+          f"PUT /submission-data/{{id}} has ?container=Test (got {req.url.params.get('container')!r})")
+    check("submission-data/42" in req.url.path,
+          f"PUT path is /submission-data/42 (got {req.url.path})")
+
+    # submit_submission
+    client2 = HttpJoshuClient()
+    await client2.submit_submission("tok", 42)
+    req2 = [r for r in client2._client.captured_requests if r.method == "PUT"][0]
+    check(req2.url.params.get("container") == "Test",
+          f"PUT /submissions/{{id}} has ?container=Test")
+
+    # reopen_submission
+    client3 = HttpJoshuClient()
+    await client3.reopen_submission("tok", 42)
+    req3 = [r for r in client3._client.captured_requests if r.method == "PUT"][0]
+    check(req3.url.params.get("container") == "Test",
+          f"reopen_submission PUT has ?container=Test")
 
 
 async def test_api_prefix_correct():
@@ -360,7 +396,8 @@ async def run_all():
     await test_api_token_sentinel_uses_token_auth()
     await test_real_bearer_token_uses_bearer_auth()
     await test_pagination_params_underscore_prefixed()
-    await test_all_writes_raise_not_ready()
+    await test_locked_writes_raise_not_ready()
+    await test_enabled_writes_force_container_test()
     await test_api_prefix_correct()
     await test_production_env_requires_override()
 

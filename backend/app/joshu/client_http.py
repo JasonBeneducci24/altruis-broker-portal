@@ -51,21 +51,39 @@ from app.joshu.schemas import (
 
 log = logging.getLogger("altruis.joshu.http")
 
-# Writes remain locked until reads are verified and this is explicitly flipped.
-_WRITES_ENABLED = False
+# ─────────────────────────────────────────────────────────────
+# Per-operation write flags
+# ─────────────────────────────────────────────────────────────
+# Writes are unlocked individually, not all at once. Each flag gates ONE
+# Joshu-mutating operation. When disabled (False), that method raises
+# HttpClientNotReadyError. This lets us turn on writes progressively as
+# they're verified against real Joshu behavior.
+#
+# PHASE 1 (read-only): all False
+# PHASE 2 (edit workflow): _UPDATE_SUBMISSION_DATA, _UPDATE_SUBMISSION enabled
+#   — lets brokers fill in, save, and submit/resubmit drafts
+# PHASE 3 (full lifecycle): all enabled
+#
+# We're in PHASE 2 now. Production gate still applies regardless.
+
+_ENABLE_UPDATE_SUBMISSION_DATA = True   # PUT /submission-data/{id}
+_ENABLE_UPDATE_SUBMISSION = True        # PUT /submissions/{id} (status change)
+_ENABLE_CREATE_POLICY = False           # POST /policies
+_ENABLE_CREATE_TRANSACTION = False      # POST /transactions
+_ENABLE_UPDATE_QUOTE = False            # PUT /quotes/{id} (publish/bind)
 
 
 class HttpClientNotReadyError(RuntimeError):
-    """Raised when a disabled (write) method is called."""
+    """Raised when a disabled write method is called."""
 
 
 def _not_ready(operation: str) -> HttpClientNotReadyError:
     return HttpClientNotReadyError(
         f"HttpJoshuClient.{operation}() is not yet enabled.\n"
-        f"  _WRITES_ENABLED={_WRITES_ENABLED}\n"
+        f"  Per-operation write flag is False.\n"
         f"  JOSHU_ENVIRONMENT='{settings.joshu_environment}'\n"
-        "  Writes remain disabled until reads are verified and writes are\n"
-        "  explicitly enabled in client_http.py."
+        "  To enable, flip the corresponding _ENABLE_* constant in client_http.py\n"
+        "  and verify behavior against the Joshu test container."
     )
 
 
@@ -119,13 +137,16 @@ def _extract_simple_value(wrapped: Any) -> Any:
         return None
     if not isinstance(wrapped, dict):
         return wrapped
-    # Unwrap the version tag ("V0", "V1", etc.) — take the first/only key
-    for version_key in ("V1", "V0"):
+    # Unwrap the version/wrapper tag — Joshu uses "Plain" for the current
+    # version of data responses; "V0"/"V1" are documented in the spec for
+    # legacy compatibility. Accept any of these.
+    inner = None
+    for version_key in ("Plain", "V1", "V0"):
         if version_key in wrapped:
             inner = wrapped[version_key]
             break
-    else:
-        # Unknown shape — take first key if there's only one
+    if inner is None:
+        # Unknown wrapper — take first key if there's only one
         if len(wrapped) == 1:
             inner = next(iter(wrapped.values()))
         else:
@@ -152,6 +173,293 @@ def _extract_simple_value(wrapped: Any) -> Any:
         return [_extract_simple_value(v) for v in arr] if isinstance(arr, list) else arr
     # Unknown type — return as-is
     return inner
+
+
+def _wrap_value_for_put(value: Any, type_hint: str | None = None) -> dict[str, Any]:
+    """Inverse of _extract_simple_value — wrap a Python value into Joshu's
+    Plain/{TypeTag: value} shape for PUT requests.
+
+    The shape Joshu expects for PUT /submission-data/{id}::
+
+        {"data": [
+          {"code": "insured.name", "value": {"Plain": {"Text": "Acme LLC"}}},
+          {"code": "app.aop_deductible", "value": {"Plain": {"Number": "5000"}}},
+          {"code": "app.cyber_status", "value": {"Plain": {"Boolean": true}}},
+          {"code": "app.effective_date", "value": {"Plain": {"Date": "2026-06-01"}}},
+        ]}
+
+    type_hint lets callers force a specific tag ("Text", "Number", etc.) —
+    without it we infer from the Python type.
+    """
+    if value is None:
+        return {"Plain": {"Null": {}}}
+    if type_hint:
+        tag = type_hint
+    elif isinstance(value, bool):
+        tag = "Boolean"
+    elif isinstance(value, (int, float)):
+        tag = "Number"
+    elif isinstance(value, str):
+        # Heuristic: ISO date → Date, else Text
+        if len(value) == 10 and value[4] == "-" and value[7] == "-":
+            tag = "Date"
+        else:
+            tag = "Text"
+    elif isinstance(value, dict):
+        # Monetary and Location pass through as their own tag — caller provides shape
+        if "currency" in value and "amount" in value:
+            tag = "Monetary"
+        elif any(k in value for k in ("formatted_address", "NamedParsedAddress", "ParsedGoogleAddress")):
+            tag = "Location"
+        else:
+            # Unknown dict; try as Text-encoded JSON fallback
+            import json as _json
+            return {"Plain": {"Text": _json.dumps(value)}}
+    elif isinstance(value, list):
+        return {"Plain": {"Array": [_wrap_value_for_put(v).get("Plain", {}) for v in value]}}
+    else:
+        return {"Plain": {"Text": str(value)}}
+
+    # Numeric values must be sent as strings per the Joshu schema
+    if tag == "Number" and not isinstance(value, str):
+        value = str(value)
+    return {"Plain": {tag: value}}
+
+
+def _encode_data_payload(code_values: dict[str, Any]) -> dict[str, Any]:
+    """Turn {code: value} into the body Joshu's PUT /submission-data expects."""
+    entries = []
+    for code, val in code_values.items():
+        if code.startswith("_"):  # skip internal keys like _raw
+            continue
+        entries.append({"code": code, "value": _wrap_value_for_put(val)})
+    return {"data": entries}
+
+
+# ─────────────────────────────────────────────────────────────
+# Schema normalization for /submission-status
+# ─────────────────────────────────────────────────────────────
+
+def _humanize_code(code: str) -> str:
+    """Turn 'insured.split_address.zipcode' → 'Zipcode' and 'app.aop_deductible' → 'AOP Deductible'."""
+    if not code:
+        return code
+    # Take last segment after the last dot
+    last = code.rsplit(".", 1)[-1]
+    # Split on underscores, handle common abbreviations
+    parts = last.split("_")
+    abbreviations = {"aop", "gl", "ui", "tria", "epli", "id", "us", "eb", "dba"}
+    out = []
+    for p in parts:
+        if p.lower() in abbreviations:
+            out.append(p.upper())
+        else:
+            out.append(p.capitalize())
+    return " ".join(out)
+
+
+def _section_from_code(code: str) -> str:
+    """Return the first path segment — e.g. 'insured' / 'app' / 'data'."""
+    return code.split(".", 1)[0] if "." in code else "other"
+
+
+def _parse_field_type(kind: Any) -> dict[str, Any]:
+    """Extract type info from Joshu's tagged type kind.
+
+    Joshu shape:  {"Boolean": {}}
+                  {"Text": {"format": "EmailAddress", "options": [...]}}
+                  {"Number": {"format": {...}, "options": [...]}}
+                  {"Monetary": {"format": {...}}}
+                  {"Date": {"format": "MonthDayYear"}}
+                  {"DateTime": {"date_format": "..."}}
+                  {"Location": {}}
+                  {"File": {...}}
+                  {"User": {}}
+                  {"Array": {"type": {...inner type...}}}
+    """
+    if not isinstance(kind, dict):
+        return {"type": "unknown"}
+
+    if "Boolean" in kind:
+        return {"type": "boolean"}
+
+    if "Text" in kind:
+        details = kind.get("Text") or {}
+        options = details.get("options") or []
+        out = {
+            "type": "text",
+            "format": details.get("format"),  # EmailAddress / PhoneNumber / WebsiteAddress
+            "default": details.get("default", {}).get("value") if details.get("default") else None,
+        }
+        if options:
+            out["options"] = [
+                {"value": o.get("value"), "label": o.get("display") or o.get("value")}
+                for o in options
+            ]
+        return out
+
+    if "Number" in kind:
+        details = kind.get("Number") or {}
+        options = details.get("options") or []
+        fmt = details.get("format") or {}
+        out = {
+            "type": "number",
+            "decimal_places": fmt.get("decimal_places", 0),
+            "default": details.get("default", {}).get("value") if details.get("default") else None,
+        }
+        if options:
+            out["options"] = [
+                {"value": o.get("value"), "label": o.get("display") or o.get("value")}
+                for o in options
+            ]
+        return out
+
+    if "Monetary" in kind:
+        details = kind.get("Monetary") or {}
+        options = details.get("options") or []
+        out = {
+            "type": "monetary",
+            "default": details.get("default", {}).get("value") if details.get("default") else None,
+        }
+        if options:
+            out["options"] = [
+                {"value": o.get("value"), "label": o.get("display") or o.get("value")}
+                for o in options
+            ]
+        return out
+
+    if "Date" in kind:
+        return {"type": "date", "format": (kind.get("Date") or {}).get("format", "MonthDayYear")}
+
+    if "DateTime" in kind:
+        return {"type": "datetime", "format": (kind.get("DateTime") or {}).get("date_format", "MonthDayYear")}
+
+    if "Location" in kind:
+        return {"type": "location"}
+
+    if "File" in kind:
+        return {"type": "file"}
+
+    if "User" in kind:
+        return {"type": "user"}
+
+    if "Array" in kind:
+        inner = kind.get("Array", {}).get("type")
+        inner_parsed = _parse_field_type(inner) if inner else {"type": "unknown"}
+        return {"type": "array", "item": inner_parsed}
+
+    return {"type": "unknown", "raw": kind}
+
+
+def normalize_submission_status(raw: Any, data_values: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Transform Joshu's /submission-status response into a UI-friendly schema.
+
+    Output shape::
+
+        {
+          "fields": [
+            {
+              "code": "insured.name",
+              "label": "Name",
+              "section": "insured",
+              "type": "text",
+              "required": true,
+              "visible": true,
+              "exists": true,
+              "value": "Acme LLC",
+              "options": null | [{value, label}],
+              "format": null | "EmailAddress",
+              "validation_error": null | "Wrong value type: expected Text",
+              ...
+            },
+            ...
+          ],
+          "sections": ["insured", "app", "data", ...],
+          "has_errors": bool,
+          "raw": <original response>,
+        }
+
+    ``data_values`` is the already-flattened result of ``get_submission_data``
+    — we merge the current value into each field so the UI can render it.
+    """
+    if not isinstance(raw, dict):
+        return {"fields": [], "sections": [], "has_errors": False, "raw": raw}
+
+    data_values = data_values or {}
+
+    # Joshu's response has a top-level `datapoints` array (global) and also
+    # section-specific ones. We use the global `datapoints` array — if
+    # missing, scan sections for theirs.
+    datapoints = raw.get("datapoints")
+    if not isinstance(datapoints, list):
+        # Fallback: collect datapoints from each section
+        datapoints = []
+        for k, v in raw.items():
+            if isinstance(v, dict) and isinstance(v.get("datapoints"), list):
+                datapoints.extend(v["datapoints"])
+
+    fields: list[dict[str, Any]] = []
+    sections_seen: list[str] = []
+    has_errors = False
+
+    for dp in datapoints:
+        if not isinstance(dp, dict):
+            continue
+        code = dp.get("code", "")
+        if not code:
+            continue
+
+        section = _section_from_code(code)
+        if section not in sections_seen:
+            sections_seen.append(section)
+
+        # Validation issue flattening
+        issue = dp.get("validation_issue")
+        validation_error = None
+        if isinstance(issue, dict):
+            kind = issue.get("kind")
+            if isinstance(kind, dict):
+                if "WrongValueType" in kind:
+                    validation_error = "Wrong value type"
+                elif "MissingRelatedDatapointAnswer" in kind:
+                    missing = kind["MissingRelatedDatapointAnswer"].get("missing_datapoints_answers", [])
+                    validation_error = f"Requires: {', '.join(missing)}"
+                elif "IntegrationCallFailed" in kind:
+                    validation_error = kind["IntegrationCallFailed"].get("message", "Integration failed")
+                elif "IntegrationResponseParsingError" in kind:
+                    validation_error = kind["IntegrationResponseParsingError"].get("message", "Integration error")
+                else:
+                    # Unknown issue type — include the key name as the error
+                    validation_error = next(iter(kind.keys()), "Validation issue")
+            has_errors = True
+
+        type_info = _parse_field_type(dp.get("kind"))
+
+        field = {
+            "code": code,
+            "label": _humanize_code(code),
+            "section": section,
+            "type": type_info.get("type"),
+            "required": bool(dp.get("required")),
+            "visible": dp.get("condition_met") is not False,  # True or None → visible
+            "exists": bool(dp.get("exists")),
+            "value": data_values.get(code) if data_values else None,
+            "asset_idx": dp.get("asset_idx", 0),
+            "validation_error": validation_error,
+        }
+
+        # Merge relevant type-specific fields
+        for extra in ("format", "options", "default", "decimal_places", "item"):
+            if extra in type_info:
+                field[extra] = type_info[extra]
+
+        fields.append(field)
+
+    return {
+        "fields": fields,
+        "sections": sections_seen,
+        "has_errors": has_errors,
+    }
 
 
 class HttpJoshuClient(JoshuClientBase):
@@ -184,9 +492,18 @@ class HttpJoshuClient(JoshuClientBase):
             timeout=httpx.Timeout(30.0, connect=5.0),
         )
 
+        enabled_writes = [
+            name for name, flag in [
+                ("update_submission_data", _ENABLE_UPDATE_SUBMISSION_DATA),
+                ("update_submission", _ENABLE_UPDATE_SUBMISSION),
+                ("create_policy", _ENABLE_CREATE_POLICY),
+                ("create_transaction", _ENABLE_CREATE_TRANSACTION),
+                ("update_quote", _ENABLE_UPDATE_QUOTE),
+            ] if flag
+        ]
         log.info(
-            "HttpJoshuClient initialized · base_url=%s · container=%s · writes_enabled=%s",
-            self.base_url, self._container, _WRITES_ENABLED,
+            "HttpJoshuClient initialized · base_url=%s · container=%s · enabled_writes=%s",
+            self.base_url, self._container, enabled_writes or "none",
         )
 
     # ------------------------------------------------------------------
@@ -280,6 +597,50 @@ class HttpJoshuClient(JoshuClientBase):
         self._raise_for_status(resp, "GET", url)
         return resp.content, resp.headers.get("content-type", "application/octet-stream")
 
+    async def _put(
+        self, path: str, *, body: Any, params: dict[str, Any] | None = None,
+        bearer_token: str | None = None,
+    ) -> Any:
+        """Single choke point for PUT requests. Container is still forced."""
+        self._assert_test_mode_for_write()
+        full_params = self._build_params(params)
+        url = f"{self.API_PREFIX}{path}"
+        log.info("PUT %s params=%s", url, full_params)  # info, not debug — writes matter
+        resp = await self._client.put(
+            url, params=full_params,
+            headers=self._headers(bearer_token, with_body=True),
+            json=body,
+        )
+        self._raise_for_status(resp, "PUT", url)
+        if resp.content:
+            try:
+                return resp.json()
+            except Exception:
+                return {"raw": resp.text}
+        return {}
+
+    async def _post(
+        self, path: str, *, body: Any = None, params: dict[str, Any] | None = None,
+        bearer_token: str | None = None,
+    ) -> Any:
+        """Single choke point for POST requests. Container is still forced."""
+        self._assert_test_mode_for_write()
+        full_params = self._build_params(params)
+        url = f"{self.API_PREFIX}{path}"
+        log.info("POST %s params=%s", url, full_params)
+        resp = await self._client.post(
+            url, params=full_params,
+            headers=self._headers(bearer_token, with_body=(body is not None)),
+            json=body if body is not None else None,
+        )
+        self._raise_for_status(resp, "POST", url)
+        if resp.content:
+            try:
+                return resp.json()
+            except Exception:
+                return {"raw": resp.text}
+        return {}
+
     def _raise_for_status(self, resp: httpx.Response, method: str, url: str) -> None:
         """Translate HTTP errors into FastAPI HTTPExceptions."""
         if resp.is_success:
@@ -367,13 +728,72 @@ class HttpJoshuClient(JoshuClientBase):
             return {}
         return _flatten_code_value_array(raw)
 
+    async def get_submission_status(self, token, submission_id: str | int) -> dict[str, Any]:
+        """Fetch submission schema + validation state via /submission-status/{id}.
+
+        Returns Joshu's raw response. Normalization into a flat field list
+        happens in the router (which also merges in the current data values).
+        """
+        try:
+            return await self._get(f"/submission-status/{submission_id}", bearer_token=token)
+        except Exception as e:
+            log.warning("submission-status fetch failed for %s: %s", submission_id, e)
+            return {}
+
     async def update_submission_data(self, token, submission_id, data):
+        """Save submission data via PUT /submission-data/{id}.
+
+        Body shape expected by Joshu::
+          {"data": [{"code": "insured.name", "value": {"Plain": {"Text": "..."}}}]}
+
+        The ``data`` argument is a flat {code: value} dict from the frontend —
+        _encode_data_payload wraps each value into Joshu's Plain-tagged union.
+        """
+        if not _ENABLE_UPDATE_SUBMISSION_DATA:
+            raise _not_ready("update_submission_data")
         self._assert_test_mode_for_write()
-        raise _not_ready("update_submission_data")
+
+        body = _encode_data_payload(data)
+        log.info("Updating submission %s with %d datapoints", submission_id, len(body["data"]))
+        resp = await self._put(
+            f"/submission-data/{submission_id}",
+            body=body, bearer_token=token,
+        )
+        # Re-fetch the merged data so the caller sees the post-save state
+        merged = await self.get_submission_data(token, submission_id)
+        return merged
 
     async def submit_submission(self, token, submission_id) -> Submission:
+        """Move Incomplete → Submitted via PUT /submissions/{id}."""
+        if not _ENABLE_UPDATE_SUBMISSION:
+            raise _not_ready("submit_submission")
         self._assert_test_mode_for_write()
-        raise _not_ready("submit_submission")
+
+        log.info("Submitting submission %s (status → Submitted)", submission_id)
+        await self._put(
+            f"/submissions/{submission_id}",
+            body={"status": "Submitted"},
+            bearer_token=token,
+        )
+        # Re-fetch to return the updated submission record
+        return await self.get_submission(token, submission_id)
+
+    async def reopen_submission(self, token, submission_id) -> Submission:
+        """Move Submitted/Pending → Incomplete via PUT /submissions/{id}.
+
+        Enables the broker's "Edit & Resubmit" workflow.
+        """
+        if not _ENABLE_UPDATE_SUBMISSION:
+            raise _not_ready("reopen_submission")
+        self._assert_test_mode_for_write()
+
+        log.info("Reopening submission %s (status → Incomplete)", submission_id)
+        await self._put(
+            f"/submissions/{submission_id}",
+            body={"status": "Incomplete"},
+            bearer_token=token,
+        )
+        return await self.get_submission(token, submission_id)
 
     # ------------------------------------------------------------------
     # Policies
