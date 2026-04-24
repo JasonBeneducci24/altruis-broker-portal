@@ -1,0 +1,1354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Altruis Broker Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #0a0e1a;
+    --ink-soft: #2a2f3e;
+    --ink-mute: #5b6174;
+    --paper: #faf8f4;
+    --paper-warm: #f4f1ea;
+    --paper-dim: #ece7d9;
+    --line: #d8d2c3;
+    --line-soft: #e9e4d6;
+    --accent: #8b2c2c;
+    --accent-dark: #641f1f;
+    --accent-soft: #f5e8e8;
+    --ok: #2d5f3f;
+    --warn: #8a5a00;
+    --err: #8b2c2c;
+    --shadow-sm: 0 1px 2px rgba(10,14,26,0.04);
+    --shadow-md: 0 2px 8px rgba(10,14,26,0.06), 0 1px 2px rgba(10,14,26,0.04);
+    --shadow-lg: 0 10px 30px rgba(10,14,26,0.08), 0 2px 8px rgba(10,14,26,0.04);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'IBM Plex Sans', -apple-system, sans-serif;
+    font-size: 14px; line-height: 1.5; color: var(--ink);
+    background: var(--paper);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, .serif {
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 500; letter-spacing: -0.01em;
+  }
+  h1 { font-size: 2rem; line-height: 1.1; }
+  h2 { font-size: 1.4rem; }
+  h3 { font-size: 1.1rem; font-weight: 600; }
+  .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+  button { font-family: inherit; font-size: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+  input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ─────────── Environment banner ─────────── */
+  .env-banner {
+    padding: 6px 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem; letter-spacing: 0.2em; text-transform: uppercase;
+    text-align: center; color: #fff;
+  }
+  .env-banner.mock { background: #1e5a36; }
+  .env-banner.test { background: #8a5a00; }
+  .env-banner.production { background: #8b2c2c; }
+
+  /* ─────────── Login screen ─────────── */
+  .login-wrap {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    padding: 24px; background:
+      radial-gradient(circle at 30% 40%, rgba(139,44,44,0.04), transparent 60%),
+      radial-gradient(circle at 70% 70%, rgba(10,14,26,0.03), transparent 60%),
+      var(--paper);
+  }
+  .login-card {
+    max-width: 440px; width: 100%;
+    background: #fff; padding: 44px 40px;
+    border: 1px solid var(--line-soft); border-radius: 2px;
+    box-shadow: var(--shadow-lg);
+    position: relative;
+  }
+  .login-card::before {
+    content: ''; position: absolute; top: 0; left: 0; height: 4px;
+    width: 60px; background: var(--accent);
+  }
+  .login-brand {
+    font-family: 'Fraunces', serif; font-size: 2rem; font-weight: 600;
+    letter-spacing: -0.03em; color: var(--ink); margin-bottom: 4px;
+  }
+  .login-sub {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem;
+    letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-mute);
+    margin-bottom: 36px;
+  }
+  .login-card form { display: flex; flex-direction: column; gap: 16px; }
+  .login-card .field { display: flex; flex-direction: column; gap: 6px; }
+  .login-card label {
+    font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-mute);
+  }
+  .login-card input {
+    padding: 11px 14px; border: 1px solid var(--line);
+    background: var(--paper); border-radius: 2px; font-size: 0.95rem;
+    transition: border-color 120ms, background 120ms;
+  }
+  .login-card input:focus {
+    outline: none; border-color: var(--accent); background: #fff;
+  }
+  .login-card button[type="submit"] {
+    padding: 12px; background: var(--ink); color: #fff;
+    font-weight: 500; letter-spacing: 0.02em; border-radius: 2px;
+    transition: background 120ms; margin-top: 8px;
+  }
+  .login-card button[type="submit"]:hover:not(:disabled) { background: var(--accent); }
+  .login-card button[type="submit"]:disabled { opacity: 0.5; cursor: wait; }
+  .login-err {
+    background: var(--accent-soft); color: var(--accent-dark);
+    padding: 10px 14px; font-size: 0.85rem; border-left: 3px solid var(--accent);
+    margin-top: 8px;
+  }
+  .login-hint {
+    margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--line-soft);
+    font-size: 0.78rem; color: var(--ink-mute); line-height: 1.6;
+  }
+  .login-hint code {
+    font-family: 'IBM Plex Mono', monospace; background: var(--paper-warm);
+    padding: 1px 6px; border-radius: 2px; font-size: 0.82em;
+  }
+
+  /* ─────────── Main layout ─────────── */
+  .app { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+  .sidebar {
+    background: #141821; color: #e8e5dc;
+    padding: 28px 20px; position: sticky; top: 0; height: 100vh;
+    overflow-y: auto; display: flex; flex-direction: column;
+  }
+  .brand {
+    font-family: 'Fraunces', serif; font-size: 1.55rem; font-weight: 600;
+    letter-spacing: -0.02em; color: #fff;
+  }
+  .brand-sub {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem;
+    letter-spacing: 0.18em; text-transform: uppercase; color: #8a8571;
+    margin-bottom: 28px; margin-top: 2px;
+  }
+  .nav-section {
+    font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase;
+    color: #6b6657; padding: 18px 14px 8px;
+  }
+  .nav-item {
+    padding: 10px 14px; border-radius: 3px; color: #c5c1b3;
+    font-weight: 500; font-size: 0.9rem; cursor: pointer;
+    transition: all 120ms; text-align: left; display: flex;
+    align-items: center; gap: 10px; width: 100%;
+  }
+  .nav-item:hover { background: #1d2230; color: #fff; }
+  .nav-item.active {
+    background: var(--accent); color: #fff;
+    box-shadow: inset 2px 0 0 rgba(255,255,255,0.3);
+  }
+  .nav-dot {
+    width: 5px; height: 5px; background: currentColor; border-radius: 50%;
+    opacity: 0.5;
+  }
+  .user-box {
+    margin-top: auto; padding: 16px 14px 4px;
+    border-top: 1px solid #2a2f3e; font-size: 0.82rem;
+  }
+  .user-box .u-name { color: #fff; font-weight: 500; }
+  .user-box .u-meta { color: #8a8571; font-size: 0.75rem; margin-top: 2px; }
+  .user-box button {
+    margin-top: 12px; color: #8a8571; font-size: 0.75rem;
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .user-box button:hover { color: #fff; }
+
+  .main { padding: 36px 48px 60px; max-width: 1400px; }
+  .page-header {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    padding-bottom: 18px; margin-bottom: 28px;
+    border-bottom: 1px solid var(--line);
+    gap: 20px; flex-wrap: wrap;
+  }
+  .page-header .eyebrow {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem;
+    letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-mute);
+    margin-bottom: 6px;
+  }
+
+  /* ─────────── Buttons ─────────── */
+  .btn {
+    padding: 9px 18px; border-radius: 2px; font-weight: 500;
+    font-size: 0.88rem; transition: all 120ms;
+    border: 1px solid transparent; letter-spacing: 0.01em;
+    display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-dark); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-secondary { background: transparent; color: var(--ink); border-color: var(--line); }
+  .btn-secondary:hover { background: var(--paper-warm); border-color: var(--ink-soft); }
+  .btn-ghost { color: var(--accent); padding: 6px 12px; font-size: 0.85rem; }
+  .btn-ghost:hover { background: var(--accent-soft); }
+  .btn-danger { background: transparent; color: var(--err); border: 1px solid var(--err); }
+  .btn-danger:hover { background: var(--accent-soft); }
+
+  /* ─────────── Stats cards ─────────── */
+  .stats {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px;
+    margin-bottom: 32px;
+  }
+  .stat {
+    background: #fff; border: 1px solid var(--line-soft);
+    padding: 20px 22px; border-radius: 2px; position: relative;
+  }
+  .stat::before {
+    content: ''; position: absolute; top: 0; left: 0; width: 3px;
+    height: 100%; background: var(--accent);
+  }
+  .stat-label {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem;
+    letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-mute);
+    margin-bottom: 8px;
+  }
+  .stat-value {
+    font-family: 'Fraunces', serif; font-size: 2rem; font-weight: 500;
+    line-height: 1; color: var(--ink);
+  }
+  .stat-sub { font-size: 0.78rem; color: var(--ink-mute); margin-top: 6px; }
+
+  /* ─────────── Cards / tables ─────────── */
+  .card {
+    background: #fff; border: 1px solid var(--line-soft);
+    border-radius: 2px; padding: 24px 28px; margin-bottom: 20px;
+  }
+  .card h2 { margin-bottom: 4px; }
+  .card .subtle { color: var(--ink-mute); font-size: 0.88rem; margin-bottom: 16px; }
+  .card-head {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 18px; gap: 16px;
+  }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th {
+    text-align: left; font-weight: 600; color: var(--ink-mute);
+    font-size: 0.68rem; letter-spacing: 0.15em; text-transform: uppercase;
+    padding: 10px 14px; border-bottom: 1.5px solid var(--ink-soft);
+    background: var(--paper-warm);
+  }
+  td {
+    padding: 13px 14px; border-bottom: 1px solid var(--line-soft);
+    vertical-align: middle;
+  }
+  tbody tr:hover td { background: var(--paper-warm); }
+  tr.clickable { cursor: pointer; }
+  .num {
+    text-align: right; font-variant-numeric: tabular-nums;
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem;
+  }
+
+  /* ─────────── Badges ─────────── */
+  .badge {
+    display: inline-block; padding: 3px 9px; border-radius: 12px;
+    font-size: 0.7rem; font-weight: 600; letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .badge-incomplete { background: #ececec; color: #555; }
+  .badge-pending, .badge-quotepending, .badge-binderpending, .badge-coveragepending { background: #fff4e0; color: #8a5a00; }
+  .badge-submitted, .badge-quotepublished, .badge-binderpublished { background: #e8f0fc; color: #0b3d91; }
+  .badge-future, .badge-coverageactive, .badge-active, .badge-ready { background: #e3eee8; color: #2d5f3f; }
+  .badge-issued { background: #2d5f3f; color: #fff; }
+  .badge-declined, .badge-quotedeclined, .badge-binderdeclined, .badge-canceled, .badge-error { background: #f5e8e8; color: var(--err); }
+  .badge-expired, .badge-quoteclosed, .badge-blocked, .badge-closed { background: #ececec; color: #666; }
+  .badge-quoteindication, .badge-quotestoreedit { background: #ece7f5; color: #4a3a91; }
+  .badge-processing { background: #fff4e0; color: #8a5a00; }
+
+  /* ─────────── Forms ─────────── */
+  .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 22px; }
+  .form-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .form-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label {
+    font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-mute);
+  }
+  .field input, .field select, .field textarea {
+    padding: 9px 12px; border: 1px solid var(--line);
+    background: #fff; border-radius: 2px; font-size: 0.9rem;
+    transition: border-color 120ms;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    outline: none; border-color: var(--accent);
+  }
+  .field.full { grid-column: 1 / -1; }
+  .field-inline { display: flex; align-items: center; gap: 8px; }
+  .field-inline input[type=checkbox] { width: 16px; height: 16px; }
+
+  /* ─────────── Detail layout ─────────── */
+  .detail-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
+  .kv-list dt {
+    font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-mute); margin-top: 14px; font-weight: 600;
+  }
+  .kv-list dt:first-child { margin-top: 0; }
+  .kv-list dd { font-size: 0.92rem; color: var(--ink); margin-top: 3px; }
+  .kv-list dd.mono { font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; word-break: break-all; }
+
+  /* ─────────── Empty state ─────────── */
+  .empty {
+    padding: 80px 20px; text-align: center; color: var(--ink-mute);
+    background: var(--paper-warm); border: 1px dashed var(--line);
+    border-radius: 2px;
+  }
+  .empty h3 { color: var(--ink); margin-bottom: 8px; }
+
+  /* ─────────── Toast ─────────── */
+  #toast-host {
+    position: fixed; top: 16px; right: 16px; z-index: 1000;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .toast {
+    padding: 12px 18px; border-radius: 2px; font-size: 0.88rem;
+    background: var(--ink); color: #fff; box-shadow: var(--shadow-lg);
+    animation: slidein 200ms ease; min-width: 260px; max-width: 400px;
+    border-left: 3px solid var(--accent);
+  }
+  .toast.ok { border-left-color: var(--ok); }
+  .toast.err { border-left-color: var(--err); }
+  @keyframes slidein { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } }
+
+  /* ─────────── Modal ─────────── */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(10,14,26,0.4); z-index: 100;
+    display: flex; align-items: flex-start; justify-content: center;
+    padding-top: 80px; animation: fadein 150ms ease;
+  }
+  .modal {
+    background: var(--paper); padding: 32px; border-radius: 2px;
+    max-width: 640px; width: 90%; max-height: 85vh; overflow-y: auto;
+    box-shadow: var(--shadow-lg);
+  }
+  @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+
+  /* ─────────── Utilities ─────────── */
+  .loading {
+    display: inline-block; padding: 60px 20px; text-align: center;
+    color: var(--ink-mute); font-size: 0.9rem; width: 100%;
+  }
+  .loading::after {
+    content: '…'; display: inline-block; animation: dots 1.5s infinite;
+  }
+  @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60%, 100% { content: '...'; } }
+  hr { border: none; border-top: 1px solid var(--line-soft); margin: 24px 0; }
+  .pill-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill {
+    padding: 3px 10px; background: var(--paper-warm); border-radius: 12px;
+    font-size: 0.75rem; color: var(--ink-soft);
+  }
+  .warning-box {
+    background: #fff4e0; border-left: 3px solid var(--warn); padding: 12px 16px;
+    font-size: 0.85rem; margin: 16px 0;
+  }
+  .data-editor {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.82rem;
+    line-height: 1.65; border: 1px solid var(--line);
+    background: var(--paper-warm); padding: 14px; border-radius: 2px;
+    min-height: 240px; resize: vertical; width: 100%;
+  }
+  .help { font-size: 0.78rem; color: var(--ink-mute); margin-top: 4px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div id="toast-host"></div>
+
+<script type="module">
+// ─────────────────────────────────────────────────────────────
+// Utilities
+// ─────────────────────────────────────────────────────────────
+const $ = (s) => document.querySelector(s);
+const el = (tag, props = {}, ...children) => {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (v == null || v === false) continue;
+    if (k === 'className') n.className = v;
+    else if (k === 'style') Object.assign(n.style, v);
+    else if (k.startsWith('on') && typeof v === 'function') n.addEventListener(k.slice(2).toLowerCase(), v);
+    else if (k === 'html') n.innerHTML = v;
+    else if (k === 'checked') { if (v) n.setAttribute('checked', ''); }
+    else if (v === true) n.setAttribute(k, '');
+    else n.setAttribute(k, v);
+  }
+  for (const c of children.flat()) {
+    if (c == null || c === false) continue;
+    n.appendChild(c instanceof Node ? c : document.createTextNode(String(c)));
+  }
+  return n;
+};
+const money = (n) => {
+  if (n == null) return '—';
+  const sign = n < 0 ? '(' : '';
+  const endSign = n < 0 ? ')' : '';
+  return sign + Math.abs(n).toLocaleString('en-US', { style: 'currency', currency: 'USD' }) + endSign;
+};
+const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
+const fmtDateTime = (d) => d ? new Date(d).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
+
+function toast(msg, kind = '') {
+  const t = el('div', { className: `toast ${kind}` }, msg);
+  $('#toast-host').appendChild(t);
+  setTimeout(() => {
+    t.style.opacity = '0'; t.style.transition = 'opacity 200ms';
+    setTimeout(() => t.remove(), 200);
+  }, 3800);
+}
+
+async function api(path, opts = {}) {
+  const { method = 'GET', body, silent = false } = opts;
+  const init = { method, credentials: 'include', headers: { 'Content-Type': 'application/json' } };
+  if (body !== undefined) init.body = JSON.stringify(body);
+  const res = await fetch(path, init);
+  if (res.status === 401) {
+    // Kick back to login
+    state.user = null;
+    render();
+    throw new Error('Not authenticated');
+  }
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({ detail: res.statusText }));
+    const msg = errBody.detail || errBody.message || res.statusText;
+    if (!silent) toast('Error: ' + msg, 'err');
+    throw new Error(msg);
+  }
+  const ct = res.headers.get('content-type') || '';
+  return ct.includes('json') ? res.json() : res.blob();
+}
+
+function statusBadge(s) {
+  if (!s) return el('span', { className: 'badge badge-incomplete' }, '—');
+  const normalized = s.toLowerCase();
+  return el('span', { className: `badge badge-${normalized}` }, s);
+}
+
+function showModal(title, content) {
+  const backdrop = el('div', {
+    className: 'modal-backdrop',
+    onClick: (e) => { if (e.target === backdrop) closeModal(); }
+  }, el('div', { className: 'modal' },
+    el('h2', { className: 'serif', style: { marginBottom: '20px' } }, title),
+    content));
+  backdrop.id = 'modal';
+  document.body.appendChild(backdrop);
+}
+function closeModal() { document.getElementById('modal')?.remove(); }
+
+// ─────────────────────────────────────────────────────────────
+// App state
+// ─────────────────────────────────────────────────────────────
+const state = {
+  user: null,
+  env: 'mock',
+  view: 'dashboard',
+  subView: null,
+
+  submissions: { loading: false, items: [], total: 0 },
+  quotes: { loading: false, items: [], total: 0 },
+  policies: { loading: false, items: [], total: 0 },
+  documents: { loading: false, items: [], total: 0 },
+
+  selectedSubmission: null,
+  selectedQuote: null,
+  selectedPolicy: null,
+
+  filter: { mine_only: false, status: null },
+};
+
+function render() {
+  const root = $('#root');
+  root.innerHTML = '';
+  if (!state.user) {
+    root.appendChild(loginView());
+  } else {
+    root.appendChild(appShell());
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Env banner
+// ─────────────────────────────────────────────────────────────
+function envBanner() {
+  const labels = {
+    mock: 'Mock Environment  ·  No data sent to Joshu  ·  All records are in-memory',
+    test: 'Test Environment  ·  Joshu Test Container  ·  Not Production',
+    production: 'Production Environment  ·  LIVE DATA',
+  };
+  return el('div', { className: `env-banner ${state.env}` }, labels[state.env] || state.env);
+}
+
+// ─────────────────────────────────────────────────────────────
+// Login screen
+// ─────────────────────────────────────────────────────────────
+function loginView() {
+  const wrap = el('div', {},
+    envBanner(),
+    el('div', { className: 'login-wrap' }, loginCard()));
+  return wrap;
+}
+
+function loginCard() {
+  const form = { email: '', password: '', loading: false, error: null };
+  const card = el('div', { className: 'login-card' });
+
+  const rerender = () => {
+    card.innerHTML = '';
+    card.appendChild(el('div', { className: 'login-brand' }, 'Altruis'));
+    card.appendChild(el('div', { className: 'login-sub' }, 'Broker Portal'));
+
+    const fEl = el('form', {
+      onSubmit: async (e) => {
+        e.preventDefault();
+        form.loading = true; form.error = null; rerender();
+        try {
+          const res = await api('/api/auth/login', {
+            method: 'POST',
+            body: { email: form.email, password: form.password },
+            silent: true,
+          });
+          state.user = res.user;
+          state.env = res.environment;
+          render();
+        } catch (e) {
+          form.loading = false;
+          form.error = e.message;
+          rerender();
+        }
+      }
+    },
+      el('div', { className: 'field' },
+        el('label', {}, 'Email'),
+        el('input', {
+          type: 'email', required: true, autofocus: true,
+          value: form.email, onInput: (e) => { form.email = e.target.value; },
+        })),
+      el('div', { className: 'field' },
+        el('label', {}, 'Password'),
+        el('input', {
+          type: 'password', required: true,
+          value: form.password, onInput: (e) => { form.password = e.target.value; },
+        })),
+      form.error ? el('div', { className: 'login-err' }, form.error) : null,
+      el('button', { type: 'submit', disabled: form.loading },
+        form.loading ? 'Signing in…' : 'Sign In')
+    );
+    card.appendChild(fEl);
+
+    // Demo credentials hint (mock only)
+    if (state.env === 'mock') {
+      card.appendChild(el('div', { className: 'login-hint' },
+        el('strong', {}, 'Demo accounts (mock environment)'),
+        el('div', { style: { marginTop: '6px' } },
+          'Sign in with ', el('code', {}, 'jane.broker@acmesurplus.com'),
+          ' · ', el('code', {}, 'marcus.ortiz@acmesurplus.com'),
+          ' · ', el('code', {}, 'admin@acmesurplus.com')),
+        el('div', { style: { marginTop: '4px' } }, 'Any password works in mock mode.')
+      ));
+    }
+    // Restore focus after rerender
+    setTimeout(() => {
+      const first = card.querySelector('input');
+      if (first && !form.loading) first.focus();
+    }, 0);
+  };
+
+  rerender();
+  return card;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Main app shell
+// ─────────────────────────────────────────────────────────────
+function appShell() {
+  return el('div', {},
+    envBanner(),
+    el('div', { className: 'app' },
+      sidebar(),
+      el('main', { className: 'main' }, viewRouter())
+    ));
+}
+
+function navItem(key, label) {
+  return el('button', {
+    className: `nav-item ${state.view === key ? 'active' : ''}`,
+    onClick: () => {
+      state.view = key; state.subView = null; render();
+      loadView();
+    },
+  }, el('span', { className: 'nav-dot' }), label);
+}
+
+function sidebar() {
+  return el('aside', { className: 'sidebar' },
+    el('div', { className: 'brand' }, 'Altruis'),
+    el('div', { className: 'brand-sub' }, 'Broker Portal'),
+
+    el('div', { className: 'nav-section' }, 'Pipeline'),
+    navItem('dashboard', 'Dashboard'),
+    navItem('submissions', 'Submissions'),
+    navItem('quotes', 'Quotes'),
+    navItem('policies', 'Policies'),
+
+    el('div', { className: 'nav-section' }, 'Library'),
+    navItem('documents', 'Documents'),
+
+    el('div', { className: 'nav-section' }, 'Actions'),
+    navItem('new-submission', 'New Submission'),
+
+    el('div', { className: 'user-box' },
+      el('div', { className: 'u-name' }, state.user.name || state.user.email),
+      el('div', { className: 'u-meta' }, state.user.store_name || 'Independent'),
+      el('div', { className: 'u-meta' }, state.user.role || 'Broker'),
+      el('button', {
+        onClick: async () => {
+          await api('/api/auth/logout', { method: 'POST', silent: true });
+          state.user = null; render();
+        }
+      }, 'Sign Out')
+    )
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// View router
+// ─────────────────────────────────────────────────────────────
+function viewRouter() {
+  switch (state.view) {
+    case 'dashboard': return dashboardView();
+    case 'submissions': return state.subView ? submissionDetailView() : submissionsListView();
+    case 'quotes': return state.subView ? quoteDetailView() : quotesListView();
+    case 'policies': return state.subView ? policyDetailView() : policiesListView();
+    case 'documents': return documentsView();
+    case 'new-submission': return newSubmissionView();
+    default: return dashboardView();
+  }
+}
+
+async function loadView() {
+  try {
+    if (state.view === 'submissions' && !state.subView) {
+      state.submissions.loading = true; render();
+      const res = await api(`/api/submissions?mine_only=${state.filter.mine_only}`);
+      state.submissions = { loading: false, items: res.items, total: res.total_items };
+      render();
+    } else if (state.view === 'quotes' && !state.subView) {
+      state.quotes.loading = true; render();
+      const res = await api('/api/quotes');
+      state.quotes = { loading: false, items: res.items, total: res.total_items };
+      render();
+    } else if (state.view === 'policies' && !state.subView) {
+      state.policies.loading = true; render();
+      const res = await api('/api/policies');
+      state.policies = { loading: false, items: res.items, total: res.total_items };
+      render();
+    } else if (state.view === 'documents') {
+      state.documents.loading = true; render();
+      const res = await api('/api/documents');
+      state.documents = { loading: false, items: res.items, total: res.total_items };
+      render();
+    } else if (state.view === 'dashboard') {
+      // Load counts for dashboard cards
+      const [subs, quotes, pols, docs] = await Promise.all([
+        api('/api/submissions?per_page=5'),
+        api('/api/quotes?per_page=5'),
+        api('/api/policies?per_page=5'),
+        api('/api/documents?per_page=5'),
+      ]);
+      state.submissions = { loading: false, items: subs.items, total: subs.total_items };
+      state.quotes = { loading: false, items: quotes.items, total: quotes.total_items };
+      state.policies = { loading: false, items: pols.items, total: pols.total_items };
+      state.documents = { loading: false, items: docs.items, total: docs.total_items };
+      render();
+    }
+  } catch (e) { /* toast already shown by api() */ }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Dashboard
+// ─────────────────────────────────────────────────────────────
+function dashboardView() {
+  const recent = (state.submissions.items || []).slice(0, 8);
+
+  return el('div', {},
+    pageHeader('Dashboard', 'Your agency’s in-flight business',
+      el('button', {
+        className: 'btn btn-primary',
+        onClick: () => { state.view = 'new-submission'; render(); }
+      }, 'New Submission')),
+
+    el('div', { className: 'stats' },
+      statCard('Submissions', state.submissions.total, 'Across your agency'),
+      statCard('Open Quotes', state.quotes.total, 'Awaiting action'),
+      statCard('Policies In Force', state.policies.total, 'Currently bound'),
+      statCard('Documents', state.documents.total, 'Library'),
+    ),
+
+    el('div', { className: 'card' },
+      el('div', { className: 'card-head' },
+        el('div', {},
+          el('h2', { className: 'serif' }, 'Recent Submissions'),
+          el('div', { className: 'subtle' }, 'Latest activity from your agency')),
+        el('button', {
+          className: 'btn btn-ghost',
+          onClick: () => { state.view = 'submissions'; render(); loadView(); }
+        }, 'View all →')),
+      recent.length === 0
+        ? el('div', { className: 'empty' },
+          el('h3', {}, 'Nothing yet'),
+          el('p', {}, 'Create a submission to begin.'))
+        : submissionsTable(recent)
+    )
+  );
+}
+
+function statCard(label, value, sub) {
+  return el('div', { className: 'stat' },
+    el('div', { className: 'stat-label' }, label),
+    el('div', { className: 'stat-value' }, value?.toLocaleString?.() ?? value ?? '0'),
+    el('div', { className: 'stat-sub' }, sub));
+}
+
+function pageHeader(title, eyebrow, action) {
+  return el('div', { className: 'page-header' },
+    el('div', {},
+      eyebrow ? el('div', { className: 'eyebrow' }, eyebrow) : null,
+      el('h1', { className: 'serif' }, title)),
+    action || null);
+}
+
+// ─────────────────────────────────────────────────────────────
+// Submissions
+// ─────────────────────────────────────────────────────────────
+function submissionsListView() {
+  return el('div', {},
+    pageHeader('Submissions', 'All submissions in your agency',
+      el('div', { style: { display: 'flex', gap: '10px', alignItems: 'center' } },
+        el('label', {
+          className: 'field-inline', style: { color: 'var(--ink-mute)', fontSize: '0.85rem' }
+        },
+          el('input', {
+            type: 'checkbox', checked: state.filter.mine_only,
+            onChange: (e) => { state.filter.mine_only = e.target.checked; loadView(); }
+          }),
+          'Mine only'),
+        el('button', {
+          className: 'btn btn-primary',
+          onClick: () => { state.view = 'new-submission'; render(); }
+        }, 'New Submission'))),
+
+    el('div', { className: 'card' },
+      state.submissions.loading
+        ? el('div', { className: 'loading' }, 'Loading')
+        : state.submissions.items.length === 0
+          ? el('div', { className: 'empty' },
+            el('h3', {}, 'No submissions'),
+            el('p', {}, 'Click New Submission to begin.'))
+          : submissionsTable(state.submissions.items)));
+}
+
+function submissionsTable(items) {
+  return el('table', {},
+    el('thead', {}, el('tr', {},
+      el('th', {}, 'Insured'),
+      el('th', {}, 'Submission'),
+      el('th', {}, 'Flow'),
+      el('th', {}, 'Effective'),
+      el('th', {}, 'Status'),
+      el('th', {}, 'Updated'))),
+    el('tbody', {}, ...items.map(s => el('tr', {
+      className: 'clickable',
+      onClick: () => {
+        state.subView = s.id;
+        loadSubmission(s.id);
+      }
+    },
+      el('td', {},
+        el('div', { style: { fontWeight: 500 } },
+          s.data?.['insured.name'] || s.insured_name || '—'),
+        el('div', { style: { fontSize: '0.78rem', color: 'var(--ink-mute)' } },
+          [s.data?.['insured.split_address.city'], s.data?.['insured.split_address.state']]
+            .filter(Boolean).join(', ') || '—')),
+      el('td', { className: 'mono', style: { fontSize: '0.82rem' } }, `#${s.id}`),
+      el('td', {}, s.flow || 'New'),
+      el('td', {}, fmtDate(s.effective_at)),
+      el('td', {}, statusBadge(s.status)),
+      el('td', { style: { fontSize: '0.85rem', color: 'var(--ink-mute)' } },
+        fmtDateTime(s.modified_at || s.created_at)),
+    ))));
+}
+
+async function loadSubmission(id) {
+  state.selectedSubmission = null;
+  render();
+  try {
+    const [sub, quotes] = await Promise.all([
+      api(`/api/submissions/${id}`),
+      api(`/api/quotes?submission_id=${id}`),
+    ]);
+    state.selectedSubmission = { ...sub, quotes: quotes.items || [] };
+    render();
+  } catch (e) { /* toast shown */ }
+}
+
+function submissionDetailView() {
+  const s = state.selectedSubmission;
+  if (!s) return el('div', { className: 'loading' }, 'Loading');
+
+  const data = s.data || {};
+  const canEdit = s.status === 'Incomplete';
+  const canSubmit = s.status === 'Incomplete';
+
+  return el('div', {},
+    pageHeader(
+      data['insured.name'] || 'Submission ' + s.id,
+      `Submission  ·  #${s.id}  ·  ${s.flow || 'New'}`,
+      el('div', { style: { display: 'flex', gap: '8px' } },
+        el('button', {
+          className: 'btn btn-secondary',
+          onClick: () => { state.subView = null; render(); loadView(); }
+        }, '← Back'),
+        canEdit ? el('button', {
+          className: 'btn btn-secondary',
+          onClick: () => openEditDataModal(s)
+        }, 'Edit Data') : null,
+        canSubmit ? el('button', {
+          className: 'btn btn-primary',
+          onClick: () => submitSubmission(s.id)
+        }, 'Submit for Quote') : null)),
+
+    el('div', { className: 'detail-grid' },
+      el('div', {},
+        el('div', { className: 'card' },
+          el('h2', { className: 'serif' }, 'Submission Data'),
+          Object.keys(data).length === 0
+            ? el('div', { className: 'empty' },
+              el('p', {}, 'No data yet. Click Edit Data to populate.'))
+            : el('dl', { className: 'kv-list' },
+              ...Object.entries(data).map(([k, v]) => [
+                el('dt', {}, k),
+                el('dd', {}, typeof v === 'object' ? JSON.stringify(v) : String(v))
+              ]).flat())),
+
+        s.quotes && s.quotes.length > 0 ? el('div', { className: 'card' },
+          el('h2', { className: 'serif' }, 'Quotes'),
+          el('div', { className: 'subtle' }, `${s.quotes.length} quote version(s)`),
+          el('table', {},
+            el('thead', {}, el('tr', {},
+              el('th', {}, 'Quote'),
+              el('th', {}, 'Status'),
+              el('th', { className: 'num' }, 'Total Premium'),
+              el('th', { className: 'num' }, 'Total Invoice'),
+              el('th', {}, 'Created'))),
+            el('tbody', {}, ...s.quotes.map(q => el('tr', {
+              className: 'clickable',
+              onClick: () => {
+                state.view = 'quotes'; state.subView = q.id;
+                loadQuote(q.id);
+              }
+            },
+              el('td', { className: 'mono', style: { fontSize: '0.82rem' } }, `#${q.id}`),
+              el('td', {}, statusBadge(q.status)),
+              el('td', { className: 'num' }, money(q.data?.total_premium)),
+              el('td', { className: 'num' }, money(q.data?.total_invoice)),
+              el('td', { style: { fontSize: '0.85rem', color: 'var(--ink-mute)' } },
+                fmtDateTime(q.created_at))))))) : null
+      ),
+
+      el('div', {},
+        el('div', { className: 'card' },
+          el('h3', {}, 'Details'),
+          el('dl', { className: 'kv-list', style: { marginTop: '12px' } },
+            el('dt', {}, 'Status'), el('dd', {}, statusBadge(s.status)),
+            el('dt', {}, 'Flow'), el('dd', {}, s.flow),
+            el('dt', {}, 'Effective Date'), el('dd', {}, fmtDate(s.effective_at)),
+            el('dt', {}, 'Created'), el('dd', {}, fmtDateTime(s.created_at)),
+            el('dt', {}, 'Submitted'), el('dd', {}, fmtDateTime(s.submitted_at)),
+            el('dt', {}, 'Product Version'), el('dd', {}, s.product_version_id),
+            s.policy_id ? [
+              el('dt', {}, 'Policy'),
+              el('dd', { className: 'mono' }, s.policy_id)
+            ] : null,
+            el('dt', {}, 'Test Flag'), el('dd', {}, s.test ? 'Yes' : 'No')))
+      )
+    ));
+}
+
+function openEditDataModal(sub) {
+  const form = { data_raw: JSON.stringify(sub.data || {}, null, 2) };
+  showModal('Edit Submission Data', el('div', {},
+    el('p', { className: 'subtle', style: { marginBottom: '12px' } },
+      'JSON-formatted submission data. Keys follow the Joshu schema ',
+      el('code', {}, 'insured.*, app.*, data.*')),
+    el('textarea', {
+      className: 'data-editor', rows: '16',
+      value: form.data_raw,
+      onInput: (e) => { form.data_raw = e.target.value; }
+    }),
+    el('div', { style: { marginTop: '16px', display: 'flex', gap: '8px', justifyContent: 'flex-end' } },
+      el('button', { className: 'btn btn-secondary', onClick: closeModal }, 'Cancel'),
+      el('button', {
+        className: 'btn btn-primary',
+        onClick: async () => {
+          try {
+            const parsed = JSON.parse(form.data_raw);
+            await api(`/api/submissions/${sub.id}/data`, { method: 'PUT', body: parsed });
+            toast('Data saved', 'ok');
+            closeModal();
+            loadSubmission(sub.id);
+          } catch (e) {
+            toast('Invalid JSON: ' + e.message, 'err');
+          }
+        }
+      }, 'Save Data'))));
+}
+
+async function submitSubmission(id) {
+  try {
+    await api(`/api/submissions/${id}/submit`, { method: 'POST' });
+    toast('Submission submitted — rating initiated', 'ok');
+    loadSubmission(id);
+  } catch (e) { /* toast shown */ }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Quotes
+// ─────────────────────────────────────────────────────────────
+function quotesListView() {
+  return el('div', {},
+    pageHeader('Quotes', 'All quotes across your agency'),
+    el('div', { className: 'card' },
+      state.quotes.loading
+        ? el('div', { className: 'loading' }, 'Loading')
+        : state.quotes.items.length === 0
+          ? el('div', { className: 'empty' },
+            el('h3', {}, 'No quotes yet'))
+          : el('table', {},
+            el('thead', {}, el('tr', {},
+              el('th', {}, 'Quote'),
+              el('th', {}, 'Submission'),
+              el('th', {}, 'Status'),
+              el('th', { className: 'num' }, 'Total Premium'),
+              el('th', { className: 'num' }, 'Total Invoice'),
+              el('th', {}, 'Expires'),
+              el('th', {}, 'Updated'))),
+            el('tbody', {}, ...state.quotes.items.map(q => el('tr', {
+              className: 'clickable',
+              onClick: () => { state.subView = q.id; loadQuote(q.id); }
+            },
+              el('td', { className: 'mono', style: { fontSize: '0.82rem' } }, `#${q.id}`),
+              el('td', { className: 'mono', style: { fontSize: '0.82rem' } }, `#${q.submission_id}`),
+              el('td', {}, statusBadge(q.status)),
+              el('td', { className: 'num' }, money(q.data?.total_premium)),
+              el('td', { className: 'num' }, money(q.data?.total_invoice)),
+              el('td', { style: { fontSize: '0.85rem' } }, fmtDate(q.quote_expires_at)),
+              el('td', { style: { fontSize: '0.85rem', color: 'var(--ink-mute)' } },
+                fmtDateTime(q.modified_at || q.created_at))))))));
+}
+
+async function loadQuote(id) {
+  state.selectedQuote = null; render();
+  try {
+    const [q, docs] = await Promise.all([
+      api(`/api/quotes/${id}`),
+      api(`/api/documents?quote_id=${id}`),
+    ]);
+    state.selectedQuote = { ...q, documents: docs.items || [] };
+    render();
+  } catch (e) { /* toast shown */ }
+}
+
+function quoteDetailView() {
+  const q = state.selectedQuote;
+  if (!q) return el('div', { className: 'loading' }, 'Loading');
+
+  const data = q.data || {};
+  const canBind = q.status === 'QuotePublished';
+  const canRequestBinder = q.status === 'QuotePublished';
+
+  return el('div', {},
+    pageHeader('Quote #' + q.id, `Submission #${q.submission_id}  ·  ${q.status}`,
+      el('div', { style: { display: 'flex', gap: '8px' } },
+        el('button', {
+          className: 'btn btn-secondary',
+          onClick: () => { state.subView = null; render(); loadView(); }
+        }, '← Back'),
+        canRequestBinder ? el('button', {
+          className: 'btn btn-primary',
+          onClick: () => requestBinder(q.id)
+        }, 'Request Binder') : null)),
+
+    el('div', { className: 'detail-grid' },
+      el('div', {},
+        el('div', { className: 'card' },
+          el('h2', { className: 'serif' }, 'Premium Summary'),
+          Object.keys(data).length === 0
+            ? el('div', { className: 'empty' }, 'Premium data not yet available')
+            : el('table', {},
+              el('tbody', {},
+                premRow('Property', data.property_premium),
+                premRow('General Liability', data.gl_premium),
+                premRow('Equipment Breakdown', data.eb_premium),
+                premRow('Cyber', data.cyber_premium),
+                premRow('EPLI', data.epli_premium),
+                premRow('TRIA', data.tria_premium),
+                el('tr', { style: { borderTop: '2px solid var(--ink)' } },
+                  el('td', { style: { fontWeight: 600 } }, 'Total Premium'),
+                  el('td', { className: 'num', style: { fontWeight: 600 } },
+                    money(data.total_premium))),
+                premRow('Surplus Lines Taxes', data.total_taxes),
+                premRow('Fees', data.total_fees),
+                el('tr', { style: { background: 'var(--paper-warm)' } },
+                  el('td', { style: { fontWeight: 700 } }, 'Total Invoice'),
+                  el('td', { className: 'num', style: { fontWeight: 700 } },
+                    money(data.total_invoice)))))),
+
+        q.documents && q.documents.length > 0 ? el('div', { className: 'card' },
+          el('h3', {}, 'Documents'),
+          el('table', { style: { marginTop: '12px' } },
+            el('thead', {}, el('tr', {},
+              el('th', {}, 'Type'),
+              el('th', {}, 'Name'),
+              el('th', {}, 'Status'),
+              el('th', {}, 'Created'),
+              el('th', {}, ''))),
+            el('tbody', {}, ...q.documents.map(d => el('tr', {},
+              el('td', {}, d.document_type),
+              el('td', {}, d.name || '—'),
+              el('td', {}, statusBadge(d.status)),
+              el('td', { style: { fontSize: '0.85rem', color: 'var(--ink-mute)' } },
+                fmtDateTime(d.created_time)),
+              el('td', {},
+                el('a', {
+                  className: 'btn btn-ghost',
+                  href: `/api/documents/${d.id}/download`,
+                  target: '_blank'
+                }, 'Open'))))))) : null
+      ),
+
+      el('div', {},
+        el('div', { className: 'card' },
+          el('h3', {}, 'Quote Details'),
+          el('dl', { className: 'kv-list', style: { marginTop: '12px' } },
+            el('dt', {}, 'Quote ID'), el('dd', { className: 'mono' }, q.id),
+            el('dt', {}, 'Status'), el('dd', {}, statusBadge(q.status)),
+            el('dt', {}, 'Submission'), el('dd', { className: 'mono' }, q.submission_id),
+            el('dt', {}, 'Expires'), el('dd', {}, fmtDate(q.quote_expires_at)),
+            el('dt', {}, 'Created'), el('dd', {}, fmtDateTime(q.created_at)),
+            el('dt', {}, 'Authority Level'), el('dd', {}, q.authority_level || '—')))
+      )
+    ));
+}
+
+function premRow(label, val) {
+  if (val == null || val === 0) return null;
+  return el('tr', {},
+    el('td', {}, label),
+    el('td', { className: 'num' }, money(val)));
+}
+
+async function requestBinder(id) {
+  if (!confirm('Request a binder for this quote? The underwriter will be notified.')) return;
+  try {
+    await api(`/api/quotes/${id}/bind`, { method: 'POST' });
+    toast('Binder requested', 'ok');
+    loadQuote(id);
+  } catch (e) { /* toast shown */ }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Policies
+// ─────────────────────────────────────────────────────────────
+function policiesListView() {
+  return el('div', {},
+    pageHeader('Policies', 'In-force and historical policies'),
+    el('div', { className: 'card' },
+      state.policies.loading
+        ? el('div', { className: 'loading' }, 'Loading')
+        : state.policies.items.length === 0
+          ? el('div', { className: 'empty' },
+            el('h3', {}, 'No policies yet'),
+            el('p', {}, 'Bind a quote to see policies here.'))
+          : el('table', {},
+            el('thead', {}, el('tr', {},
+              el('th', {}, 'Insured'),
+              el('th', {}, 'Policy'),
+              el('th', {}, 'Effective'),
+              el('th', {}, 'Renews'),
+              el('th', {}, 'Status'),
+              el('th', {}, 'Last Updated'))),
+            el('tbody', {}, ...state.policies.items.map(p => el('tr', {
+              className: 'clickable',
+              onClick: () => { state.subView = p.id; loadPolicy(p.id); }
+            },
+              el('td', {},
+                el('div', { style: { fontWeight: 500 } }, p.insured_name || '—'),
+                el('div', { style: { fontSize: '0.78rem', color: 'var(--ink-mute)' } },
+                  p.product_name || '')),
+              el('td', { className: 'mono', style: { fontSize: '0.78rem' } },
+                p.id ? p.id.split('-')[0] + '…' : '—'),
+              el('td', {}, fmtDate(p.effective_date)),
+              el('td', {}, fmtDate(p.renews_at)),
+              el('td', {}, statusBadge(p.status)),
+              el('td', { style: { fontSize: '0.85rem', color: 'var(--ink-mute)' } },
+                fmtDateTime(p.last_modified))))))));
+}
+
+async function loadPolicy(id) {
+  state.selectedPolicy = null; render();
+  try {
+    const p = await api(`/api/policies/${id}`);
+    state.selectedPolicy = p;
+    render();
+  } catch (e) { /* toast shown */ }
+}
+
+function policyDetailView() {
+  const p = state.selectedPolicy;
+  if (!p) return el('div', { className: 'loading' }, 'Loading');
+
+  const canEndorse = p.status === 'Active';
+  const canRenew = ['Active', 'Future', 'Expired'].includes(p.status);
+  const canCancel = ['Active', 'Future'].includes(p.status);
+
+  return el('div', {},
+    pageHeader(p.insured_name || 'Policy', `Policy  ·  ${p.id}`,
+      el('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+        el('button', {
+          className: 'btn btn-secondary',
+          onClick: () => { state.subView = null; render(); loadView(); }
+        }, '← Back'),
+        canEndorse ? el('button', {
+          className: 'btn btn-secondary',
+          onClick: () => startLifecycleTxn(p, 'Endorsement')
+        }, 'Request Endorsement') : null,
+        canRenew ? el('button', {
+          className: 'btn btn-secondary',
+          onClick: () => startLifecycleTxn(p, 'Renewal')
+        }, 'Renew') : null,
+        canCancel ? el('button', {
+          className: 'btn btn-danger',
+          onClick: () => startLifecycleTxn(p, 'ManualCancellation')
+        }, 'Request Cancellation') : null)),
+
+    el('div', { className: 'detail-grid' },
+      el('div', {},
+        el('div', { className: 'card' },
+          el('h2', { className: 'serif' }, 'Policy Summary'),
+          el('dl', { className: 'kv-list', style: { marginTop: '12px' } },
+            el('dt', {}, 'Named Insured'), el('dd', {}, p.insured_name || '—'),
+            el('dt', {}, 'Product'), el('dd', {}, p.product_name || '—'),
+            el('dt', {}, 'Effective Date'), el('dd', {}, fmtDate(p.effective_date)),
+            el('dt', {}, 'Renews At'), el('dd', {}, fmtDate(p.renews_at)),
+            el('dt', {}, 'Status'), el('dd', {}, statusBadge(p.status)),
+            p.ongoing_change ? [
+              el('dt', {}, 'Ongoing Change'),
+              el('dd', {}, `${p.ongoing_change} (${p.ongoing_change_user_role || 'Broker'})`)
+            ] : null)),
+
+        p.transactions && p.transactions.length > 0 ? el('div', { className: 'card' },
+          el('h3', {}, 'Transactions'),
+          el('table', { style: { marginTop: '12px' } },
+            el('thead', {}, el('tr', {},
+              el('th', {}, 'Flow'),
+              el('th', {}, 'Effective'),
+              el('th', {}, 'Status'),
+              el('th', {}, 'Submission'),
+              el('th', {}, 'Created'))),
+            el('tbody', {}, ...p.transactions.map(t => el('tr', {},
+              el('td', {}, t.flow),
+              el('td', {}, fmtDate(t.effective_at)),
+              el('td', {}, statusBadge(t.status)),
+              el('td', {
+                className: 'mono', style: { fontSize: '0.82rem', cursor: t.latest_submission_id ? 'pointer' : 'default' },
+                onClick: () => {
+                  if (!t.latest_submission_id) return;
+                  state.view = 'submissions'; state.subView = t.latest_submission_id;
+                  loadSubmission(t.latest_submission_id);
+                }
+              }, t.latest_submission_id ? `#${t.latest_submission_id}` : '—'),
+              el('td', { style: { fontSize: '0.85rem', color: 'var(--ink-mute)' } },
+                fmtDateTime(t.created_at))))))) : null
+      ),
+
+      el('div', {},
+        el('div', { className: 'card' },
+          el('h3', {}, 'Details'),
+          el('dl', { className: 'kv-list', style: { marginTop: '12px' } },
+            el('dt', {}, 'Policy UUID'), el('dd', { className: 'mono' }, p.id),
+            el('dt', {}, 'Created'), el('dd', {}, fmtDateTime(p.created_at)),
+            el('dt', {}, 'Product Version'), el('dd', {}, p.product_version_id || '—'),
+            el('dt', {}, 'Insured ID'), el('dd', {}, p.insured_id || '—')))
+      )
+    ));
+}
+
+async function startLifecycleTxn(policy, flow) {
+  const names = {
+    Endorsement: 'endorsement request',
+    Renewal: 'renewal',
+    ManualCancellation: 'cancellation request',
+  };
+  const label = names[flow] || flow;
+  if (!confirm(`Start a new ${label}? This will create a new submission you can fill in.`)) return;
+  try {
+    const res = await api(`/api/policies/${policy.id}/transactions`, {
+      method: 'POST',
+      body: { flow, effective_date: new Date().toISOString().split('T')[0] },
+    });
+    toast(`${label.charAt(0).toUpperCase() + label.slice(1)} started`, 'ok');
+    state.view = 'submissions'; state.subView = res.submission_id;
+    loadSubmission(res.submission_id);
+  } catch (e) { /* toast shown */ }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Documents
+// ─────────────────────────────────────────────────────────────
+function documentsView() {
+  return el('div', {},
+    pageHeader('Documents', 'Quote letters, binders, policies, applications'),
+    el('div', { className: 'card' },
+      state.documents.loading
+        ? el('div', { className: 'loading' }, 'Loading')
+        : state.documents.items.length === 0
+          ? el('div', { className: 'empty' },
+            el('h3', {}, 'No documents yet'))
+          : el('table', {},
+            el('thead', {}, el('tr', {},
+              el('th', {}, 'Name'),
+              el('th', {}, 'Type'),
+              el('th', {}, 'Quote'),
+              el('th', {}, 'Status'),
+              el('th', {}, 'Created'),
+              el('th', {}, ''))),
+            el('tbody', {}, ...state.documents.items.map(d => el('tr', {},
+              el('td', { style: { fontWeight: 500 } }, d.name || 'Untitled'),
+              el('td', {}, d.document_type),
+              el('td', { className: 'mono', style: { fontSize: '0.82rem' } }, `#${d.quote_id}`),
+              el('td', {}, statusBadge(d.status)),
+              el('td', { style: { fontSize: '0.85rem', color: 'var(--ink-mute)' } },
+                fmtDateTime(d.created_time)),
+              el('td', {},
+                el('a', {
+                  className: 'btn btn-ghost',
+                  href: `/api/documents/${d.id}/download`,
+                  target: '_blank'
+                }, 'Open'))))))));
+}
+
+// ─────────────────────────────────────────────────────────────
+// New submission
+// ─────────────────────────────────────────────────────────────
+function newSubmissionView() {
+  const form = {
+    effective_date: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
+    product_version_id: 301,
+    creating: false,
+  };
+
+  const container = el('div', {});
+  const rerender = () => {
+    container.innerHTML = '';
+    container.appendChild(
+      pageHeader('New Submission', 'Start a new risk submission',
+        el('button', {
+          className: 'btn btn-secondary',
+          onClick: () => { state.view = 'dashboard'; render(); loadView(); }
+        }, '← Back'))
+    );
+
+    container.appendChild(
+      el('div', { className: 'card' },
+        el('p', { className: 'subtle' },
+          'Create a new submission record. You’ll fill in the insured and coverage details on the next screen.'),
+
+        el('div', { className: 'form-grid', style: { marginTop: '20px' } },
+          el('div', { className: 'field' },
+            el('label', {}, 'Requested Effective Date'),
+            el('input', {
+              type: 'date', value: form.effective_date,
+              onInput: (e) => { form.effective_date = e.target.value; }
+            })),
+          el('div', { className: 'field' },
+            el('label', {}, 'Product'),
+            el('input', {
+              type: 'text', disabled: true,
+              value: 'Altruis Commercial Package Policy (v59)',
+              style: { background: 'var(--paper-warm)', color: 'var(--ink-mute)' }
+            }),
+            el('div', { className: 'help' },
+              'Product is selected automatically based on effective date'))),
+
+        el('div', {
+          style: { marginTop: '24px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }
+        },
+          el('button', {
+            className: 'btn btn-secondary',
+            onClick: () => { state.view = 'dashboard'; render(); loadView(); }
+          }, 'Cancel'),
+          el('button', {
+            className: 'btn btn-primary', disabled: form.creating,
+            onClick: async () => {
+              form.creating = true; rerender();
+              try {
+                const res = await api('/api/submissions/start', {
+                  method: 'POST',
+                  body: {
+                    product_version_id: form.product_version_id,
+                    effective_date: form.effective_date,
+                  }
+                });
+                toast('Submission created', 'ok');
+                state.view = 'submissions';
+                state.subView = res.submission_id;
+                loadSubmission(res.submission_id);
+              } catch (e) {
+                form.creating = false; rerender();
+              }
+            }
+          }, form.creating ? 'Creating…' : 'Create Submission'))
+      )
+    );
+  };
+  rerender();
+  return container;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Boot
+// ─────────────────────────────────────────────────────────────
+async function boot() {
+  try {
+    const [cfg, me] = await Promise.all([
+      api('/api/config', { silent: true }),
+      api('/api/auth/me', { silent: true }).catch(() => ({ authenticated: false })),
+    ]);
+    state.env = cfg.environment;
+    if (me.authenticated) {
+      state.user = me.user;
+    }
+  } catch (e) {
+    console.error('Boot failed', e);
+  }
+  render();
+  if (state.user) loadView();
+}
+
+boot();
+</script>
+</body>
+</html>

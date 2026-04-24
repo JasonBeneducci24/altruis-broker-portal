@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: altruis-broker-portal
+    runtime: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: JOSHU_ENVIRONMENT
+        value: test
+      - key: JOSHU_BASE_URL
+        value: https://altruis.joshu.insure
+      # JOSHU_API_TOKEN must be set via Render dashboard, never committed
+      - key: JOSHU_API_TOKEN
+        sync: false
+      # SESSION_SECRET must also be set via dashboard
+      - key: SESSION_SECRET
+        sync: false
