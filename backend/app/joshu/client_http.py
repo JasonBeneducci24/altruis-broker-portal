@@ -161,6 +161,181 @@ def _get_value_for_field(data: dict[str, Any], code: str, asset_idx: int = 0) ->
     return data.get(code)
 
 
+def _merge_asset_data(data: dict[str, Any], asset_data: Any) -> None:
+    """Merge asset-data response into the flattened data map.
+
+    The /asset-data/{id} endpoint returns, for each asset collection on the
+    submission, a list of per-asset records. The exact wire shape was not
+    verifiable from the docs alone, so this function handles the most likely
+    candidates defensively:
+
+    Candidate A — top-level array of {code, value: {V1: {Array: [...]}}}::
+
+        [
+          {"code": "app.structures",
+           "value": {"V1": {"Array": [
+             {"V1": {"Array": [
+               {"code": "location_number",   "value": {"V1": {"Number": "1.00"}}},
+               {"code": "location_address",  "value": {"V1": {"Text": "2811 John D Odom Rd..."}}},
+               ...
+             ]}},
+             {"V1": {"Array": [...]}},   # second structure
+           ]}}},
+          {"code": "app.PerilsScoringAddresses", "value": {...}},
+        ]
+
+    Candidate B — flat list with asset_idx per entry::
+
+        [
+          {"code": "structures.location_number", "asset_idx": 0, "value": {"V1": {"Number": "1.00"}}},
+          {"code": "structures.location_number", "asset_idx": 1, "value": {"V1": {"Number": "2.00"}}},
+          ...
+        ]
+
+    Candidate C — dict keyed by collection code::
+
+        {
+          "app.structures": [ {record}, {record}, ... ],
+          "app.PerilsScoringAddresses": [ ... ],
+        }
+
+    For each asset record we see, we populate ``data["_assets"][sub_code][asset_idx]``
+    where sub_code is the full field code. For Candidate A we synthesize
+    codes by prefixing the sub-field code with the collection code base
+    (so "location_number" in an `app.structures` record becomes
+    "app.location_number" to match the schema codes Joshu's /submission-status
+    returns for the app.structures section).
+
+    We never raise — if the response has an unexpected shape, we log and
+    skip. This means in the worst case, asset fields remain "Not provided"
+    but the rest of the form still renders.
+    """
+    if not isinstance(data, dict):
+        return
+    assets_map = data.setdefault("_assets", {})
+
+    # Candidate C first — a dict keyed by collection code
+    if isinstance(asset_data, dict):
+        for collection_code, records in asset_data.items():
+            if not isinstance(records, list):
+                continue
+            _merge_one_collection(assets_map, collection_code, records)
+        return
+
+    # Candidates A and B are both lists, distinguishable by inner structure
+    if not isinstance(asset_data, list):
+        if asset_data is not None:
+            log.warning("asset_data had unexpected shape: %s", type(asset_data).__name__)
+        return
+
+    # Candidate B detection: entries with asset_idx
+    looks_like_b = any(
+        isinstance(e, dict) and "asset_idx" in e for e in asset_data
+    )
+    if looks_like_b:
+        for item in asset_data:
+            if not isinstance(item, dict):
+                continue
+            code = item.get("code")
+            if not code:
+                continue
+            try:
+                idx = int(item.get("asset_idx", 0) or 0)
+            except (TypeError, ValueError):
+                idx = 0
+            val = _extract_simple_value(item.get("value"))
+            assets_map.setdefault(code, {})[idx] = val
+        return
+
+    # Candidate A: top-level array of {code, value: {V1: {Array: [...]}}}
+    for item in asset_data:
+        if not isinstance(item, dict):
+            continue
+        collection_code = item.get("code")
+        if not collection_code:
+            continue
+        # Value should be {V1: {Array: [...records...]}} (or similar)
+        value_wrap = item.get("value")
+        records = _extract_array_records(value_wrap)
+        if records is not None:
+            _merge_one_collection(assets_map, collection_code, records)
+
+
+def _extract_array_records(wrapped: Any) -> list | None:
+    """Try to pull the inner array out of a V1/V0/Plain-wrapped Array value.
+
+    Returns the list of per-asset records, or None if the shape doesn't match.
+    """
+    if not isinstance(wrapped, dict):
+        return None
+    # Walk through V1 / V0 / Plain wrappers looking for an Array
+    for wrapper_key in ("V1", "V0", "Plain"):
+        if wrapper_key in wrapped and isinstance(wrapped[wrapper_key], dict):
+            inner = wrapped[wrapper_key]
+            if "Array" in inner and isinstance(inner["Array"], list):
+                return inner["Array"]
+            # Recurse — sometimes Plain is nested inside V1
+            deeper = _extract_array_records(inner)
+            if deeper is not None:
+                return deeper
+    if "Array" in wrapped and isinstance(wrapped["Array"], list):
+        return wrapped["Array"]
+    return None
+
+
+def _merge_one_collection(
+    assets_map: dict[str, dict[int, Any]],
+    collection_code: str,
+    records: list,
+) -> None:
+    """Expand one asset collection's records into the assets_map.
+
+    Each record may come in two shapes:
+      (a) A list of {code, value} entries representing one asset's fields
+      (b) A {V1: {Array: [{code, value}, ...]}} wrapper around that list
+      (c) A plain dict {code: value} (simpler shape)
+
+    The ``collection_code`` is the outer code (e.g. "app.structures"). When
+    the records use short sub-codes like "location_number", we synthesize
+    the full code by replacing the last segment of the collection code —
+    so "app.structures" + "location_number" → "app.location_number" (which
+    matches what the schema reports).
+    """
+    # Derive the prefix we'll use for sub-codes. collection_code might be
+    # "app.structures" — replace "structures" with the sub-field name.
+    prefix_base = collection_code.rsplit(".", 1)[0] if "." in collection_code else ""
+
+    for idx, record in enumerate(records):
+        # Unwrap if needed
+        entries = record
+        if isinstance(record, dict):
+            # Try common wrapper patterns
+            arr = _extract_array_records(record)
+            if arr is not None:
+                entries = arr
+            elif any(isinstance(v, dict) and ("V1" in v or "V0" in v or "Plain" in v)
+                     for v in record.values()):
+                # Plain dict of {sub_code: wrapped_value}
+                for sub_code, wrapped in record.items():
+                    val = _extract_simple_value(wrapped)
+                    full_code = f"{prefix_base}.{sub_code}" if prefix_base else sub_code
+                    assets_map.setdefault(full_code, {})[idx] = val
+                    # Also register under the exact sub_code for flexibility
+                    assets_map.setdefault(sub_code, {})[idx] = val
+                continue
+
+        if isinstance(entries, list):
+            for e in entries:
+                if not isinstance(e, dict):
+                    continue
+                sub_code = e.get("code")
+                if not sub_code:
+                    continue
+                val = _extract_simple_value(e.get("value"))
+                full_code = f"{prefix_base}.{sub_code}" if prefix_base and "." not in sub_code else sub_code
+                assets_map.setdefault(full_code, {})[idx] = val
+
+
 def _extract_simple_value(wrapped: Any) -> Any:
     """Unwrap Joshu's versioned-tagged discriminated-union values.
 
@@ -1263,6 +1438,33 @@ class HttpJoshuClient(JoshuClientBase):
         except Exception as e:
             log.warning("submission-status fetch failed for %s: %s", submission_id, e)
             return {}
+
+    async def get_asset_data(self, token, submission_id: str | int) -> Any:
+        """Fetch asset-level data via GET /asset-data/{id}.
+
+        Per Joshu v3 docs, /submission-data/{id} returns ONLY the root-level
+        datapoints — things like `insured.name`, `app.aop_deductible`. For any
+        code that's an asset collection (like `app.structures`), the root-level
+        data returns just `Null` as a placeholder. The actual per-asset
+        records live under /asset-data/{id}, which returns an Array where
+        each element has:
+          - code: the asset collection code ("app.structures")
+          - value: a V1-wrapped Array of JoPlainValueV1 (each one is a
+            record for that asset-idx)
+
+        Joshu quietly has two separate data endpoints: `submission-data`
+        for scalars, `asset-data` for assets. A fact I only learned after
+        two days of debugging empty structure cards.
+
+        Returns the raw response (likely a list) for the caller to merge.
+        Returns None on failure so the caller can gracefully render scalars
+        only if asset-data is unreachable.
+        """
+        try:
+            return await self._get(f"/asset-data/{submission_id}", bearer_token=token)
+        except Exception as e:
+            log.warning("asset-data fetch failed for %s: %s", submission_id, e)
+            return None
 
     async def update_submission_data(self, token, submission_id, data, *, type_hints=None):
         """Save submission data via PUT /submission-data/{id}.

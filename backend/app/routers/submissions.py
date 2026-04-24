@@ -92,16 +92,26 @@ async def get_submission_form(
 ):
     """Return a UI-ready form schema for this submission.
 
-    Combines:
-      - GET /submission-status/{id} — Joshu's per-submission schema +
-        validation state + conditional logic
-      - GET /submission-data/{id} — current values
-      - Normalization → flat {fields, sections} ready for the form renderer
+    Calls THREE Joshu endpoints and merges the results:
+      - GET /submission-status/{id}  — the schema + validation state
+      - GET /submission-data/{id}    — scalar root-level values
+      - GET /asset-data/{id}         — asset collection values (structures, etc.)
     """
-    from app.joshu.client_http import normalize_submission_status
+    from app.joshu.client_http import (
+        normalize_submission_status,
+        _merge_asset_data,
+    )
 
     status_raw = await client.get_submission_status(session["t"], submission_id)
     data_values = await client.get_submission_data(session["t"], submission_id)
+    asset_data = await client.get_asset_data(session["t"], submission_id)
+
+    # Merge asset data into the _assets map so the normalizer can do
+    # asset-aware value lookups. Without this step, the /submission-data
+    # endpoint only carries scalars — asset collections appear as Null.
+    if asset_data:
+        _merge_asset_data(data_values, asset_data)
+
     # Strip _raw (the original wire payload), but keep _assets so the
     # normalizer can do asset-aware value lookups (structures, locations, etc.)
     clean_values = {k: v for k, v in data_values.items()
@@ -116,22 +126,14 @@ async def debug_submission_raw(
     session=Depends(require_session),
     client: JoshuClientBase = Depends(get_joshu_client),
 ):
-    """DIAGNOSTIC: return the raw Joshu responses for /submission-status
-    and /submission-data side by side, for debugging when the form view
-    shows "Not provided" on fields that should be populated.
+    """DIAGNOSTIC: return raw Joshu responses side-by-side for debugging.
 
-    Shape::
-        {
-          "submission_id": "...",
-          "status_raw": {...},       # full /submission-status response
-          "data_raw": [...],         # full /submission-data response (array of code/value entries)
-          "data_codes": ["app.aop_deductible", ...],   # all unique codes in the data response
-          "data_code_sample": [...], # first 20 entries to eyeball the shape
-          "structure_entries": [...], # just entries where code contains 'structure' or 'location'
-        }
+    Hits all three data endpoints and shows what each returns so we can see
+    where asset values actually live.
     """
     status_raw = await client.get_submission_status(session["t"], submission_id)
     data_values = await client.get_submission_data(session["t"], submission_id)
+    asset_data = await client.get_asset_data(session["t"], submission_id)
     raw_data = data_values.get("_raw") if isinstance(data_values, dict) else None
 
     codes = []
@@ -147,12 +149,28 @@ async def debug_submission_raw(
                 "address" in low or "peril" in low):
                 structure_entries.append(item)
 
+    # Summarize asset-data response — this is the key unknown shape
+    asset_summary: dict = {"shape": type(asset_data).__name__}
+    if isinstance(asset_data, list):
+        asset_summary["length"] = len(asset_data)
+        asset_summary["top_level_codes"] = [
+            entry.get("code", "?") for entry in asset_data[:10] if isinstance(entry, dict)
+        ]
+        asset_summary["sample_full_entries"] = asset_data[:3]
+    elif isinstance(asset_data, dict):
+        asset_summary["keys"] = sorted(list(asset_data.keys()))[:50]
+        asset_summary["sample"] = {k: asset_data[k] for k in list(asset_data.keys())[:3]}
+    else:
+        asset_summary["raw"] = asset_data
+
     return {
         "submission_id": submission_id,
-        "data_raw_length": len(raw_data) if isinstance(raw_data, list) else "not_a_list",
-        "data_codes_sorted": sorted(set(codes)),
-        "structure_entries": structure_entries,
-        "data_sample_first_20": raw_data[:20] if isinstance(raw_data, list) else raw_data,
+        "submission_data": {
+            "data_raw_length": len(raw_data) if isinstance(raw_data, list) else "not_a_list",
+            "data_codes_sorted": sorted(set(codes)),
+            "structure_entries": structure_entries,
+        },
+        "asset_data_summary": asset_summary,
         "status_raw_sections_summary": [
             {"code": s.get("code"), "is_asset": s.get("is_asset"),
              "condition_met": s.get("condition_met"),

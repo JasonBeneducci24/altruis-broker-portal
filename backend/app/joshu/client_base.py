@@ -75,6 +75,16 @@ class JoshuClientBase(ABC):
         current validation errors.
         """
 
+    async def get_asset_data(self, token: str, submission_id: str | int) -> Any:
+        """Fetch asset-level data (structures, perils, etc).
+
+        Default implementation returns None — concrete clients override this.
+        Joshu splits scalar datapoints (/submission-data) and asset-indexed
+        datapoints (/asset-data) into two separate endpoints; callers that
+        need multi-asset data must call this too.
+        """
+        return None
+
     @abstractmethod
     async def update_submission_data(
         self, token: str, submission_id: str | int, data: dict[str, Any],
