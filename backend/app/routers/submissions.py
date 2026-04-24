@@ -102,8 +102,10 @@ async def get_submission_form(
 
     status_raw = await client.get_submission_status(session["t"], submission_id)
     data_values = await client.get_submission_data(session["t"], submission_id)
-    # Strip internal keys (e.g. "_raw") before merging into fields
-    clean_values = {k: v for k, v in data_values.items() if not k.startswith("_")}
+    # Strip _raw (the original wire payload), but keep _assets so the
+    # normalizer can do asset-aware value lookups (structures, locations, etc.)
+    clean_values = {k: v for k, v in data_values.items()
+                    if not k.startswith("_") or k == "_assets"}
     normalized = normalize_submission_status(status_raw, clean_values)
     return normalized
 

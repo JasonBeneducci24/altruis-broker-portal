@@ -89,35 +89,76 @@ def _not_ready(operation: str) -> HttpClientNotReadyError:
 
 
 def _flatten_code_value_array(raw: Any) -> dict[str, Any]:
-    """Flatten Joshu's [{code, value}] datapoint response to {code: simple_value}.
+    """Flatten Joshu's [{code, asset_idx, value}] datapoint response.
 
     Joshu returns datapoint values as an array of objects like::
 
         [
-          {"code": "insured.name", "value": {"V1": {"Text": "Acme LLC"}}},
-          {"code": "insured.location", "value": {"V1": {"Location": {...}}}},
-          {"code": "app.aop_deductible", "value": {"V1": {"Number": "5000"}}},
-          {"code": "app.effective_date", "value": {"V1": {"Date": "2026-06-01"}}},
-          {"code": "app.cyber_status", "value": {"V1": {"Boolean": true}}},
+          {"code": "insured.name", "asset_idx": 0, "value": {"V1": {"Text": "Acme LLC"}}},
+          {"code": "app.location_number", "asset_idx": 0, "value": {"V1": {"Number": "1.00"}}},
+          {"code": "app.location_number", "asset_idx": 1, "value": {"V1": {"Number": "2.00"}}},
+          ...
         ]
 
-    The value is wrapped in a version tag ("V1") then a type discriminator.
-    We extract the underlying simple value for display, while also preserving
-    the raw response under `_raw` so callers who want to re-submit the data
-    (for updates) can do so in Joshu's expected shape.
+    For ASSET fields, the same `code` appears once per asset instance,
+    differentiated by `asset_idx`. Our old flatten just used code as the key,
+    which collapsed all asset values down to the last one written — losing data.
+
+    New representation:
+      - result[code] = simple value (for non-asset / asset_idx=0 convenience)
+      - result["_assets"][code][asset_idx] = simple value (for asset-aware lookups)
+      - result["_raw"] = original response
+
+    Callers that only care about scalar datapoints (insured.name, app.*) keep
+    using result[code]. Callers that need asset data (structures, locations)
+    walk result["_assets"][code] instead.
     """
     if not isinstance(raw, list):
-        return {"_raw": raw}
+        return {"_raw": raw, "_assets": {}}
 
-    result: dict[str, Any] = {"_raw": raw}
+    result: dict[str, Any] = {"_raw": raw, "_assets": {}}
     for item in raw:
         if not isinstance(item, dict):
             continue
         code = item.get("code")
         if not code:
             continue
-        result[code] = _extract_simple_value(item.get("value"))
+        asset_idx = item.get("asset_idx", 0) or 0
+        try:
+            asset_idx = int(asset_idx)
+        except (TypeError, ValueError):
+            asset_idx = 0
+
+        extracted = _extract_simple_value(item.get("value"))
+
+        # Asset-indexed map
+        if code not in result["_assets"]:
+            result["_assets"][code] = {}
+        result["_assets"][code][asset_idx] = extracted
+
+        # Scalar-style convenience: keep the asset_idx=0 value at the top level
+        # (most non-asset fields only have index 0 anyway)
+        if asset_idx == 0 or code not in result:
+            result[code] = extracted
     return result
+
+
+def _get_value_for_field(data: dict[str, Any], code: str, asset_idx: int = 0) -> Any:
+    """Retrieve the value for a specific (code, asset_idx) from flattened data.
+
+    Use this instead of ``data[code]`` when you know the field might be an
+    asset-indexed field. Falls back to the top-level scalar if no asset
+    mapping is present (covers data from older code paths).
+    """
+    if not isinstance(data, dict):
+        return None
+    assets_map = data.get("_assets") or {}
+    if code in assets_map:
+        vals = assets_map[code]
+        if asset_idx in vals:
+            return vals[asset_idx]
+    # Fall back to scalar lookup for safety
+    return data.get(code)
 
 
 def _extract_simple_value(wrapped: Any) -> Any:
@@ -699,6 +740,28 @@ def normalize_submission_status(raw: Any, data_values: dict[str, Any] | None = N
                 has_errors = True
 
             type_info = _parse_field_type(dp.get("kind"))
+            asset_idx = dp.get("asset_idx", 0) or 0
+            try:
+                asset_idx = int(asset_idx)
+            except (TypeError, ValueError):
+                asset_idx = 0
+
+            # Asset-aware value lookup.
+            # data_values may come in one of two shapes:
+            #   (a) Legacy: {code: simple_value} (no asset support)
+            #   (b) New:    {code: simple_value, "_assets": {code: {idx: value}}}
+            # We prefer (b) so assets with idx>0 get their real values,
+            # not the idx=0 collapsed value.
+            field_value = None
+            if data_values:
+                assets_map = data_values.get("_assets") if isinstance(data_values, dict) else None
+                if isinstance(assets_map, dict) and code in assets_map:
+                    field_value = assets_map[code].get(asset_idx)
+                    if field_value is None and asset_idx != 0:
+                        # Didn't find a value for this specific asset idx — leave blank
+                        field_value = None
+                else:
+                    field_value = data_values.get(code)
 
             field = {
                 "code": code,
@@ -706,13 +769,13 @@ def normalize_submission_status(raw: Any, data_values: dict[str, Any] | None = N
                 "section": section_code,
                 "section_label": section_label,
                 "section_order": section_order,
-                "asset_idx": dp.get("asset_idx", 0),
+                "asset_idx": asset_idx,
                 "type": type_info.get("type"),
                 "required": bool(dp.get("required")),
                 # condition_met: True or None → visible; False → hidden (conditional)
                 "visible": dp.get("condition_met") is not False,
                 "exists": bool(dp.get("exists")),
-                "value": data_values.get(code) if data_values else None,
+                "value": field_value,
                 "validation_error": ve,
             }
             for extra in ("format", "options", "default", "decimal_places", "item"):
