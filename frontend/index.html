@@ -6,68 +6,94 @@
 <title>Altruis Group · Broker Portal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <style>
   :root {
+    /* Blue scale — matches altruisgroup.com */
     --blue: #6797EE;
-    --blue-hover: #527fdb;
-    --blue-soft: #e8f0fc;
-    --blue-tint: #f3f7fe;
+    --blue-deep: #2F5FB8;
+    --blue-dark: #1A3A75;
+    --blue-hover: #4E7FD8;
+    --blue-50: #F4F7FD;
+    --blue-100: #E3ECFB;
+    --blue-soft: #E3ECFB;    /* legacy alias */
+    --blue-tint: #F4F7FD;    /* legacy alias */
 
-    --navy: #0F2542;
-    --navy-soft: #1a3358;
+    /* Ink / text scale */
+    --navy: #0E1B36;
+    --navy-soft: #1A2748;
+    --ink: #0A0F1E;
+    --graphite: #2A3142;
+    --slate: #5A6176;
+    --mute: #8892A6;
+    --ink-soft: #2A3142;      /* legacy alias */
+    --ink-mute: #5A6176;      /* legacy alias */
+    --ink-quiet: #8892A6;     /* legacy alias */
 
-    --ink: #0F2542;
-    --ink-soft: #3d4c63;
-    --ink-mute: #6b7689;
-    --ink-quiet: #9aa3b3;
+    /* Paper scale */
+    --cream: #FAF8F3;
+    --paper: #F7F5EF;
+    --paper-warm: #F2EFE6;
+    --paper-dim: #ECE8DC;     /* legacy alias */
+    --white: #FFFFFF;
 
-    --paper: #F7F5F0;
-    --paper-warm: #efece5;
-    --paper-dim: #e6e3dc;
-    --white: #ffffff;
+    /* Lines — hairlines, not shadows */
+    --line: #E1E4EC;
+    --line-2: #EDEFF4;
+    --line-soft: #D8DBE3;
 
-    --line: #e2e0d8;
-    --line-soft: #edebe3;
+    /* States */
+    --ok: #16A97B;
+    --ok-soft: #D9F2E8;
+    --warn: #B06A00;
+    --warn-soft: #FDF1DC;
+    --err: #C4483F;
+    --err-soft: #F9E2E0;
+    --info: #2F5FB8;
+    --info-soft: #E3ECFB;
+    --green: #16A97B;         /* marketing alias */
+    --red: #C4483F;           /* marketing alias */
 
-    --ok: #2f7d53;
-    --ok-soft: #e0f0e7;
-    --warn: #b06a00;
-    --warn-soft: #fdf1dc;
-    --err: #b03838;
-    --err-soft: #f8e3e3;
-    --info: #2c5fb8;
-    --info-soft: #e2ecfb;
+    /* Shadows — used sparingly, only for lift on hover */
+    --shadow-xs: 0 1px 2px rgba(14, 27, 54, 0.04);
+    --shadow-sm: 0 1px 3px rgba(14, 27, 54, 0.05);
+    --shadow-md: 0 4px 14px rgba(14, 27, 54, 0.06);
+    --shadow-lg: 0 16px 48px rgba(14, 27, 54, 0.08);
+    --shadow-blue: 0 10px 30px -10px rgba(103, 151, 238, 0.65), 0 3px 8px rgba(14, 27, 54, 0.12);
 
-    --shadow-xs: 0 1px 2px rgba(15, 37, 66, 0.04);
-    --shadow-sm: 0 1px 3px rgba(15, 37, 66, 0.05), 0 1px 2px rgba(15, 37, 66, 0.03);
-    --shadow-md: 0 4px 14px rgba(15, 37, 66, 0.06), 0 2px 4px rgba(15, 37, 66, 0.04);
-    --shadow-lg: 0 16px 48px rgba(15, 37, 66, 0.12), 0 4px 12px rgba(15, 37, 66, 0.05);
-
-    --radius-sm: 6px;
-    --radius-md: 10px;
-    --radius-lg: 16px;
+    /* Radii — squared, editorial */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
     --radius-pill: 999px;
+
+    /* Motion */
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
+  html { scroll-behavior: smooth; }
   body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Inter Tight', -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: 15px; line-height: 1.55; color: var(--ink);
-    background: var(--paper);
+    background: var(--cream);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
-  h1, h2, h3 { font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; color: var(--ink); }
-  h1 { font-size: 2.25rem; letter-spacing: -0.03em; }
-  h2 { font-size: 1.5rem; }
-  h3 { font-size: 1.05rem; font-weight: 600; }
+  h1, h2, h3 {
+    font-weight: 400; color: var(--navy);
+    letter-spacing: -0.025em; line-height: 1.1;
+  }
+  h1 { font-size: 2.4rem; letter-spacing: -0.035em; }
+  h2 { font-size: 1.5rem; letter-spacing: -0.025em; }
+  h3 { font-size: 1.05rem; font-weight: 500; letter-spacing: -0.015em; }
+  h1 em, h2 em, h3 em { font-style: normal; font-weight: 500; color: var(--blue); }
   .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 0.85em; }
   button { font-family: inherit; font-size: inherit; cursor: pointer; border: none; background: none; color: inherit; }
   input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; }
-  a { color: var(--blue); text-decoration: none; transition: color 120ms; }
+  a { color: var(--blue); text-decoration: none; transition: color 0.2s var(--ease); }
   a:hover { color: var(--blue-hover); }
 
   /* ─────────── Eyebrow ─────────── */
@@ -254,30 +280,41 @@
 
   /* ─────────── Buttons ─────────── */
   .btn {
-    padding: 10px 22px; border-radius: var(--radius-pill); font-weight: 500;
-    font-size: 0.9rem; transition: all 150ms;
+    padding: 12px 22px; border-radius: var(--radius-sm); font-weight: 500;
+    font-size: 0.9rem; transition: all 0.25s var(--ease);
     border: 1px solid transparent; display: inline-flex;
-    align-items: center; gap: 8px; white-space: nowrap; cursor: pointer;
+    align-items: center; gap: 10px; white-space: nowrap; cursor: pointer;
+    letter-spacing: -0.005em;
   }
-  .btn-primary { background: var(--blue); color: #fff; }
-  .btn-primary:hover:not(:disabled) { background: var(--blue-hover); box-shadow: 0 4px 12px rgba(103,151,238,0.3); }
+  .btn-primary {
+    background: var(--blue); color: #fff;
+    box-shadow: 0 1px 2px rgba(14,27,54,0.05);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--blue-hover);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-blue);
+  }
   .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn-primary::after { content: '→'; transition: transform 150ms; font-weight: 400; }
-  .btn-primary:hover:not(:disabled)::after { transform: translateX(3px); }
+  .btn-primary::after { content: '→'; transition: transform 0.28s var(--ease); font-weight: 400; }
+  .btn-primary:hover:not(:disabled)::after { transform: translateX(4px); }
   .btn-primary.no-arrow::after { content: none; }
 
   .btn-secondary {
-    background: var(--white); color: var(--ink);
-    border-color: var(--line);
+    background: transparent; color: var(--navy);
+    border-color: var(--line-soft);
   }
-  .btn-secondary:hover { background: var(--paper-warm); border-color: var(--ink-mute); }
-  .btn-ghost { color: var(--blue); padding: 6px 12px; font-size: 0.85rem; }
-  .btn-ghost:hover { background: var(--blue-soft); }
+  .btn-secondary:hover {
+    border-color: var(--navy);
+  }
+  .btn-ghost { color: var(--blue); padding: 8px 14px; font-size: 0.88rem; }
+  .btn-ghost:hover { color: var(--blue-hover); }
   .btn-danger {
     background: transparent; color: var(--err); border: 1px solid var(--err);
   }
   .btn-danger:hover { background: var(--err-soft); }
-  .btn-sm { padding: 6px 14px; font-size: 0.8rem; }
+  .btn-sm { padding: 8px 14px; font-size: 0.82rem; }
+  .btn-lg { padding: 16px 26px; font-size: 0.95rem; }
 
   /* ─────────── Dashboard action cards ─────────── */
   .action-grid {
@@ -380,13 +417,12 @@
 
   /* ─────────── Cards / tables ─────────── */
   .card {
-    background: var(--white); border: 1px solid var(--line-soft);
-    border-radius: var(--radius-lg); padding: 28px 32px; margin-bottom: 20px;
-    box-shadow: var(--shadow-xs);
+    background: var(--white); border: 1px solid var(--line);
+    border-radius: var(--radius-md); padding: 28px 32px; margin-bottom: 20px;
   }
-  .card h2 { font-size: 1.35rem; margin-bottom: 4px; font-weight: 600; }
-  .card h3 { font-size: 1.05rem; font-weight: 600; }
-  .card .subtle { color: var(--ink-mute); font-size: 0.9rem; margin-bottom: 20px; }
+  .card h2 { font-size: 1.35rem; margin-bottom: 4px; font-weight: 500; letter-spacing: -0.02em; }
+  .card h3 { font-size: 1.05rem; font-weight: 500; letter-spacing: -0.015em; }
+  .card .subtle { color: var(--slate); font-size: 0.9rem; margin-bottom: 20px; }
   .card-head {
     display: flex; justify-content: space-between; align-items: flex-start;
     margin-bottom: 20px; gap: 16px;
@@ -484,10 +520,160 @@
     display: grid; grid-template-columns: 240px 1fr;
     min-height: 400px;
   }
+  .form-layout.three-col {
+    grid-template-columns: 240px 1fr 220px;
+  }
   .form-rail {
-    border-right: 1px solid var(--line-soft);
+    border-right: 1px solid var(--line);
     padding: 16px 10px; display: flex; flex-direction: column; gap: 2px;
     background: var(--paper);
+  }
+  .form-rail-right {
+    border-right: none;
+    border-left: 1px solid var(--line);
+    background: var(--cream);
+  }
+  .asset-rail-head {
+    padding: 8px 12px 14px;
+    border-bottom: 1px solid var(--line-2);
+    margin-bottom: 10px;
+  }
+  .asset-rail-count {
+    font-size: 0.72rem; color: var(--mute); margin-top: 4px;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .asset-rail-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; border-radius: var(--radius-sm);
+    text-align: left; cursor: pointer; transition: all 0.2s var(--ease);
+    color: var(--graphite); background: transparent;
+    width: 100%;
+  }
+  .asset-rail-item:hover { background: var(--white); color: var(--navy); }
+  .asset-rail-item.active {
+    background: var(--white); color: var(--navy);
+    border-left: 2px solid var(--blue);
+    padding-left: 8px;
+  }
+  .asset-rail-num {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--white); border: 1px solid var(--line);
+    color: var(--slate);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.7rem; font-weight: 500; flex-shrink: 0;
+    transition: all 0.2s var(--ease);
+    font-variant-numeric: tabular-nums;
+  }
+  .asset-rail-item.active .asset-rail-num {
+    background: var(--blue); color: #fff; border-color: var(--blue);
+  }
+  .asset-rail-item.done .asset-rail-num {
+    background: var(--ok); color: #fff; border-color: var(--ok);
+  }
+  .asset-rail-body { flex: 1; min-width: 0; }
+  .asset-rail-title {
+    font-size: 0.8rem; font-weight: 400; line-height: 1.25;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    letter-spacing: -0.005em;
+  }
+  .asset-rail-count {
+    font-size: 0.68rem; color: var(--mute); margin-top: 1px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Collapsible asset cards */
+  .asset-controls {
+    display: flex; gap: 16px; margin-top: 12px;
+  }
+  .btn-sm-ghost {
+    font-size: 0.78rem; color: var(--blue); cursor: pointer;
+    padding: 4px 0; background: transparent; border: none;
+    font-family: inherit; transition: color 0.2s var(--ease);
+    letter-spacing: -0.005em;
+  }
+  .btn-sm-ghost:hover { color: var(--blue-hover); }
+
+  .asset-list {
+    display: flex; flex-direction: column; gap: 8px;
+    margin-top: 8px;
+  }
+  .asset-card {
+    background: var(--white); border: 1px solid var(--line);
+    border-radius: var(--radius-sm); overflow: hidden;
+    transition: border-color 0.2s var(--ease);
+  }
+  .asset-card.open { border-color: var(--blue-100); }
+  .asset-card-summary {
+    width: 100%;
+    display: grid;
+    grid-template-columns: auto 1.4fr 2fr auto auto;
+    gap: 18px;
+    align-items: center;
+    padding: 14px 18px;
+    background: transparent;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.2s var(--ease);
+    font-family: inherit;
+    color: var(--navy);
+  }
+  .asset-card-summary:hover { background: var(--blue-50); }
+  .asset-card-summary.open { background: var(--blue-50); }
+  .asset-card-num {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--blue-100); color: var(--blue);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.82rem; font-weight: 500; flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .asset-card-title {
+    font-size: 0.95rem; font-weight: 500; color: var(--navy);
+    letter-spacing: -0.01em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .asset-card-stats {
+    display: flex; gap: 26px; flex-wrap: nowrap; overflow: hidden;
+  }
+  .asset-card-stat { min-width: 0; }
+  .asset-card-stat-label {
+    font-size: 0.68rem; color: var(--mute);
+    letter-spacing: 0.08em; text-transform: uppercase;
+    font-weight: 500;
+  }
+  .asset-card-stat-value {
+    font-size: 0.9rem; color: var(--navy); font-weight: 400;
+    margin-top: 2px;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .asset-card-meta { display: flex; gap: 8px; align-items: center; }
+  .asset-card-chip {
+    font-size: 0.75rem; padding: 4px 10px; border-radius: var(--radius-sm);
+    background: var(--blue-100); color: var(--blue-deep); font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.005em;
+  }
+  .asset-card-chip.done { background: var(--ok-soft); color: var(--ok); }
+  .asset-card-chevron {
+    font-size: 1rem; color: var(--mute); transition: transform 0.2s var(--ease);
+    width: 20px; text-align: center;
+  }
+  .asset-card-body {
+    padding: 20px 22px 22px;
+    border-top: 1px solid var(--line-2);
+    background: var(--white);
+  }
+  /* Medium viewports — stack stats below title */
+  @media (max-width: 1200px) {
+    .asset-card-summary {
+      grid-template-columns: auto 1fr auto auto;
+    }
+    .asset-card-stats {
+      grid-column: 2 / span 1;
+      display: none;
+    }
   }
 
   .section-nav-item {
@@ -554,26 +740,28 @@
   }
 
   @media (max-width: 900px) {
-    .form-layout { grid-template-columns: 1fr; }
-    .form-rail {
-      border-right: none; border-bottom: 1px solid var(--line-soft);
+    .form-layout, .form-layout.three-col { grid-template-columns: 1fr; }
+    .form-rail, .form-rail-right {
+      border-right: none; border-left: none;
+      border-bottom: 1px solid var(--line);
       flex-direction: row; overflow-x: auto;
       padding: 12px;
     }
-    .section-nav-item { flex-shrink: 0; min-width: 160px; }
+    .section-nav-item, .asset-rail-item { flex-shrink: 0; min-width: 160px; }
   }
-  .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px 24px; }
-  .form-field { display: flex; flex-direction: column; gap: 6px; }
+  .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px 24px; }
+  .form-field { display: flex; flex-direction: column; gap: 8px; }
   .form-field.full { grid-column: 1 / -1; }
   .form-field label {
-    font-size: 0.82rem; font-weight: 500; color: var(--ink);
-    display: flex; align-items: center; gap: 4px;
+    font-size: 0.82rem; font-weight: 500; color: var(--navy);
+    display: flex; align-items: center; gap: 6px;
+    letter-spacing: -0.005em;
   }
   .form-field label .code {
-    font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;
-    color: var(--ink-quiet); font-weight: 400; margin-left: 4px;
+    font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;
+    color: var(--mute); font-weight: 400; margin-left: 4px;
   }
-  .form-field label .req { color: var(--err); font-weight: 600; }
+  .form-field label .req { color: var(--err); font-weight: 500; }
   .form-field input[type=text],
   .form-field input[type=email],
   .form-field input[type=number],
@@ -582,24 +770,77 @@
   .form-field input[type=url],
   .form-field select,
   .form-field textarea {
-    padding: 10px 14px; border: 1px solid var(--line);
-    background: var(--white); border-radius: var(--radius-md); font-size: 0.92rem;
-    transition: border-color 120ms, box-shadow 120ms;
+    padding: 11px 14px; border: 1px solid var(--line);
+    background: var(--white); border-radius: var(--radius-sm); font-size: 0.92rem;
+    transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
     width: 100%;
+    color: var(--navy);
   }
   .form-field input:focus, .form-field select:focus, .form-field textarea:focus {
     outline: none; border-color: var(--blue);
     box-shadow: 0 0 0 3px rgba(103, 151, 238, 0.12);
   }
   .form-field input:disabled, .form-field select:disabled {
-    background: var(--paper-warm); color: var(--ink-mute); cursor: not-allowed;
+    background: var(--paper-warm); color: var(--mute); cursor: not-allowed;
   }
   .form-field .err-msg {
     font-size: 0.78rem; color: var(--err); margin-top: 2px;
   }
   .form-field .help {
-    font-size: 0.78rem; color: var(--ink-mute); margin-top: 2px;
+    font-size: 0.78rem; color: var(--slate); margin-top: 2px;
   }
+
+  /* ─────────── Slider input ─────────── */
+  .slider-wrap {
+    display: flex; flex-direction: column; gap: 14px;
+    padding: 16px 4px 8px;
+  }
+  .slider-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .slider-value {
+    font-size: 1.5rem; font-weight: 500; color: var(--blue);
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .slider-hint {
+    font-size: 0.72rem; color: var(--mute); letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .slider-track {
+    position: relative; height: 4px; background: var(--line);
+    border-radius: 2px; cursor: pointer;
+    touch-action: none;
+  }
+  .slider-fill {
+    position: absolute; top: 0; left: 0; height: 100%;
+    background: var(--blue); border-radius: 2px;
+    transition: width 0.15s var(--ease);
+  }
+  .slider-handle {
+    position: absolute; top: 50%; transform: translate(-50%, -50%);
+    width: 18px; height: 18px; background: var(--white);
+    border: 2px solid var(--blue); border-radius: 50%;
+    cursor: grab;
+    transition: left 0.15s var(--ease), box-shadow 0.2s var(--ease);
+    box-shadow: 0 1px 4px rgba(14, 27, 54, 0.15);
+  }
+  .slider-handle:hover, .slider-handle:focus {
+    box-shadow: 0 0 0 6px rgba(103, 151, 238, 0.15), 0 1px 4px rgba(14, 27, 54, 0.15);
+    outline: none;
+  }
+  .slider-handle:active { cursor: grabbing; }
+  .slider-ticks {
+    display: flex; justify-content: space-between; margin-top: 4px;
+  }
+  .slider-tick {
+    font-size: 0.72rem; color: var(--mute);
+    font-variant-numeric: tabular-nums;
+    cursor: pointer; padding: 4px 2px;
+    transition: color 0.2s var(--ease);
+  }
+  .slider-tick:hover { color: var(--navy); }
+  .slider-tick.active { color: var(--blue); font-weight: 500; }
 
   /* Boolean toggle switch */
   .toggle {
@@ -608,25 +849,25 @@
   }
   .toggle input { display: none; }
   .toggle-switch {
-    position: relative; width: 38px; height: 22px;
+    position: relative; width: 40px; height: 22px;
     background: var(--line); border-radius: 11px;
-    transition: background 150ms; cursor: pointer;
+    transition: background 0.2s var(--ease); cursor: pointer;
   }
   .toggle-switch::after {
     content: ''; position: absolute; top: 2px; left: 2px;
     width: 18px; height: 18px; background: #fff; border-radius: 50%;
-    transition: transform 150ms; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    transition: transform 0.2s var(--ease); box-shadow: 0 1px 3px rgba(0,0,0,0.2);
   }
   .toggle input:checked + .toggle-switch { background: var(--blue); }
-  .toggle input:checked + .toggle-switch::after { transform: translateX(16px); }
-  .toggle-label { font-size: 0.88rem; color: var(--ink); }
+  .toggle input:checked + .toggle-switch::after { transform: translateX(18px); }
+  .toggle-label { font-size: 0.88rem; color: var(--navy); }
   .toggle input:disabled + .toggle-switch { opacity: 0.5; cursor: not-allowed; }
 
   /* Readonly form display */
   .readonly-value {
     padding: 10px 14px; background: var(--paper-warm);
-    border: 1px solid var(--line-soft); border-radius: var(--radius-md);
-    font-size: 0.92rem; color: var(--ink); min-height: 40px;
+    border: 1px solid var(--line-soft); border-radius: var(--radius-sm);
+    font-size: 0.92rem; color: var(--navy); min-height: 40px;
     display: flex; align-items: center;
   }
   .readonly-value.empty { color: var(--ink-quiet); font-style: italic; }
@@ -946,6 +1187,8 @@ const state = {
   submissionDirty: {},         // pending edits
   submissionSaving: 'idle',    // 'idle' | 'saving' | 'saved'
   activeSection: null,         // currently selected section code in detail view
+  expandedAssets: {},          // { [sectionCode]: Set<assetIdx> }  which asset cards are expanded
+  activeAsset: null,           // { section, idx }  for right-sidebar scroll-link highlighting
   selectedQuote: null,
   selectedPolicy: null,
   // Dashboard filter
@@ -1493,6 +1736,11 @@ function submissionMainCard(s) {
   const activeFields = form.fields.filter(f =>
     f.section === activeSection.code && f.visible !== false);
 
+  // Determine if this is an asset section with 2+ assets
+  const isAssetSection = activeSection.is_asset;
+  const assetGroups = isAssetSection ? groupFieldsByAsset(activeFields) : null;
+  const isMultiAsset = assetGroups && assetGroups.length >= 2;
+
   // Overall completion for the progress bar
   const totals = sections.reduce(
     (acc, sec) => ({ completed: acc.completed + sec.completed, total: acc.total + sec.visible_count }),
@@ -1512,13 +1760,13 @@ function submissionMainCard(s) {
       el('div', { className: 'form-progress-bar' },
         el('div', { className: 'form-progress-fill', style: { width: `${pct}%` } }))),
 
-    // Two-column form
-    el('div', { className: 'form-layout' },
-      // Left rail — section navigation
+    // Layout: 2-column normally, 3-column when active section has multiple assets
+    el('div', { className: `form-layout ${isMultiAsset ? 'three-col' : ''}` },
+      // LEFT rail — section navigation
       el('div', { className: 'form-rail' },
         ...sections.map(sec => sectionNavItem(sec, sec.code === activeSection.code))),
 
-      // Right pane — fields for the active section
+      // CENTER pane — fields for the active section
       el('div', { className: 'form-pane' },
         el('div', { className: 'form-pane-head' },
           el('div', { className: 'eyebrow' }, isEditing ? 'Edit' : 'Review'),
@@ -1526,13 +1774,29 @@ function submissionMainCard(s) {
           activeSection.section_error
             ? el('div', { className: 'form-pane-error' }, activeSection.section_error)
             : el('div', { className: 'form-pane-sub' },
-                `${activeSection.completed} of ${activeSection.visible_count} fields complete`)),
+                isMultiAsset
+                  ? `${assetGroups.length} ${inferAssetNoun(activeSection, 2)} · ${activeSection.completed} of ${activeSection.visible_count} fields complete`
+                  : `${activeSection.completed} of ${activeSection.visible_count} fields complete`),
+          // Expand/Collapse-all row for asset sections
+          isMultiAsset
+            ? el('div', { className: 'asset-controls' },
+                el('button', { className: 'btn-sm-ghost',
+                  onClick: () => { expandAllAssets(activeSection.code, assetGroups); render(); }
+                }, 'Expand all'),
+                el('button', { className: 'btn-sm-ghost',
+                  onClick: () => { collapseAllAssets(activeSection.code); render(); }
+                }, 'Collapse all'))
+            : null),
 
+        // Body: either collapsible asset cards OR flat form grid
         activeFields.length === 0
           ? el('div', { className: 'empty', style: { marginTop: '20px' } },
             el('p', {}, 'No fields in this section are currently visible.'))
-          : el('div', { className: 'form-grid' },
-            ...activeFields.map(f => renderFormField(f, isEditing))),
+          : isMultiAsset
+            ? el('div', { className: 'asset-list' },
+                ...assetGroups.map(g => renderAssetCard(activeSection, g, isEditing)))
+            : el('div', { className: 'form-grid' },
+                ...activeFields.map(f => renderFormField(f, isEditing))),
 
         // Section navigation footer (prev/next)
         sections.length > 1
@@ -1549,7 +1813,16 @@ function submissionMainCard(s) {
             el('button', { className: 'btn btn-primary',
               onClick: () => submitForQuote(s.id) },
               s.status === 'Incomplete' ? 'Submit for quote' : 'Save & resubmit'))
-          : null)));
+          : null),
+
+      // RIGHT rail — asset jump-list (only for multi-asset sections)
+      isMultiAsset
+        ? el('div', { className: 'form-rail form-rail-right' },
+            el('div', { className: 'asset-rail-head' },
+              el('div', { className: 'eyebrow' }, inferAssetNoun(activeSection, assetGroups.length)),
+              el('div', { className: 'asset-rail-count' }, `${assetGroups.length} total`)),
+            ...assetGroups.map(g => assetRailItem(activeSection, g)))
+        : null));
 }
 
 function sectionNavItem(section, isActive) {
@@ -1594,6 +1867,163 @@ function sectionNextButton(sections, active) {
   }, `${next.label} →`);
 }
 
+// ─────────────────────────────────────────────────────────────
+// Asset grouping — for is_asset sections with multiple items
+// (e.g. Structures: 4 buildings, each with its own set of fields)
+// ─────────────────────────────────────────────────────────────
+function groupFieldsByAsset(fields) {
+  // Returns [{idx, fields, completed, total}] sorted by idx
+  const byIdx = new Map();
+  for (const f of fields) {
+    const idx = f.asset_idx ?? 0;
+    if (!byIdx.has(idx)) byIdx.set(idx, []);
+    byIdx.get(idx).push(f);
+  }
+  const groups = Array.from(byIdx.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([idx, fields]) => ({
+      idx,
+      fields,
+      completed: fields.filter(f => f.exists || (f.value != null && f.value !== '')).length,
+      total: fields.length,
+    }));
+  return groups;
+}
+
+// Pick a short noun for the asset type based on the section name
+function inferAssetNoun(section, count) {
+  const label = (section?.label || '').toLowerCase();
+  const pairs = [
+    ['structure', 'Structure', 'Structures'],
+    ['location', 'Location', 'Locations'],
+    ['building', 'Building', 'Buildings'],
+    ['vehicle', 'Vehicle', 'Vehicles'],
+    ['property', 'Property', 'Properties'],
+    ['driver', 'Driver', 'Drivers'],
+    ['employee', 'Employee', 'Employees'],
+    ['peril', 'Peril', 'Perils'],
+    ['equipment', 'Equipment', 'Equipment'],
+  ];
+  for (const [key, sing, plur] of pairs) {
+    if (label.includes(key)) return count === 1 ? sing : plur;
+  }
+  return count === 1 ? 'Asset' : 'Assets';
+}
+
+// Pick the best title field for an asset card's summary row.
+// Priority: location_address > address > name > first field with "address" or "location" in code.
+function pickAssetTitle(group) {
+  const cands = ['location_address', 'address', 'name', 'title', 'description'];
+  for (const suffix of cands) {
+    const f = group.fields.find(ff => (ff.code || '').toLowerCase().endsWith('.' + suffix));
+    if (f && f.value != null && f.value !== '') {
+      return formatDatapointValue(f.value);
+    }
+  }
+  // Fallback: any field with "address" or "name" in the code
+  const fallback = group.fields.find(f => {
+    const c = (f.code || '').toLowerCase();
+    return (c.includes('address') || c.includes('name')) && f.value != null && f.value !== '';
+  });
+  if (fallback) return formatDatapointValue(fallback.value);
+  return null;
+}
+
+// Pick up to 3 summary stats — Monetary/Number fields with values, preferred codes first
+function pickAssetSummaryStats(group) {
+  const preferred = ['building_value', 'total_value', 'value', 'tiv', 'building_count',
+                     'square_footage', 'stories', 'annual_sales', 'bpp_limit', 'limit'];
+  const byScore = [];
+  for (const f of group.fields) {
+    if (f.type !== 'monetary' && f.type !== 'number') continue;
+    if (f.value == null || f.value === '') continue;
+    const codeLow = (f.code || '').toLowerCase();
+    const shortCode = codeLow.split('.').pop();
+    const score = preferred.indexOf(shortCode);
+    byScore.push({ f, score: score === -1 ? 99 : score });
+  }
+  byScore.sort((a, b) => a.score - b.score);
+  return byScore.slice(0, 3).map(x => x.f);
+}
+
+function expandAllAssets(sectionCode, groups) {
+  state.expandedAssets[sectionCode] = new Set(groups.map(g => g.idx));
+}
+function collapseAllAssets(sectionCode) {
+  state.expandedAssets[sectionCode] = new Set();
+}
+function toggleAsset(sectionCode, idx) {
+  if (!state.expandedAssets[sectionCode]) state.expandedAssets[sectionCode] = new Set();
+  const s = state.expandedAssets[sectionCode];
+  if (s.has(idx)) s.delete(idx); else s.add(idx);
+}
+function isAssetExpanded(sectionCode, idx) {
+  return state.expandedAssets[sectionCode]?.has(idx) || false;
+}
+
+// Render a single collapsible asset card
+function renderAssetCard(section, group, isEditing) {
+  const isOpen = isAssetExpanded(section.code, group.idx);
+  const title = pickAssetTitle(group) || `${inferAssetNoun(section, 1)} ${group.idx + 1}`;
+  const summaryStats = pickAssetSummaryStats(group);
+  const pct = group.total > 0 ? Math.round((group.completed / group.total) * 100) : 0;
+
+  // Collapsed summary row
+  const summary = el('button', {
+    className: `asset-card-summary ${isOpen ? 'open' : ''}`,
+    id: `asset-${section.code}-${group.idx}`,
+    onClick: () => { toggleAsset(section.code, group.idx); render(); },
+  },
+    el('div', { className: 'asset-card-num' }, String(group.idx + 1)),
+    el('div', { className: 'asset-card-title' }, title),
+    el('div', { className: 'asset-card-stats' },
+      ...summaryStats.map(f => el('div', { className: 'asset-card-stat' },
+        el('div', { className: 'asset-card-stat-label' }, f.label),
+        el('div', { className: 'asset-card-stat-value' }, formatDatapointValue(f.value))))),
+    el('div', { className: 'asset-card-meta' },
+      el('span', { className: `asset-card-chip ${pct === 100 ? 'done' : ''}` },
+        `${group.completed}/${group.total}`)),
+    el('div', { className: 'asset-card-chevron' }, isOpen ? '⌃' : '⌄'));
+
+  // Expanded body (only if open)
+  const body = isOpen
+    ? el('div', { className: 'asset-card-body' },
+        el('div', { className: 'form-grid' },
+          ...group.fields.filter(f => f.visible !== false).map(f => renderFormField(f, isEditing))))
+    : null;
+
+  return el('div', { className: `asset-card ${isOpen ? 'open' : ''}` }, summary, body);
+}
+
+// Right sidebar: list of assets, clickable to scroll to + expand
+function assetRailItem(section, group) {
+  const title = pickAssetTitle(group) || `${inferAssetNoun(section, 1)} ${group.idx + 1}`;
+  const truncated = title.length > 28 ? title.substring(0, 26) + '…' : title;
+  const pct = group.total > 0 ? Math.round((group.completed / group.total) * 100) : 0;
+  const isDone = pct === 100;
+  const isOpen = isAssetExpanded(section.code, group.idx);
+
+  return el('button', {
+    className: `asset-rail-item ${isOpen ? 'active' : ''} ${isDone ? 'done' : ''}`,
+    onClick: () => {
+      // Expand the card and scroll to it
+      if (!isAssetExpanded(section.code, group.idx)) {
+        toggleAsset(section.code, group.idx);
+      }
+      render();
+      // Defer scroll until after re-render
+      setTimeout(() => {
+        const el = document.getElementById(`asset-${section.code}-${group.idx}`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 60);
+    },
+  },
+    el('div', { className: 'asset-rail-num' }, isDone ? '✓' : String(group.idx + 1)),
+    el('div', { className: 'asset-rail-body' },
+      el('div', { className: 'asset-rail-title' }, truncated),
+      el('div', { className: 'asset-rail-count' }, `${group.completed}/${group.total}`)));
+}
+
 function renderFormField(field, isEditing) {
   const displayLabel = field.label || field.code;
   const currentValue = state.submissionDirty[field.code] !== undefined
@@ -1631,7 +2061,17 @@ function renderFieldInput(field, value) {
   // but just in case), strip the wrapper for the input
   const cleanValue = unwrapForInput(value);
 
-  // Dropdown for fields with options
+  // ── Slider: for Number/Monetary fields with 3+ numeric options
+  // (e.g. AOP Deductible: $1k / $2.5k / $5k / $10k / $25k / $50k)
+  if (field.options && field.options.length >= 3 &&
+      (field.type === 'number' || field.type === 'monetary')) {
+    const allNumeric = field.options.every(o => !isNaN(parseFloat(o.value)));
+    if (allNumeric) {
+      return renderSlider(field, cleanValue, onChange);
+    }
+  }
+
+  // ── Dropdown: for fields with fewer options or non-numeric options
   if (field.options && field.options.length > 0) {
     return el('select', {
       onChange: (e) => onChange(e.target.value || null),
@@ -1683,6 +2123,119 @@ function renderFieldInput(field, value) {
     : 'text';
   return el('input', { type: inputType, value: cleanValue || '',
     onInput: (e) => onChange(e.target.value || null) });
+}
+
+// ─────────────────────────────────────────────────────────────
+// Slider — used for Number/Monetary fields with 3+ numeric options
+// ─────────────────────────────────────────────────────────────
+function renderSlider(field, currentValue, onChange) {
+  const options = field.options;
+  // Find the current index, defaulting to -1 (no selection)
+  let activeIdx = options.findIndex(o => String(o.value) === String(currentValue));
+  if (activeIdx < 0) activeIdx = Math.floor(options.length / 2); // default to middle
+
+  const activeOption = options[activeIdx];
+  const wrap = el('div', { className: 'slider-wrap' });
+
+  // Top row: label + current value display
+  const headRow = el('div', { className: 'slider-head' },
+    el('div', { className: 'slider-value' }, activeOption?.label || activeOption?.value || '—'),
+    el('div', { className: 'slider-hint' }, 'Slide to adjust'));
+  wrap.appendChild(headRow);
+
+  // Slider track
+  const track = el('div', { className: 'slider-track' });
+  const fill = el('div', { className: 'slider-fill' });
+  const handle = el('div', { className: 'slider-handle' });
+  track.appendChild(fill);
+  track.appendChild(handle);
+
+  // Position helpers
+  const pctFor = (idx) => options.length <= 1 ? 0 : (idx / (options.length - 1)) * 100;
+  const updatePosition = (idx) => {
+    const pct = pctFor(idx);
+    fill.style.width = `${pct}%`;
+    handle.style.left = `${pct}%`;
+    headRow.querySelector('.slider-value').textContent =
+      options[idx]?.label || options[idx]?.value || '—';
+  };
+  updatePosition(activeIdx);
+
+  // Drag behavior
+  let dragging = false;
+  const rectCache = () => track.getBoundingClientRect();
+  const idxFromX = (clientX) => {
+    const r = rectCache();
+    const rel = Math.max(0, Math.min(1, (clientX - r.left) / r.width));
+    return Math.round(rel * (options.length - 1));
+  };
+  const startDrag = (e) => {
+    dragging = true;
+    e.preventDefault();
+    handleMove(e);
+  };
+  const handleMove = (e) => {
+    if (!dragging) return;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const idx = idxFromX(clientX);
+    if (idx !== activeIdx) {
+      activeIdx = idx;
+      updatePosition(idx);
+    }
+  };
+  const endDrag = () => {
+    if (!dragging) return;
+    dragging = false;
+    onChange(options[activeIdx]?.value ?? null);
+  };
+
+  track.addEventListener('mousedown', startDrag);
+  track.addEventListener('touchstart', startDrag, { passive: false });
+  window.addEventListener('mousemove', handleMove);
+  window.addEventListener('touchmove', handleMove, { passive: true });
+  window.addEventListener('mouseup', endDrag);
+  window.addEventListener('touchend', endDrag);
+
+  // Keyboard support on the handle
+  handle.setAttribute('tabindex', '0');
+  handle.setAttribute('role', 'slider');
+  handle.setAttribute('aria-label', field.label || field.code);
+  handle.setAttribute('aria-valuemin', '0');
+  handle.setAttribute('aria-valuemax', String(options.length - 1));
+  handle.addEventListener('keydown', (e) => {
+    let newIdx = activeIdx;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') newIdx = Math.max(0, activeIdx - 1);
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') newIdx = Math.min(options.length - 1, activeIdx + 1);
+    else if (e.key === 'Home') newIdx = 0;
+    else if (e.key === 'End') newIdx = options.length - 1;
+    else return;
+    e.preventDefault();
+    if (newIdx !== activeIdx) {
+      activeIdx = newIdx;
+      updatePosition(activeIdx);
+      onChange(options[activeIdx]?.value ?? null);
+    }
+  });
+
+  // Click on track sets value
+  wrap.appendChild(track);
+
+  // Tick labels beneath the track
+  const ticks = el('div', { className: 'slider-ticks' });
+  options.forEach((o, i) => {
+    const tick = el('div', {
+      className: `slider-tick ${i === activeIdx ? 'active' : ''}`,
+      onClick: () => {
+        activeIdx = i;
+        updatePosition(i);
+        onChange(o.value ?? null);
+      },
+    }, o.label || o.value);
+    ticks.appendChild(tick);
+  });
+  wrap.appendChild(ticks);
+
+  return wrap;
 }
 
 // Autosave: debounce-save dirty fields every 1.5s
