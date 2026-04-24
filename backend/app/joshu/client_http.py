@@ -370,6 +370,34 @@ def _parse_field_type(kind: Any) -> dict[str, Any]:
 def normalize_submission_status(raw: Any, data_values: dict[str, Any] | None = None) -> dict[str, Any]:
     """Transform Joshu's /submission-status response into a UI-friendly schema.
 
+    Per the Joshu v3 docs, the response shape is::
+
+        {
+          insured_details_section: {
+            code: "insured",
+            is_asset: bool,
+            condition_met: bool | null,
+            section_validation_issue: object | null,
+            datapoints: [ SubmissionDatapointStatus, ... ]
+          },
+          counters: { total, completed, validation_issues, non_retryable_validation_issues },
+          sections: [
+            {
+              code: "app" or "equipment" or "property" etc,
+              is_asset: bool,
+              condition_met: bool | null,
+              section_validation_issue: object | null,
+              datapoints: [ SubmissionDatapointStatus, ... ]
+            },
+            ...
+          ],
+          bind_sections: [ ... similar shape ]
+        }
+
+    Our job: walk every section's datapoints, tag each field with its
+    section info, merge in current values, and return a flat list the
+    UI can render.
+
     Output shape::
 
         {
@@ -377,7 +405,10 @@ def normalize_submission_status(raw: Any, data_values: dict[str, Any] | None = N
             {
               "code": "insured.name",
               "label": "Name",
-              "section": "insured",
+              "section": "insured",           // tag from the source section's code
+              "section_label": "Insured",     // humanized section name
+              "section_order": 0,             // display order
+              "asset_idx": 0,
               "type": "text",
               "required": true,
               "visible": true,
@@ -385,95 +416,204 @@ def normalize_submission_status(raw: Any, data_values: dict[str, Any] | None = N
               "value": "Acme LLC",
               "options": null | [{value, label}],
               "format": null | "EmailAddress",
-              "validation_error": null | "Wrong value type: expected Text",
-              ...
+              "validation_error": null | "Wrong value type",
+              "decimal_places": 2,
+              "item": {...},  // for arrays
             },
             ...
           ],
-          "sections": ["insured", "app", "data", ...],
-          "has_errors": bool,
-          "raw": <original response>,
+          "sections": [
+            {"code": "insured", "label": "Insured", "field_count": 6, "completed": 4,
+             "has_errors": false, "order": 0},
+            {"code": "app",     "label": "Application", "field_count": 14, "completed": 10, ...},
+            ...
+          ],
+          "counters": {total, completed, validation_issues, ...},
+          "has_errors": bool
         }
-
-    ``data_values`` is the already-flattened result of ``get_submission_data``
-    — we merge the current value into each field so the UI can render it.
     """
     if not isinstance(raw, dict):
-        return {"fields": [], "sections": [], "has_errors": False, "raw": raw}
+        return {"fields": [], "sections": [], "counters": {}, "has_errors": False}
 
     data_values = data_values or {}
-
-    # Joshu's response has a top-level `datapoints` array (global) and also
-    # section-specific ones. We use the global `datapoints` array — if
-    # missing, scan sections for theirs.
-    datapoints = raw.get("datapoints")
-    if not isinstance(datapoints, list):
-        # Fallback: collect datapoints from each section
-        datapoints = []
-        for k, v in raw.items():
-            if isinstance(v, dict) and isinstance(v.get("datapoints"), list):
-                datapoints.extend(v["datapoints"])
-
-    fields: list[dict[str, Any]] = []
-    sections_seen: list[str] = []
     has_errors = False
 
-    for dp in datapoints:
-        if not isinstance(dp, dict):
-            continue
-        code = dp.get("code", "")
+    def _section_label(code: str) -> str:
+        """Humanize a section code like 'insured' or 'app.equipment' for display."""
         if not code:
-            continue
+            return "Other"
+        # Take the last segment for readability
+        last = code.rsplit(".", 1)[-1]
+        return _humanize_code(last) or last.capitalize()
 
-        section = _section_from_code(code)
-        if section not in sections_seen:
-            sections_seen.append(section)
+    def _validation_error_from(issue: Any) -> str | None:
+        """Flatten a Joshu validation_issue into a human-readable string."""
+        if not isinstance(issue, dict):
+            return None
+        kind = issue.get("kind")
+        if not isinstance(kind, dict):
+            return None
+        if "WrongValueType" in kind:
+            return "Wrong value type"
+        if "MissingRelatedDatapointAnswer" in kind:
+            missing = kind["MissingRelatedDatapointAnswer"].get("missing_datapoints_answers", [])
+            return f"Requires: {', '.join(missing)}" if missing else "Requires related field"
+        if "IntegrationCallFailed" in kind:
+            return kind["IntegrationCallFailed"].get("message", "Integration failed")
+        if "IntegrationResponseParsingError" in kind:
+            return kind["IntegrationResponseParsingError"].get("message", "Integration error")
+        if "InvalidNumberOfAssetsInSection" in kind:
+            info = kind["InvalidNumberOfAssetsInSection"]
+            return f"Need {info.get('min_count', 0)}-{info.get('max_count', '∞')} items, have {info.get('asset_count', 0)}"
+        return next(iter(kind.keys()), "Validation issue")
 
-        # Validation issue flattening
-        issue = dp.get("validation_issue")
-        validation_error = None
-        if isinstance(issue, dict):
-            kind = issue.get("kind")
-            if isinstance(kind, dict):
-                if "WrongValueType" in kind:
-                    validation_error = "Wrong value type"
-                elif "MissingRelatedDatapointAnswer" in kind:
-                    missing = kind["MissingRelatedDatapointAnswer"].get("missing_datapoints_answers", [])
-                    validation_error = f"Requires: {', '.join(missing)}"
-                elif "IntegrationCallFailed" in kind:
-                    validation_error = kind["IntegrationCallFailed"].get("message", "Integration failed")
-                elif "IntegrationResponseParsingError" in kind:
-                    validation_error = kind["IntegrationResponseParsingError"].get("message", "Integration error")
-                else:
-                    # Unknown issue type — include the key name as the error
-                    validation_error = next(iter(kind.keys()), "Validation issue")
-            has_errors = True
+    def _process_datapoints(dps: list, section_code: str, section_order: int):
+        """Extract fields from a section's datapoints array."""
+        nonlocal has_errors
+        results = []
+        if not isinstance(dps, list):
+            return results
+        for dp in dps:
+            if not isinstance(dp, dict):
+                continue
+            code = dp.get("code", "")
+            if not code:
+                continue
 
-        type_info = _parse_field_type(dp.get("kind"))
+            ve = _validation_error_from(dp.get("validation_issue"))
+            if ve:
+                has_errors = True
 
-        field = {
+            type_info = _parse_field_type(dp.get("kind"))
+
+            field = {
+                "code": code,
+                "label": _humanize_code(code),
+                "section": section_code,
+                "section_label": _section_label(section_code),
+                "section_order": section_order,
+                "asset_idx": dp.get("asset_idx", 0),
+                "type": type_info.get("type"),
+                "required": bool(dp.get("required")),
+                # condition_met: True or None → visible; False → hidden (conditional)
+                "visible": dp.get("condition_met") is not False,
+                "exists": bool(dp.get("exists")),
+                "value": data_values.get(code) if data_values else None,
+                "validation_error": ve,
+            }
+            for extra in ("format", "options", "default", "decimal_places", "item"):
+                if extra in type_info:
+                    field[extra] = type_info[extra]
+            results.append(field)
+        return results
+
+    fields: list[dict[str, Any]] = []
+    section_summaries: list[dict[str, Any]] = []
+    section_order = 0
+
+    # 1. insured_details_section (always comes first)
+    insured = raw.get("insured_details_section")
+    if isinstance(insured, dict):
+        code = insured.get("code") or "insured"
+        sec_error = _validation_error_from(insured.get("section_validation_issue"))
+        sec_fields = _process_datapoints(insured.get("datapoints", []), code, section_order)
+        fields.extend(sec_fields)
+        section_summaries.append({
             "code": code,
-            "label": _humanize_code(code),
-            "section": section,
-            "type": type_info.get("type"),
-            "required": bool(dp.get("required")),
-            "visible": dp.get("condition_met") is not False,  # True or None → visible
-            "exists": bool(dp.get("exists")),
-            "value": data_values.get(code) if data_values else None,
-            "asset_idx": dp.get("asset_idx", 0),
-            "validation_error": validation_error,
-        }
+            "label": _section_label(code),
+            "order": section_order,
+            "field_count": len(sec_fields),
+            "completed": sum(1 for f in sec_fields if f["exists"]),
+            "visible_count": sum(1 for f in sec_fields if f["visible"]),
+            "has_errors": bool(sec_error) or any(f["validation_error"] for f in sec_fields),
+            "is_asset": bool(insured.get("is_asset")),
+            "condition_met": insured.get("condition_met") is not False,
+            "section_error": sec_error,
+        })
+        if sec_error:
+            has_errors = True
+        section_order += 1
 
-        # Merge relevant type-specific fields
-        for extra in ("format", "options", "default", "decimal_places", "item"):
-            if extra in type_info:
-                field[extra] = type_info[extra]
+    # 2. sections array (application data sections — where most fields live)
+    sections = raw.get("sections")
+    if isinstance(sections, list):
+        for sec in sections:
+            if not isinstance(sec, dict):
+                continue
+            code = sec.get("code") or f"section_{section_order}"
+            sec_error = _validation_error_from(sec.get("section_validation_issue"))
+            sec_fields = _process_datapoints(sec.get("datapoints", []), code, section_order)
+            fields.extend(sec_fields)
+            section_summaries.append({
+                "code": code,
+                "label": _section_label(code),
+                "order": section_order,
+                "field_count": len(sec_fields),
+                "completed": sum(1 for f in sec_fields if f["exists"]),
+                "visible_count": sum(1 for f in sec_fields if f["visible"]),
+                "has_errors": bool(sec_error) or any(f["validation_error"] for f in sec_fields),
+                "is_asset": bool(sec.get("is_asset")),
+                "condition_met": sec.get("condition_met") is not False,
+                "section_error": sec_error,
+            })
+            if sec_error:
+                has_errors = True
+            section_order += 1
 
-        fields.append(field)
+    # 3. bind_sections (relevant at bind time — only include if condition_met)
+    bind_sections = raw.get("bind_sections")
+    if isinstance(bind_sections, list):
+        for sec in bind_sections:
+            if not isinstance(sec, dict):
+                continue
+            # Skip bind sections that aren't currently relevant
+            if sec.get("condition_met") is False:
+                continue
+            code = sec.get("code") or f"bind_{section_order}"
+            sec_error = _validation_error_from(sec.get("section_validation_issue"))
+            sec_fields = _process_datapoints(sec.get("datapoints", []), code, section_order)
+            if not sec_fields:
+                continue  # empty bind section — skip
+            fields.extend(sec_fields)
+            section_summaries.append({
+                "code": code,
+                "label": _section_label(code) + " (Bind)",
+                "order": section_order,
+                "field_count": len(sec_fields),
+                "completed": sum(1 for f in sec_fields if f["exists"]),
+                "visible_count": sum(1 for f in sec_fields if f["visible"]),
+                "has_errors": bool(sec_error) or any(f["validation_error"] for f in sec_fields),
+                "is_asset": bool(sec.get("is_asset")),
+                "condition_met": True,
+                "section_error": sec_error,
+                "is_bind": True,
+            })
+            if sec_error:
+                has_errors = True
+            section_order += 1
+
+    # 4. Fallback: if nothing was found via the known structure, look for a
+    # top-level `datapoints` array (older response shape or unknown variant)
+    if not fields:
+        top_dps = raw.get("datapoints")
+        if isinstance(top_dps, list):
+            fallback_fields = _process_datapoints(top_dps, "other", 0)
+            fields.extend(fallback_fields)
+            section_summaries.append({
+                "code": "other", "label": "Other", "order": 0,
+                "field_count": len(fallback_fields),
+                "completed": sum(1 for f in fallback_fields if f["exists"]),
+                "visible_count": sum(1 for f in fallback_fields if f["visible"]),
+                "has_errors": any(f["validation_error"] for f in fallback_fields),
+                "is_asset": False, "condition_met": True, "section_error": None,
+            })
+
+    counters = raw.get("counters") or {}
 
     return {
         "fields": fields,
-        "sections": sections_seen,
+        "sections": section_summaries,
+        "counters": counters,
         "has_errors": has_errors,
     }
 

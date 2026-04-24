@@ -119,6 +119,12 @@ def diagnostics():
 # Serve the single-file UI at /
 FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend"
 INDEX_HTML = FRONTEND_DIR / "index.html"
+ASSETS_DIR = FRONTEND_DIR / "assets"
+
+# Mount assets (logos, etc.) at /assets/*
+if ASSETS_DIR.exists():
+    from fastapi.staticfiles import StaticFiles
+    app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
 
 
 @app.get("/", response_class=HTMLResponse)

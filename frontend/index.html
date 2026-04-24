@@ -111,11 +111,11 @@
     padding: 64px 72px;
     display: flex; flex-direction: column; justify-content: space-between;
   }
-  .login-brand-mark { display: flex; align-items: center; gap: 10px; }
-  .login-brand-name { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; }
-  .login-brand-name .sub {
-    font-size: 0.65rem; font-weight: 500; letter-spacing: 0.2em;
-    text-transform: uppercase; color: #7a90b8; display: block; margin-top: 2px;
+  .login-brand-wordmark { display: flex; flex-direction: column; gap: 8px; }
+  .login-brand-wordmark img { max-width: 220px; }
+  .login-brand-sub {
+    font-size: 0.68rem; font-weight: 500; letter-spacing: 0.22em;
+    text-transform: uppercase; color: #7a90b8;
   }
   .login-hero { max-width: 460px; margin-top: auto; }
   .login-hero h1 {
@@ -454,16 +454,113 @@
   .lifecycle-connector.done { background: var(--blue); }
 
   /* ─────────── Forms ─────────── */
-  .form-section { margin-bottom: 32px; }
-  .form-section-head {
-    font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
-    color: var(--blue); font-weight: 600; margin-bottom: 14px;
-    padding-bottom: 8px; border-bottom: 1px solid var(--line-soft);
-    display: flex; align-items: center; justify-content: space-between;
+  /* ─────────── Form progress & layout ─────────── */
+  .form-wrap {
+    background: var(--white); border: 1px solid var(--line-soft);
+    border-radius: var(--radius-lg); overflow: hidden;
+    box-shadow: var(--shadow-xs); margin-bottom: 20px;
   }
-  .form-section-count {
-    font-size: 0.7rem; color: var(--ink-mute); font-weight: 500; text-transform: none;
-    letter-spacing: normal;
+  .form-progress {
+    padding: 20px 28px; border-bottom: 1px solid var(--line-soft);
+    background: var(--paper-warm);
+  }
+  .form-progress-labels {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 10px; gap: 16px; flex-wrap: wrap;
+  }
+  .form-progress-title { font-size: 1.05rem; font-weight: 600; color: var(--ink); }
+  .form-progress-count { font-size: 0.82rem; color: var(--ink-mute); }
+  .form-progress-pct { color: var(--blue); font-weight: 500; }
+  .form-progress-pct.done { color: var(--ok); }
+  .form-progress-bar {
+    height: 4px; background: var(--line); border-radius: 2px; overflow: hidden;
+  }
+  .form-progress-fill {
+    height: 100%; background: var(--blue);
+    transition: width 300ms ease;
+  }
+
+  .form-layout {
+    display: grid; grid-template-columns: 240px 1fr;
+    min-height: 400px;
+  }
+  .form-rail {
+    border-right: 1px solid var(--line-soft);
+    padding: 16px 10px; display: flex; flex-direction: column; gap: 2px;
+    background: var(--paper);
+  }
+
+  .section-nav-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; border-radius: var(--radius-md);
+    text-align: left; cursor: pointer; transition: all 120ms;
+    color: var(--ink-soft); background: transparent;
+    width: 100%;
+  }
+  .section-nav-item:hover { background: var(--white); color: var(--ink); }
+  .section-nav-item.active {
+    background: var(--white); color: var(--ink);
+    box-shadow: var(--shadow-xs);
+  }
+  .section-nav-item.active .section-nav-indicator {
+    background: var(--blue); color: #fff; border-color: var(--blue);
+  }
+  .section-nav-item.complete .section-nav-indicator {
+    background: var(--ok); color: #fff; border-color: var(--ok);
+  }
+  .section-nav-item.has-errors .section-nav-indicator {
+    background: var(--err); color: #fff; border-color: var(--err);
+  }
+  .section-nav-indicator {
+    width: 24px; height: 24px; border-radius: 50%;
+    border: 1px solid var(--line);
+    background: var(--white); color: var(--ink-mute);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.72rem; font-weight: 600; flex-shrink: 0;
+    transition: all 150ms;
+  }
+  .section-nav-body { min-width: 0; flex: 1; }
+  .section-nav-label {
+    font-size: 0.88rem; font-weight: 500; line-height: 1.25;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .section-nav-count {
+    font-size: 0.72rem; color: var(--ink-mute); margin-top: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .form-pane {
+    padding: 28px 32px; display: flex; flex-direction: column;
+  }
+  .form-pane-head {
+    padding-bottom: 20px; margin-bottom: 20px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .form-pane-head h2 { font-size: 1.35rem; font-weight: 600; margin-bottom: 4px; }
+  .form-pane-sub { font-size: 0.85rem; color: var(--ink-mute); }
+  .form-pane-error {
+    padding: 8px 12px; background: var(--err-soft); color: var(--err);
+    border-radius: var(--radius-md); font-size: 0.85rem; margin-top: 6px;
+  }
+  .form-pane-nav {
+    display: flex; justify-content: space-between; gap: 12px;
+    margin-top: 28px; padding-top: 20px;
+    border-top: 1px solid var(--line-soft);
+  }
+  .form-pane-actions {
+    margin-top: 16px; padding-top: 20px;
+    border-top: 1px solid var(--line-soft);
+    display: flex; justify-content: flex-end; gap: 12px;
+  }
+
+  @media (max-width: 900px) {
+    .form-layout { grid-template-columns: 1fr; }
+    .form-rail {
+      border-right: none; border-bottom: 1px solid var(--line-soft);
+      flex-direction: row; overflow-x: auto;
+      padding: 12px;
+    }
+    .section-nav-item { flex-shrink: 0; min-width: 160px; }
   }
   .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px 24px; }
   .form-field { display: flex; flex-direction: column; gap: 6px; }
@@ -677,15 +774,30 @@ const el = (tag, props = {}, ...children) => {
   return n;
 };
 
-function brandIcon(size = 32) {
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', '0 0 32 32');
-  svg.setAttribute('width', size); svg.setAttribute('height', size);
-  svg.innerHTML = `
-    <path d="M16 3 L29 27 L22 27 L16 15 L10 27 L3 27 Z" fill="#6797EE"/>
-    <path d="M16 3 L22 15 L16 15 Z" fill="#0F2542"/>
-  `;
-  return svg;
+function brandMark(color = 'white', size = 32) {
+  // Small mountain-glyph mark — for sidebar and compact headers
+  const file = color === 'navy' ? 'altruis-mark-navy.svg' : 'altruis-mark-white.svg';
+  const img = document.createElement('img');
+  img.src = `/assets/${file}`;
+  img.alt = 'Altruis';
+  img.style.width = `${size}px`;
+  img.style.height = `${size}px`;
+  img.style.display = 'block';
+  return img;
+}
+
+function brandWordmark(color = 'white', height = 42) {
+  // Full "altruis group" wordmark — for login hero
+  const file = color === 'navy' ? 'altruis-logo-navy.svg'
+    : color === 'blue' ? 'altruis-logo-blue.svg'
+    : 'altruis-logo-white.svg';
+  const img = document.createElement('img');
+  img.src = `/assets/${file}`;
+  img.alt = 'Altruis Group';
+  img.style.height = `${height}px`;
+  img.style.width = 'auto';
+  img.style.display = 'block';
+  return img;
 }
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
@@ -798,15 +910,16 @@ function unwrapForInput(v) {
           if (typeKey in inner) return inner[typeKey];
         }
         if ('Null' in inner) return '';
-        if ('Monetary' in inner) return inner.Monetary;
-        if ('Location' in inner) return inner.Location;
+        if ('Monetary' in inner) return unwrapForInput(inner.Monetary);
+        if ('Location' in inner) return unwrapForInput(inner.Location);
       }
     }
-    // Location
-    if (v.formatted_address) return v.formatted_address;
-    if (v.name) return v.name;
+    // Location — Joshu returns these as {NamedParsedAddress: {name}} or
+    // {ParsedGoogleAddress: {formatted_address, ...}}. Unwrap to a plain string.
     if (v.NamedParsedAddress) return unwrapForInput(v.NamedParsedAddress);
     if (v.ParsedGoogleAddress) return unwrapForInput(v.ParsedGoogleAddress);
+    if (v.formatted_address) return v.formatted_address;
+    if (typeof v.name === 'string') return v.name;
     // Monetary — return amount as a string for number input
     if (v.currency && v.amount != null) return v.amount;
   }
@@ -832,6 +945,7 @@ const state = {
   submissionFormState: 'view', // 'view' | 'edit'
   submissionDirty: {},         // pending edits
   submissionSaving: 'idle',    // 'idle' | 'saving' | 'saved'
+  activeSection: null,         // currently selected section code in detail view
   selectedQuote: null,
   selectedPolicy: null,
   // Dashboard filter
@@ -871,10 +985,9 @@ function loginView() {
 
 function loginLeft() {
   return el('div', { className: 'login-left' },
-    el('div', { className: 'login-brand-mark' },
-      brandIcon(36),
-      el('div', { className: 'login-brand-name' }, 'Altruis',
-        el('span', { className: 'sub' }, 'Broker Portal'))),
+    el('div', { className: 'login-brand-wordmark' },
+      brandWordmark('white', 46),
+      el('div', { className: 'login-brand-sub' }, 'Broker Portal')),
     el('div', { className: 'login-hero' },
       el('div', { className: 'eyebrow on-dark' }, 'Specialty Insurance MGA'),
       el('h1', {}, 'Insurance value, unlocked by ',
@@ -976,7 +1089,7 @@ function navItem(key, label) {
 
 function sidebar() {
   return el('aside', { className: 'sidebar' },
-    el('div', { className: 'brand-mark' }, brandIcon(32),
+    el('div', { className: 'brand-mark' }, brandMark('white', 28),
       el('div', { className: 'brand-mark-name' }, 'Altruis',
         el('span', { className: 'sub' }, 'Broker Portal'))),
 
@@ -1261,6 +1374,7 @@ async function loadSubmission(id) {
   state.submissionFormState = 'view';
   state.submissionDirty = {};
   state.submissionSaving = 'idle';
+  state.activeSection = null;
   render();
   try {
     const [sub, form, quotes] = await Promise.all([
@@ -1272,6 +1386,11 @@ async function loadSubmission(id) {
     state.submissionForm = form;
     // Auto-enter edit mode if the submission is Incomplete
     state.submissionFormState = sub.status === 'Incomplete' ? 'edit' : 'view';
+    // Default the active section to the first one with any visible fields
+    if (form?.sections?.length) {
+      const firstWithFields = form.sections.find(s => s.visible_count > 0) || form.sections[0];
+      state.activeSection = firstWithFields?.code || null;
+    }
     render();
   } catch (e) { /* toast shown */ }
 }
@@ -1359,52 +1478,120 @@ function submissionMainCard(s) {
         el('p', {}, 'This submission doesn’t have a dynamic schema from the product version, or the schema endpoint returned empty.')));
   }
 
-  // Group visible fields by section
-  const visibleFields = form.fields.filter(f => f.visible !== false);
-  const sections = {};
-  for (const f of visibleFields) {
-    if (!sections[f.section]) sections[f.section] = [];
-    sections[f.section].push(f);
+  // Use the sections array from the normalizer — it's already in display order
+  // and has completion counts. Filter out sections with no visible fields.
+  const sections = (form.sections || []).filter(sec =>
+    sec.visible_count > 0 || (sec.field_count > 0 && sec.condition_met !== false));
+
+  // Pick active section (fall back to first if current isn't valid)
+  const activeSection = sections.find(s => s.code === state.activeSection) || sections[0];
+  if (!activeSection) {
+    return el('div', { className: 'card' },
+      el('div', { className: 'empty' }, 'No sections found'));
   }
-  const sectionOrder = ['insured', 'app', 'data', ...Object.keys(sections).filter(k => !['insured', 'app', 'data'].includes(k))];
-  const sectionLabels = { insured: 'Insured', app: 'Application', data: 'Coverage', other: 'Other' };
 
-  return el('div', { className: 'card' },
-    el('div', { className: 'eyebrow' }, isEditing ? 'Edit form' : 'Submission data'),
-    el('h2', {}, isEditing ? 'Complete the submission' : 'Application details'),
-    el('div', { className: 'subtle' },
-      isEditing
-        ? 'Fields are specific to this submission’s product version. Changes save as you type.'
-        : 'Data captured at the time of submission.'),
+  const activeFields = form.fields.filter(f =>
+    f.section === activeSection.code && f.visible !== false);
 
-    el('div', { style: { marginTop: '24px' } },
-      ...sectionOrder
-        .filter(key => sections[key])
-        .map(key => renderFormSection(sectionLabels[key] || key, sections[key], isEditing))),
+  // Overall completion for the progress bar
+  const totals = sections.reduce(
+    (acc, sec) => ({ completed: acc.completed + sec.completed, total: acc.total + sec.visible_count }),
+    { completed: 0, total: 0 });
+  const pct = totals.total > 0 ? Math.round((totals.completed / totals.total) * 100) : 0;
 
-    isEditing ? el('div', {
-      style: {
-        marginTop: '28px', paddingTop: '20px',
-        borderTop: '1px solid var(--line-soft)',
-        display: 'flex', justifyContent: 'flex-end', gap: '12px',
-      }
-    },
-      el('button', { className: 'btn btn-secondary',
-        onClick: () => cancelEdit(s.id) }, 'Cancel'),
-      el('button', { className: 'btn btn-primary',
-        onClick: () => submitForQuote(s.id) },
-        s.status === 'Incomplete' ? 'Submit for quote' : 'Save & resubmit')) : null);
+  return el('div', { className: 'form-wrap' },
+    // Progress bar across the top
+    el('div', { className: 'form-progress' },
+      el('div', { className: 'form-progress-labels' },
+        el('div', { className: 'form-progress-title' },
+          isEditing ? 'Complete the submission' : 'Application'),
+        el('div', { className: 'form-progress-count' },
+          `${totals.completed} of ${totals.total} complete`, pct === 100
+            ? el('span', { className: 'form-progress-pct done' }, ' · ready to submit')
+            : el('span', { className: 'form-progress-pct' }, ` · ${pct}%`))),
+      el('div', { className: 'form-progress-bar' },
+        el('div', { className: 'form-progress-fill', style: { width: `${pct}%` } }))),
+
+    // Two-column form
+    el('div', { className: 'form-layout' },
+      // Left rail — section navigation
+      el('div', { className: 'form-rail' },
+        ...sections.map(sec => sectionNavItem(sec, sec.code === activeSection.code))),
+
+      // Right pane — fields for the active section
+      el('div', { className: 'form-pane' },
+        el('div', { className: 'form-pane-head' },
+          el('div', { className: 'eyebrow' }, isEditing ? 'Edit' : 'Review'),
+          el('h2', {}, activeSection.label),
+          activeSection.section_error
+            ? el('div', { className: 'form-pane-error' }, activeSection.section_error)
+            : el('div', { className: 'form-pane-sub' },
+                `${activeSection.completed} of ${activeSection.visible_count} fields complete`)),
+
+        activeFields.length === 0
+          ? el('div', { className: 'empty', style: { marginTop: '20px' } },
+            el('p', {}, 'No fields in this section are currently visible.'))
+          : el('div', { className: 'form-grid' },
+            ...activeFields.map(f => renderFormField(f, isEditing))),
+
+        // Section navigation footer (prev/next)
+        sections.length > 1
+          ? el('div', { className: 'form-pane-nav' },
+            sectionPrevButton(sections, activeSection),
+            sectionNextButton(sections, activeSection))
+          : null,
+
+        // Global action footer appears only on the last section in edit mode
+        isEditing && (sections.indexOf(activeSection) === sections.length - 1 || sections.length === 1)
+          ? el('div', { className: 'form-pane-actions' },
+            el('button', { className: 'btn btn-secondary',
+              onClick: () => cancelEdit(s.id) }, 'Cancel'),
+            el('button', { className: 'btn btn-primary',
+              onClick: () => submitForQuote(s.id) },
+              s.status === 'Incomplete' ? 'Submit for quote' : 'Save & resubmit'))
+          : null)));
 }
 
-function renderFormSection(title, fields, isEditing) {
-  const completed = fields.filter(f => f.exists || f.value != null).length;
-  return el('div', { className: 'form-section' },
-    el('div', { className: 'form-section-head' },
-      title,
-      el('span', { className: 'form-section-count' },
-        `${completed} of ${fields.length}`)),
-    el('div', { className: 'form-grid' },
-      ...fields.map(f => renderFormField(f, isEditing))));
+function sectionNavItem(section, isActive) {
+  const pct = section.visible_count > 0
+    ? Math.round((section.completed / section.visible_count) * 100)
+    : 0;
+  const isComplete = section.visible_count > 0 && section.completed === section.visible_count;
+  const hasErrors = section.has_errors;
+
+  return el('button', {
+    className: `section-nav-item ${isActive ? 'active' : ''} ${isComplete ? 'complete' : ''} ${hasErrors ? 'has-errors' : ''}`,
+    onClick: () => {
+      state.activeSection = section.code;
+      render();
+    },
+  },
+    el('div', { className: 'section-nav-indicator' },
+      hasErrors ? '!' : isComplete ? '✓' : (section.order + 1)),
+    el('div', { className: 'section-nav-body' },
+      el('div', { className: 'section-nav-label' }, section.label),
+      el('div', { className: 'section-nav-count' },
+        `${section.completed}/${section.visible_count} · ${pct}%`)));
+}
+
+function sectionPrevButton(sections, active) {
+  const idx = sections.indexOf(active);
+  if (idx <= 0) return el('div', {}); // spacer
+  const prev = sections[idx - 1];
+  return el('button', {
+    className: 'btn btn-secondary',
+    onClick: () => { state.activeSection = prev.code; render(); }
+  }, `← ${prev.label}`);
+}
+
+function sectionNextButton(sections, active) {
+  const idx = sections.indexOf(active);
+  if (idx < 0 || idx >= sections.length - 1) return el('div', {}); // spacer
+  const next = sections[idx + 1];
+  return el('button', {
+    className: 'btn btn-primary no-arrow',
+    onClick: () => { state.activeSection = next.code; render(); }
+  }, `${next.label} →`);
 }
 
 function renderFormField(field, isEditing) {
