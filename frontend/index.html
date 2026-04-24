@@ -953,6 +953,39 @@
   .empty h3 { color: var(--ink); margin-bottom: 8px; font-size: 1.05rem; }
   .empty p { font-size: 0.9rem; }
 
+  /* Empty-asset-shell — rendered when a multi-asset section (like Structures)
+     has zero populated assets. Cleaner than 188 blank schema rows. */
+  .empty-asset-shell {
+    margin-top: 24px;
+    padding: 56px 24px;
+    text-align: center;
+    border: 1px dashed var(--line-2);
+    border-radius: var(--radius-md);
+    background: var(--cream);
+    color: var(--slate);
+  }
+  .empty-asset-icon {
+    width: 48px; height: 48px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--white); border: 1px solid var(--line);
+    color: var(--blue); font-size: 1.4rem; font-weight: 300;
+    margin-bottom: 14px;
+  }
+  .empty-asset-title {
+    font-size: 1rem; color: var(--navy); font-weight: 500;
+    letter-spacing: -0.01em; margin-bottom: 6px;
+  }
+  .empty-asset-desc {
+    font-size: 0.85rem; color: var(--mute);
+    max-width: 420px; margin: 0 auto; line-height: 1.5;
+  }
+
+  /* Rail item for empty asset shells — muted, no "progress" styling */
+  .section-nav-item.is-empty .section-nav-indicator {
+    background: var(--white); color: var(--mute); border: 1px dashed var(--line);
+  }
+  .section-nav-item.is-empty .section-nav-count { color: var(--mute); font-style: italic; }
+
   /* Toast */
   #toast-host {
     position: fixed; top: 16px; right: 16px; z-index: 1000;
@@ -1820,9 +1853,11 @@ function submissionMainCard(s) {
           activeSection.section_error
             ? el('div', { className: 'form-pane-error' }, activeSection.section_error)
             : el('div', { className: 'form-pane-sub' },
-                isMultiAsset
-                  ? `${displayedGroups.length} ${inferAssetNoun(activeSection, displayedGroups.length)} · ${activeSection.completed} of ${activeSection.visible_count} fields complete`
-                  : `${activeSection.completed} of ${activeSection.visible_count} fields complete`),
+                activeSection.is_empty_asset_shell
+                  ? `0 ${inferAssetNoun(activeSection, 2).toLowerCase()}`
+                  : isMultiAsset
+                    ? `${displayedGroups.length} ${inferAssetNoun(activeSection, displayedGroups.length)} · ${activeSection.completed} of ${activeSection.visible_count} fields complete`
+                    : `${activeSection.completed} of ${activeSection.visible_count} fields complete`),
           // Expand/Collapse-all row for asset sections
           isMultiAsset
             ? el('div', { className: 'asset-controls' },
@@ -1834,15 +1869,22 @@ function submissionMainCard(s) {
                 }, 'Collapse all'))
             : null),
 
-        // Body: either collapsible asset cards OR flat form grid
-        activeFields.length === 0
-          ? el('div', { className: 'empty', style: { marginTop: '20px' } },
-            el('p', {}, 'No fields in this section are currently visible.'))
-          : isMultiAsset
-            ? el('div', { className: 'asset-list' },
-                ...displayedGroups.map(g => renderAssetCard(activeSection, g, isEditing)))
-            : el('div', { className: 'form-grid' },
-                ...activeFields.map(f => renderFormField(f, isEditing))),
+        // Body: asset cards, empty-state card, or flat form grid
+        activeSection.is_empty_asset_shell
+          ? el('div', { className: 'empty-asset-shell' },
+              el('div', { className: 'empty-asset-icon' }, '+'),
+              el('div', { className: 'empty-asset-title' },
+                `No ${inferAssetNoun(activeSection, 2).toLowerCase()} added yet`),
+              el('div', { className: 'empty-asset-desc' },
+                `${inferAssetNoun(activeSection, 2)} will appear here once you add them to this submission.`))
+          : activeFields.length === 0
+            ? el('div', { className: 'empty', style: { marginTop: '20px' } },
+              el('p', {}, 'No fields in this section are currently visible.'))
+            : isMultiAsset
+              ? el('div', { className: 'asset-list' },
+                  ...displayedGroups.map(g => renderAssetCard(activeSection, g, isEditing)))
+              : el('div', { className: 'form-grid' },
+                  ...activeFields.map(f => renderFormField(f, isEditing))),
 
         // Section navigation footer (prev/next)
         sections.length > 1
@@ -1876,21 +1918,28 @@ function sectionNavItem(section, isActive) {
     ? Math.round((section.completed / section.visible_count) * 100)
     : 0;
   const isComplete = section.visible_count > 0 && section.completed === section.visible_count;
+  const isEmptyShell = !!section.is_empty_asset_shell;
   const hasErrors = section.has_errors;
 
+  // Empty asset shells (e.g. Structures with no data yet) don't have a
+  // sensible fields-complete ratio. Show a simple "empty" indicator so the
+  // rail doesn't imply progress that isn't there.
+  const countLabel = isEmptyShell
+    ? 'Empty'
+    : `${section.completed}/${section.visible_count} · ${pct}%`;
+
   return el('button', {
-    className: `section-nav-item ${isActive ? 'active' : ''} ${isComplete ? 'complete' : ''} ${hasErrors ? 'has-errors' : ''}`,
+    className: `section-nav-item ${isActive ? 'active' : ''} ${isComplete ? 'complete' : ''} ${hasErrors ? 'has-errors' : ''} ${isEmptyShell ? 'is-empty' : ''}`,
     onClick: () => {
       state.activeSection = section.code;
       render();
     },
   },
     el('div', { className: 'section-nav-indicator' },
-      hasErrors ? '!' : isComplete ? '✓' : (section.order + 1)),
+      hasErrors ? '!' : isComplete ? '✓' : isEmptyShell ? '○' : (section.order + 1)),
     el('div', { className: 'section-nav-body' },
       el('div', { className: 'section-nav-label' }, section.label),
-      el('div', { className: 'section-nav-count' },
-        `${section.completed}/${section.visible_count} · ${pct}%`)));
+      el('div', { className: 'section-nav-count' }, countLabel)));
 }
 
 function sectionPrevButton(sections, active) {

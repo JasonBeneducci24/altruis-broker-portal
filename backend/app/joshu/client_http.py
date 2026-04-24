@@ -438,18 +438,23 @@ def _section_from_code(code: str) -> str:
 def _infer_section_label(section_code: str, datapoints: list) -> str:
     """Guess a human-friendly section name based on its code and contents.
 
-    Joshu section codes are often random-looking identifiers (e.g. "Qv1fziww").
-    The true human label isn't exposed in the submission-status response,
-    so we infer from:
-      1. If the code is human-readable (e.g. "Structures"), humanize it.
-      2. Otherwise look at the datapoints' common prefix —
-         all fields with "app.*" belong to the "Application" section,
-         all "property.*" fields to "Property", etc.
-      3. If that fails, use the code verbatim but prettified.
+    Joshu section codes often look like "app.qV1fzIWW" or "app.structures"
+    — a common prefix followed by either a meaningful word or a random id.
+
+    Strategy (in priority order):
+      1. If the section code has a second segment that's a known label or
+         looks human-readable (contains "_" or lowercase words), use THAT
+         as the label. So "app.structures" → "Structures",
+         "app.loc_specific_enhancements" → "Loc Specific Enhancements".
+      2. If the second segment looks random (mixed case random id like
+         "qV1fzIWW"), fall back to the FIRST segment ("app" → "Application"
+         via PREFIX_LABELS).
+      3. If no code, look at the datapoints' dominant prefix.
+      4. Final fallback: humanize the code, or return "Section".
     """
-    # Map well-known prefixes to their display names
     PREFIX_LABELS = {
         "insured":    "Insured",
+        "insureds":   "Insured",
         "app":        "Application",
         "property":   "Property",
         "structure":  "Structures",
@@ -473,9 +478,51 @@ def _infer_section_label(section_code: str, datapoints: list) -> str:
         "claims":     "Claims",
         "exposure":   "Exposures",
         "exposures":  "Exposures",
+        "details":    "Details",
     }
 
-    # Collect prefixes from the first path segment of each datapoint
+    def _is_random_id(s: str) -> bool:
+        """Detects random-looking section ids like 'qV1fzIWW' or 'Fn5RjSZ5'.
+        A random id has NO underscores, mixes upper and lower case, and is
+        short-ish (6–12 chars)."""
+        if not s or "_" in s:
+            return False
+        if len(s) < 6 or len(s) > 14:
+            return False
+        if not any(c.isupper() for c in s):
+            return False
+        if not any(c.islower() for c in s):
+            return False
+        # Too many digits mixed in suggests a random id
+        return True
+
+    # PRIORITY 1 — use the second segment of the section code if meaningful
+    if section_code and "." in section_code:
+        first, rest = section_code.split(".", 1)
+        second = rest.split(".", 1)[0]  # in case of 3+ segments
+        # Known label for the second segment?
+        if second.lower() in PREFIX_LABELS:
+            return PREFIX_LABELS[second.lower()]
+        # Looks like a real word (has underscore or is purely alphabetic word)?
+        if "_" in second or (second.islower() and len(second) > 3):
+            return _humanize_code(second)
+        # Capitalized multi-word ("Additional_Insureds", "PerilsScoringAddresses")
+        if "_" in second or (second[0].isupper() and not _is_random_id(second)):
+            return _humanize_code(second)
+        # Falls through: random id like "qV1fzIWW" → use first segment
+
+    # PRIORITY 2 — first segment of section code
+    if section_code:
+        if "." in section_code:
+            first = section_code.split(".", 1)[0].lower()
+            if first in PREFIX_LABELS:
+                return PREFIX_LABELS[first]
+        # No dot — use the whole code if it's known
+        lower = section_code.lower()
+        if lower in PREFIX_LABELS:
+            return PREFIX_LABELS[lower]
+
+    # PRIORITY 3 — infer from dominant datapoint prefix
     prefix_counts: dict[str, int] = {}
     for dp in datapoints or []:
         if isinstance(dp, dict):
@@ -483,36 +530,16 @@ def _infer_section_label(section_code: str, datapoints: list) -> str:
             if "." in dcode:
                 prefix = dcode.split(".", 1)[0].lower()
                 prefix_counts[prefix] = prefix_counts.get(prefix, 0) + 1
-
-    # If there's a dominant prefix and we know its label, use that
     if prefix_counts:
         dominant = max(prefix_counts, key=prefix_counts.get)
         if dominant in PREFIX_LABELS:
             return PREFIX_LABELS[dominant]
-        # Unknown prefix — humanize it
         return _humanize_code(dominant)
 
-    # Fallback: use the section code itself if it looks readable.
-    # A code is "readable" if it contains underscores, spaces, or is all lowercase letters
-    # that aren't just a random 7-8 char id.
+    # PRIORITY 4 — humanize the section code itself, or generic fallback
     if section_code:
-        lower = section_code.lower()
-        # Known section names (case-insensitive match)
-        for key, label in PREFIX_LABELS.items():
-            if key == lower or key in lower:
-                return label
-        # Looks random? (7-10 chars, mix of cases, no underscores) → "Section N"
-        looks_random = (
-            6 <= len(section_code) <= 12
-            and "_" not in section_code
-            and not section_code.islower()
-            and not section_code.isupper()
-            and any(c.isupper() for c in section_code)
-            and any(c.islower() for c in section_code)
-        )
-        if looks_random:
-            return "Section"  # caller will number these
-        # Otherwise humanize the code
+        if _is_random_id(section_code):
+            return "Section"
         return _humanize_code(section_code)
     return "Section"
 
@@ -804,10 +831,10 @@ def normalize_submission_status(raw: Any, data_values: dict[str, Any] | None = N
     if isinstance(insured, dict):
         code = insured.get("code") or "insured"
         dps = insured.get("datapoints", [])
-        # insured_details always gets "Insured" — but let the inference check
-        label = _compute_label(code, dps)
-        if label.startswith("Section"):  # really random, default to Insured
-            label = "Insured"
+        # This is ALWAYS the insured entity — the label should always be
+        # "Insured" regardless of what the code looks like ("insured.details",
+        # "Insured", or whatever else Joshu might send).
+        label = "Insured"
         sec_error = _validation_error_from(insured.get("section_validation_issue"))
         sec_fields = _process_datapoints(dps, code, label, section_order)
         fields.extend(sec_fields)
@@ -886,6 +913,68 @@ def normalize_submission_status(raw: Any, data_values: dict[str, Any] | None = N
                 "has_errors": any(f["validation_error"] for f in fallback_fields),
                 "is_asset": False, "condition_met": True, "section_error": None,
             })
+
+    # POST-PASS 1 — disambiguate duplicate section labels.
+    #
+    # A single Joshu product often splits its "Application" into multiple
+    # sub-sections with random codes like "app.qV1fzIWW", "app.Fn5RjSZ5".
+    # Our infer_section_label can't distinguish them, so they all get
+    # "Application". Number the duplicates: "Application", "Application 2",
+    # "Application 3", etc. — preserves readability without inventing
+    # labels we can't justify.
+    from collections import Counter as _Counter
+    label_counts = _Counter(s["label"] for s in section_summaries)
+    # Only labels that appear more than once need numbering
+    duplicated = {lab for lab, n in label_counts.items() if n > 1}
+    if duplicated:
+        per_label_seen: dict[str, int] = {}
+        for sec in section_summaries:
+            lab = sec["label"]
+            if lab in duplicated:
+                per_label_seen[lab] = per_label_seen.get(lab, 0) + 1
+                n = per_label_seen[lab]
+                new_label = lab if n == 1 else f"{lab} {n}"
+                sec["label"] = new_label
+                # Also propagate to the fields that reference this section
+                for f in fields:
+                    if f.get("section") == sec["code"]:
+                        f["section_label"] = new_label
+
+    # POST-PASS 2 — hide sections that will produce no useful UI.
+    # Rules:
+    #  - `condition_met: false` + 0 visible fields → hide (the section
+    #    is gated by a condition that isn't satisfied, so there's nothing
+    #    to show to the user).
+    #  - `is_asset: true` + 0 populated values across all asset_idx groups
+    #    → keep in the list but tell the UI it's "empty-shell" via the
+    #    `is_empty_asset_shell` flag so it renders an empty-state card
+    #    instead of N repeated empty schema fields.
+    kept_sections: list[dict[str, Any]] = []
+    for sec in section_summaries:
+        # Count fields in this section that have actual values
+        sec_fields = [f for f in fields if f.get("section") == sec["code"]]
+        populated = sum(1 for f in sec_fields
+                        if f.get("value") is not None
+                        and f.get("value") != ""
+                        and f.get("value") != {"Plain": {"Null": {}}})
+        sec["populated_count"] = populated
+
+        # Flag 1: hidden-by-condition
+        if not sec.get("condition_met", True) and sec.get("visible_count", 0) == 0:
+            # Drop the fields AND the summary
+            fields[:] = [f for f in fields if f.get("section") != sec["code"]]
+            continue
+
+        # Flag 2: empty asset shell (is_asset + no populated values)
+        if sec.get("is_asset") and populated == 0:
+            sec["is_empty_asset_shell"] = True
+            # Drop the fields themselves so the frontend doesn't render
+            # 188 empty schema rows. The summary stays in the list so the
+            # broker sees the section title + empty-state message.
+            fields[:] = [f for f in fields if f.get("section") != sec["code"]]
+
+        kept_sections.append(sec)
+    section_summaries = kept_sections
 
     counters = raw.get("counters") or {}
 
