@@ -3,370 +3,565 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Altruis Broker Portal</title>
+<title>Altruis Group · Broker Portal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <style>
   :root {
-    --ink: #0a0e1a;
-    --ink-soft: #2a2f3e;
-    --ink-mute: #5b6174;
-    --paper: #faf8f4;
-    --paper-warm: #f4f1ea;
-    --paper-dim: #ece7d9;
-    --line: #d8d2c3;
-    --line-soft: #e9e4d6;
-    --accent: #8b2c2c;
-    --accent-dark: #641f1f;
-    --accent-soft: #f5e8e8;
-    --ok: #2d5f3f;
-    --warn: #8a5a00;
-    --err: #8b2c2c;
-    --shadow-sm: 0 1px 2px rgba(10,14,26,0.04);
-    --shadow-md: 0 2px 8px rgba(10,14,26,0.06), 0 1px 2px rgba(10,14,26,0.04);
-    --shadow-lg: 0 10px 30px rgba(10,14,26,0.08), 0 2px 8px rgba(10,14,26,0.04);
+    /* Altruis Group brand */
+    --blue: #6797EE;
+    --blue-hover: #527fdb;
+    --blue-soft: #e8f0fc;
+    --blue-tint: #f3f7fe;
+
+    --navy: #0F2542;
+    --navy-soft: #1a3358;
+    --navy-deep: #091a31;
+
+    --ink: #0F2542;
+    --ink-soft: #3d4c63;
+    --ink-mute: #6b7689;
+    --ink-quiet: #9aa3b3;
+
+    --paper: #F7F5F0;          /* warm off-white page */
+    --paper-warm: #efece5;
+    --paper-dim: #e6e3dc;
+    --white: #ffffff;
+
+    --line: #e2e0d8;
+    --line-soft: #edebe3;
+    --line-blue: #d8e4f7;
+
+    --ok: #2f7d53;
+    --ok-soft: #e0f0e7;
+    --warn: #b06a00;
+    --warn-soft: #fdf1dc;
+    --err: #b03838;
+    --err-soft: #f8e3e3;
+
+    --shadow-xs: 0 1px 2px rgba(15, 37, 66, 0.04);
+    --shadow-sm: 0 1px 3px rgba(15, 37, 66, 0.05), 0 1px 2px rgba(15, 37, 66, 0.03);
+    --shadow-md: 0 4px 14px rgba(15, 37, 66, 0.06), 0 2px 4px rgba(15, 37, 66, 0.04);
+    --shadow-lg: 0 16px 48px rgba(15, 37, 66, 0.12), 0 4px 12px rgba(15, 37, 66, 0.05);
+
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+    --radius-pill: 999px;
   }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
   body {
-    font-family: 'IBM Plex Sans', -apple-system, sans-serif;
-    font-size: 14px; line-height: 1.5; color: var(--ink);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 15px; line-height: 1.55; color: var(--ink);
     background: var(--paper);
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
-  h1, h2, h3, .serif {
-    font-family: 'Fraunces', Georgia, serif;
-    font-weight: 500; letter-spacing: -0.01em;
+  h1, h2, h3 { font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; color: var(--ink); }
+  h1 { font-size: 2.25rem; letter-spacing: -0.03em; }
+  h2 { font-size: 1.65rem; }
+  h3 { font-size: 1.125rem; font-weight: 600; }
+  .display {
+    font-size: 2.75rem; font-weight: 600; letter-spacing: -0.035em; line-height: 1.05;
   }
-  h1 { font-size: 2rem; line-height: 1.1; }
-  h2 { font-size: 1.4rem; }
-  h3 { font-size: 1.1rem; font-weight: 600; }
-  .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+  .display .accent { color: var(--blue); font-weight: 600; }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 0.85em; }
   button { font-family: inherit; font-size: inherit; cursor: pointer; border: none; background: none; color: inherit; }
   input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; }
-  a { color: var(--accent); text-decoration: none; }
-  a:hover { text-decoration: underline; }
+  a { color: var(--blue); text-decoration: none; transition: color 120ms; }
+  a:hover { color: var(--blue-hover); }
 
-  /* ─────────── Environment banner ─────────── */
+  /* ─────────── Eyebrow label (blue dash + tiny caps) ─────────── */
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 12px;
+    font-size: 0.72rem; font-weight: 600;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-mute); margin-bottom: 12px;
+  }
+  .eyebrow::before {
+    content: ''; display: inline-block; width: 28px; height: 2px;
+    background: var(--blue);
+  }
+  .eyebrow.on-dark { color: #b8cdf3; }
+  .eyebrow.on-dark::before { background: var(--blue); }
+
+  /* ─────────── Environment banner (slim, dismissible-looking) ─────────── */
   .env-banner {
-    padding: 6px 16px;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.7rem; letter-spacing: 0.2em; text-transform: uppercase;
-    text-align: center; color: #fff;
+    padding: 8px 20px; font-size: 0.76rem; font-weight: 500;
+    text-align: center; letter-spacing: 0.02em;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
   }
-  .env-banner.mock { background: #1e5a36; }
-  .env-banner.test { background: #8a5a00; }
-  .env-banner.production { background: #8b2c2c; }
+  .env-banner::before {
+    content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor;
+    opacity: 0.8;
+  }
+  .env-banner.mock { background: #eaf5ef; color: #1a5b36; }
+  .env-banner.test { background: #fdf2d9; color: #8a5a00; }
+  .env-banner.production { background: #fde3e3; color: #a01f1f; }
 
-  /* ─────────── Login screen ─────────── */
-  .login-wrap {
-    min-height: 100vh; display: flex; align-items: center; justify-content: center;
-    padding: 24px; background:
-      radial-gradient(circle at 30% 40%, rgba(139,44,44,0.04), transparent 60%),
-      radial-gradient(circle at 70% 70%, rgba(10,14,26,0.03), transparent 60%),
-      var(--paper);
+  /* ═════════════════════════════════════════════════════════════════
+     LOGIN SCREEN — hero split: left blue dark panel, right form
+     ═════════════════════════════════════════════════════════════════ */
+  .login-wrap { min-height: 100vh; display: flex; flex-direction: column; }
+  .login-shell {
+    flex: 1; display: grid; grid-template-columns: 1.1fr 1fr;
+    background: var(--paper);
   }
-  .login-card {
-    max-width: 440px; width: 100%;
-    background: #fff; padding: 44px 40px;
-    border: 1px solid var(--line-soft); border-radius: 2px;
-    box-shadow: var(--shadow-lg);
+  .login-left {
+    background: var(--navy);
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(103,151,238,0.15), transparent 55%),
+      radial-gradient(circle at 85% 85%, rgba(103,151,238,0.10), transparent 55%);
+    color: #fff;
+    padding: 64px 72px;
+    display: flex; flex-direction: column; justify-content: space-between;
     position: relative;
   }
-  .login-card::before {
-    content: ''; position: absolute; top: 0; left: 0; height: 4px;
-    width: 60px; background: var(--accent);
+  .login-brand-mark {
+    display: flex; align-items: center; gap: 10px;
   }
-  .login-brand {
-    font-family: 'Fraunces', serif; font-size: 2rem; font-weight: 600;
-    letter-spacing: -0.03em; color: var(--ink); margin-bottom: 4px;
+  .login-brand-mark-icon {
+    width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
   }
-  .login-sub {
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem;
-    letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-mute);
-    margin-bottom: 36px;
+  .login-brand-mark-icon svg { width: 100%; height: 100%; }
+  .login-brand-name {
+    font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em;
   }
-  .login-card form { display: flex; flex-direction: column; gap: 16px; }
-  .login-card .field { display: flex; flex-direction: column; gap: 6px; }
-  .login-card label {
-    font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em;
-    text-transform: uppercase; color: var(--ink-mute);
+  .login-brand-name .sub {
+    font-size: 0.65rem; font-weight: 500; letter-spacing: 0.2em;
+    text-transform: uppercase; color: #7a90b8; display: block; margin-top: 2px;
   }
-  .login-card input {
-    padding: 11px 14px; border: 1px solid var(--line);
-    background: var(--paper); border-radius: 2px; font-size: 0.95rem;
-    transition: border-color 120ms, background 120ms;
+  .login-hero {
+    max-width: 460px; margin-top: auto;
   }
-  .login-card input:focus {
-    outline: none; border-color: var(--accent); background: #fff;
+  .login-hero h1 {
+    color: #fff; font-size: 2.6rem; font-weight: 600; letter-spacing: -0.035em;
+    line-height: 1.1; margin-bottom: 20px;
   }
-  .login-card button[type="submit"] {
-    padding: 12px; background: var(--ink); color: #fff;
-    font-weight: 500; letter-spacing: 0.02em; border-radius: 2px;
-    transition: background 120ms; margin-top: 8px;
+  .login-hero h1 .accent { color: var(--blue); }
+  .login-hero p {
+    color: #b8c4d9; font-size: 1rem; line-height: 1.6;
   }
-  .login-card button[type="submit"]:hover:not(:disabled) { background: var(--accent); }
-  .login-card button[type="submit"]:disabled { opacity: 0.5; cursor: wait; }
-  .login-err {
-    background: var(--accent-soft); color: var(--accent-dark);
-    padding: 10px 14px; font-size: 0.85rem; border-left: 3px solid var(--accent);
-    margin-top: 8px;
+  .login-footnote {
+    font-size: 0.75rem; color: #7a90b8; margin-top: 36px;
+    display: flex; gap: 16px; flex-wrap: wrap;
   }
-  .login-hint {
-    margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--line-soft);
-    font-size: 0.78rem; color: var(--ink-mute); line-height: 1.6;
+  .login-footnote span {
+    display: inline-flex; align-items: center; gap: 6px;
   }
-  .login-hint code {
-    font-family: 'IBM Plex Mono', monospace; background: var(--paper-warm);
-    padding: 1px 6px; border-radius: 2px; font-size: 0.82em;
+  .login-footnote span::before {
+    content: ''; width: 4px; height: 4px; border-radius: 50%; background: var(--blue);
   }
 
-  /* ─────────── Main layout ─────────── */
-  .app { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+  .login-right {
+    display: flex; align-items: center; justify-content: center;
+    padding: 48px; background: var(--paper);
+  }
+  .login-card {
+    max-width: 400px; width: 100%;
+  }
+  .login-card h2 {
+    font-size: 1.75rem; margin-bottom: 6px;
+  }
+  .login-card p.lead { color: var(--ink-mute); margin-bottom: 32px; font-size: 0.95rem; }
+
+  .login-card form { display: flex; flex-direction: column; gap: 18px; }
+  .login-card .field { display: flex; flex-direction: column; gap: 6px; }
+  .login-card label {
+    font-size: 0.78rem; font-weight: 500; color: var(--ink-soft);
+  }
+  .login-card input {
+    padding: 13px 16px; border: 1px solid var(--line);
+    background: var(--white); border-radius: var(--radius-md); font-size: 0.95rem;
+    transition: border-color 120ms, box-shadow 120ms;
+  }
+  .login-card input:focus {
+    outline: none; border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(103, 151, 238, 0.15);
+  }
+  .login-card button[type="submit"] {
+    padding: 13px 24px; background: var(--blue); color: #fff;
+    font-weight: 500; border-radius: var(--radius-pill); font-size: 0.95rem;
+    transition: background 120ms, transform 120ms; margin-top: 10px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .login-card button[type="submit"]::after {
+    content: '→'; transition: transform 150ms;
+  }
+  .login-card button[type="submit"]:hover:not(:disabled) { background: var(--blue-hover); }
+  .login-card button[type="submit"]:hover:not(:disabled)::after { transform: translateX(3px); }
+  .login-card button[type="submit"]:disabled { opacity: 0.55; cursor: wait; }
+  .login-err {
+    background: var(--err-soft); color: var(--err);
+    padding: 12px 14px; font-size: 0.88rem; border-radius: var(--radius-md);
+    border: 1px solid rgba(176, 56, 56, 0.15);
+  }
+  .login-hint {
+    margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--line-soft);
+    font-size: 0.8rem; color: var(--ink-mute); line-height: 1.6;
+  }
+  .login-hint code {
+    font-family: 'JetBrains Mono', monospace; background: var(--paper-warm);
+    padding: 2px 7px; border-radius: 4px; font-size: 0.85em; color: var(--ink);
+  }
+
+  @media (max-width: 900px) {
+    .login-shell { grid-template-columns: 1fr; }
+    .login-left { padding: 40px; min-height: 200px; }
+    .login-hero h1 { font-size: 2rem; }
+  }
+
+  /* ═════════════════════════════════════════════════════════════════
+     MAIN APP
+     ═════════════════════════════════════════════════════════════════ */
+  .app { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
+
   .sidebar {
-    background: #141821; color: #e8e5dc;
+    background: var(--navy);
+    color: #d9e2f1;
     padding: 28px 20px; position: sticky; top: 0; height: 100vh;
     overflow-y: auto; display: flex; flex-direction: column;
   }
-  .brand {
-    font-family: 'Fraunces', serif; font-size: 1.55rem; font-weight: 600;
-    letter-spacing: -0.02em; color: #fff;
+  .brand-mark {
+    display: flex; align-items: center; gap: 10px; padding: 0 10px; margin-bottom: 36px;
   }
-  .brand-sub {
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem;
-    letter-spacing: 0.18em; text-transform: uppercase; color: #8a8571;
-    margin-bottom: 28px; margin-top: 2px;
+  .brand-mark-icon {
+    width: 32px; height: 32px; flex-shrink: 0;
   }
+  .brand-mark-icon svg { width: 100%; height: 100%; }
+  .brand-mark-name {
+    font-size: 1.1rem; font-weight: 700; letter-spacing: -0.02em; color: #fff;
+  }
+  .brand-mark-name .sub {
+    font-size: 0.62rem; font-weight: 500; letter-spacing: 0.18em;
+    text-transform: uppercase; color: #7a90b8; display: block; margin-top: 1px;
+  }
+
   .nav-section {
     font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase;
-    color: #6b6657; padding: 18px 14px 8px;
+    color: #5a6e90; padding: 20px 14px 8px; font-weight: 600;
   }
   .nav-item {
-    padding: 10px 14px; border-radius: 3px; color: #c5c1b3;
+    padding: 10px 14px; border-radius: var(--radius-sm); color: #b8c4d9;
     font-weight: 500; font-size: 0.9rem; cursor: pointer;
     transition: all 120ms; text-align: left; display: flex;
     align-items: center; gap: 10px; width: 100%;
+    position: relative;
   }
-  .nav-item:hover { background: #1d2230; color: #fff; }
+  .nav-item:hover { background: var(--navy-soft); color: #fff; }
   .nav-item.active {
-    background: var(--accent); color: #fff;
-    box-shadow: inset 2px 0 0 rgba(255,255,255,0.3);
+    background: var(--blue);
+    color: #fff;
+  }
+  .nav-item.active::before {
+    content: ''; position: absolute; left: -20px; top: 50%; transform: translateY(-50%);
+    width: 3px; height: 20px; background: var(--blue); border-radius: 0 2px 2px 0;
   }
   .nav-dot {
-    width: 5px; height: 5px; background: currentColor; border-radius: 50%;
-    opacity: 0.5;
+    width: 4px; height: 4px; background: currentColor; border-radius: 50%;
+    opacity: 0.5; flex-shrink: 0;
   }
+  .nav-item.active .nav-dot { opacity: 1; background: #fff; }
+
   .user-box {
     margin-top: auto; padding: 16px 14px 4px;
-    border-top: 1px solid #2a2f3e; font-size: 0.82rem;
+    border-top: 1px solid var(--navy-soft); font-size: 0.85rem;
   }
-  .user-box .u-name { color: #fff; font-weight: 500; }
-  .user-box .u-meta { color: #8a8571; font-size: 0.75rem; margin-top: 2px; }
+  .user-avatar {
+    width: 32px; height: 32px; border-radius: 50%; background: var(--blue);
+    display: inline-flex; align-items: center; justify-content: center;
+    color: #fff; font-weight: 600; font-size: 0.82rem; margin-right: 10px;
+  }
+  .user-box .u-row {
+    display: flex; align-items: center; padding: 8px 0;
+  }
+  .user-box .u-info { flex: 1; min-width: 0; }
+  .user-box .u-name {
+    color: #fff; font-weight: 500; font-size: 0.88rem;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .user-box .u-meta {
+    color: #7a90b8; font-size: 0.72rem; margin-top: 1px;
+  }
   .user-box button {
-    margin-top: 12px; color: #8a8571; font-size: 0.75rem;
-    letter-spacing: 0.08em; text-transform: uppercase;
+    margin-top: 10px; color: #7a90b8; font-size: 0.75rem;
+    letter-spacing: 0.03em; padding: 6px 10px;
+    border-radius: var(--radius-sm); width: 100%; text-align: left;
+    transition: all 120ms;
   }
-  .user-box button:hover { color: #fff; }
+  .user-box button:hover { background: var(--navy-soft); color: #fff; }
 
-  .main { padding: 36px 48px 60px; max-width: 1400px; }
+  .main {
+    padding: 40px 56px 80px; max-width: 1440px;
+  }
   .page-header {
     display: flex; justify-content: space-between; align-items: flex-end;
-    padding-bottom: 18px; margin-bottom: 28px;
+    padding-bottom: 24px; margin-bottom: 32px;
     border-bottom: 1px solid var(--line);
-    gap: 20px; flex-wrap: wrap;
+    gap: 24px; flex-wrap: wrap;
   }
-  .page-header .eyebrow {
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem;
-    letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-mute);
-    margin-bottom: 6px;
-  }
+  .page-header h1 { font-size: 2.1rem; letter-spacing: -0.03em; font-weight: 600; }
 
   /* ─────────── Buttons ─────────── */
   .btn {
-    padding: 9px 18px; border-radius: 2px; font-weight: 500;
-    font-size: 0.88rem; transition: all 120ms;
-    border: 1px solid transparent; letter-spacing: 0.01em;
-    display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+    padding: 10px 22px; border-radius: var(--radius-pill); font-weight: 500;
+    font-size: 0.9rem; transition: all 150ms;
+    border: 1px solid transparent; display: inline-flex;
+    align-items: center; gap: 8px; white-space: nowrap; cursor: pointer;
   }
-  .btn-primary { background: var(--accent); color: #fff; }
-  .btn-primary:hover:not(:disabled) { background: var(--accent-dark); }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: var(--blue-hover); box-shadow: 0 4px 12px rgba(103,151,238,0.3); }
   .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn-secondary { background: transparent; color: var(--ink); border-color: var(--line); }
-  .btn-secondary:hover { background: var(--paper-warm); border-color: var(--ink-soft); }
-  .btn-ghost { color: var(--accent); padding: 6px 12px; font-size: 0.85rem; }
-  .btn-ghost:hover { background: var(--accent-soft); }
-  .btn-danger { background: transparent; color: var(--err); border: 1px solid var(--err); }
-  .btn-danger:hover { background: var(--accent-soft); }
+  .btn-primary::after { content: '→'; transition: transform 150ms; font-weight: 400; }
+  .btn-primary:hover:not(:disabled)::after { transform: translateX(3px); }
 
-  /* ─────────── Stats cards ─────────── */
-  .stats {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px;
-    margin-bottom: 32px;
+  .btn-secondary {
+    background: transparent; color: var(--ink);
+    border-color: var(--line); background: var(--white);
+  }
+  .btn-secondary:hover { background: var(--paper-warm); border-color: var(--ink-mute); }
+  .btn-ghost { color: var(--blue); padding: 6px 12px; font-size: 0.85rem; }
+  .btn-ghost:hover { background: var(--blue-soft); }
+  .btn-danger {
+    background: transparent; color: var(--err); border: 1px solid var(--err);
+  }
+  .btn-danger:hover { background: var(--err-soft); }
+  .btn-sm { padding: 6px 14px; font-size: 0.8rem; }
+
+  /* ─────────── Stats block (matches brand's "by the numbers" treatment) ─────────── */
+  .stats-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+    background: var(--white); border: 1px solid var(--line-soft);
+    border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 32px;
   }
   .stat {
-    background: #fff; border: 1px solid var(--line-soft);
-    padding: 20px 22px; border-radius: 2px; position: relative;
+    padding: 28px 32px; border-right: 1px solid var(--line-soft);
+    position: relative;
   }
+  .stat:last-child { border-right: none; }
   .stat::before {
-    content: ''; position: absolute; top: 0; left: 0; width: 3px;
-    height: 100%; background: var(--accent);
+    content: ''; position: absolute; top: 28px; left: 32px;
+    width: 6px; height: 6px; border-radius: 50%; background: var(--blue);
   }
   .stat-label {
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem;
-    letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-mute);
-    margin-bottom: 8px;
+    font-size: 0.65rem; font-weight: 600;
+    letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-mute);
+    margin-left: 16px; margin-bottom: 14px; margin-top: -3px;
+    display: block;
   }
   .stat-value {
-    font-family: 'Fraunces', serif; font-size: 2rem; font-weight: 500;
-    line-height: 1; color: var(--ink);
+    font-size: 2.5rem; font-weight: 600; color: var(--ink);
+    letter-spacing: -0.03em; line-height: 1; display: flex;
+    align-items: baseline; gap: 6px;
   }
-  .stat-sub { font-size: 0.78rem; color: var(--ink-mute); margin-top: 6px; }
+  .stat-value .unit {
+    font-size: 0.95rem; font-weight: 500; color: var(--ink-mute);
+  }
+  .stat-sub {
+    font-size: 0.8rem; color: var(--ink-mute); margin-top: 10px;
+  }
 
   /* ─────────── Cards / tables ─────────── */
   .card {
-    background: #fff; border: 1px solid var(--line-soft);
-    border-radius: 2px; padding: 24px 28px; margin-bottom: 20px;
+    background: var(--white); border: 1px solid var(--line-soft);
+    border-radius: var(--radius-lg); padding: 28px 32px; margin-bottom: 20px;
+    box-shadow: var(--shadow-xs);
   }
-  .card h2 { margin-bottom: 4px; }
-  .card .subtle { color: var(--ink-mute); font-size: 0.88rem; margin-bottom: 16px; }
+  .card h2 { font-size: 1.35rem; margin-bottom: 4px; font-weight: 600; }
+  .card h3 { font-size: 1.05rem; font-weight: 600; }
+  .card .subtle { color: var(--ink-mute); font-size: 0.9rem; margin-bottom: 20px; }
   .card-head {
     display: flex; justify-content: space-between; align-items: flex-start;
-    margin-bottom: 18px; gap: 16px;
+    margin-bottom: 20px; gap: 16px;
   }
 
-  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
   th {
     text-align: left; font-weight: 600; color: var(--ink-mute);
-    font-size: 0.68rem; letter-spacing: 0.15em; text-transform: uppercase;
-    padding: 10px 14px; border-bottom: 1.5px solid var(--ink-soft);
-    background: var(--paper-warm);
+    font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 14px 16px; border-bottom: 1px solid var(--line);
   }
   td {
-    padding: 13px 14px; border-bottom: 1px solid var(--line-soft);
+    padding: 16px; border-bottom: 1px solid var(--line-soft);
     vertical-align: middle;
   }
-  tbody tr:hover td { background: var(--paper-warm); }
+  tbody tr { transition: background 120ms; }
+  tbody tr:hover td { background: var(--blue-tint); }
+  tbody tr:last-child td { border-bottom: none; }
   tr.clickable { cursor: pointer; }
   .num {
     text-align: right; font-variant-numeric: tabular-nums;
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem;
+    font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;
   }
 
   /* ─────────── Badges ─────────── */
   .badge {
-    display: inline-block; padding: 3px 9px; border-radius: 12px;
-    font-size: 0.7rem; font-weight: 600; letter-spacing: 0.06em;
-    text-transform: uppercase;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: var(--radius-pill);
+    font-size: 0.72rem; font-weight: 500; letter-spacing: 0.01em;
   }
-  .badge-incomplete { background: #ececec; color: #555; }
-  .badge-pending, .badge-quotepending, .badge-binderpending, .badge-coveragepending { background: #fff4e0; color: #8a5a00; }
-  .badge-submitted, .badge-quotepublished, .badge-binderpublished { background: #e8f0fc; color: #0b3d91; }
-  .badge-future, .badge-coverageactive, .badge-active, .badge-ready { background: #e3eee8; color: #2d5f3f; }
-  .badge-issued { background: #2d5f3f; color: #fff; }
-  .badge-declined, .badge-quotedeclined, .badge-binderdeclined, .badge-canceled, .badge-error { background: #f5e8e8; color: var(--err); }
-  .badge-expired, .badge-quoteclosed, .badge-blocked, .badge-closed { background: #ececec; color: #666; }
-  .badge-quoteindication, .badge-quotestoreedit { background: #ece7f5; color: #4a3a91; }
-  .badge-processing { background: #fff4e0; color: #8a5a00; }
+  .badge::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor;
+  }
+  .badge-incomplete { background: #eceee8; color: #5a6258; }
+  .badge-pending, .badge-quotepending, .badge-binderpending, .badge-coveragepending {
+    background: var(--warn-soft); color: var(--warn);
+  }
+  .badge-submitted, .badge-quotepublished, .badge-binderpublished {
+    background: var(--blue-soft); color: #2c5fb8;
+  }
+  .badge-future, .badge-coverageactive, .badge-active, .badge-ready {
+    background: var(--ok-soft); color: var(--ok);
+  }
+  .badge-issued {
+    background: var(--ok); color: #fff;
+  }
+  .badge-declined, .badge-quotedeclined, .badge-binderdeclined, .badge-canceled, .badge-error {
+    background: var(--err-soft); color: var(--err);
+  }
+  .badge-expired, .badge-quoteclosed, .badge-blocked, .badge-closed {
+    background: #ededeb; color: #6b6b6b;
+  }
+  .badge-quoteindication, .badge-quotestoreedit {
+    background: #efeafc; color: #4a3a91;
+  }
+  .badge-processing {
+    background: var(--warn-soft); color: var(--warn);
+  }
 
   /* ─────────── Forms ─────────── */
-  .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 22px; }
+  .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px 24px; }
   .form-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
   .form-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
-  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
   .field label {
-    font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em;
-    text-transform: uppercase; color: var(--ink-mute);
+    font-size: 0.78rem; font-weight: 500; color: var(--ink-soft);
   }
   .field input, .field select, .field textarea {
-    padding: 9px 12px; border: 1px solid var(--line);
-    background: #fff; border-radius: 2px; font-size: 0.9rem;
-    transition: border-color 120ms;
+    padding: 10px 14px; border: 1px solid var(--line);
+    background: var(--white); border-radius: var(--radius-md); font-size: 0.92rem;
+    transition: border-color 120ms, box-shadow 120ms;
   }
   .field input:focus, .field select:focus, .field textarea:focus {
-    outline: none; border-color: var(--accent);
+    outline: none; border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(103, 151, 238, 0.12);
   }
   .field.full { grid-column: 1 / -1; }
   .field-inline { display: flex; align-items: center; gap: 8px; }
-  .field-inline input[type=checkbox] { width: 16px; height: 16px; }
+  .field-inline input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--blue); }
+  .field-inline label { font-size: 0.88rem; color: var(--ink); cursor: pointer; }
 
   /* ─────────── Detail layout ─────────── */
   .detail-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
   .kv-list dt {
-    font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase;
-    color: var(--ink-mute); margin-top: 14px; font-weight: 600;
+    font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-mute); margin-top: 16px; font-weight: 600;
   }
   .kv-list dt:first-child { margin-top: 0; }
-  .kv-list dd { font-size: 0.92rem; color: var(--ink); margin-top: 3px; }
-  .kv-list dd.mono { font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; word-break: break-all; }
+  .kv-list dd { font-size: 0.95rem; color: var(--ink); margin-top: 4px; font-weight: 500; }
+  .kv-list dd.mono { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; word-break: break-all; font-weight: 400; }
 
   /* ─────────── Empty state ─────────── */
   .empty {
-    padding: 80px 20px; text-align: center; color: var(--ink-mute);
-    background: var(--paper-warm); border: 1px dashed var(--line);
-    border-radius: 2px;
+    padding: 72px 20px; text-align: center; color: var(--ink-mute);
+    border: 1px dashed var(--line); border-radius: var(--radius-md);
+    background: var(--paper);
   }
-  .empty h3 { color: var(--ink); margin-bottom: 8px; }
+  .empty h3 { color: var(--ink); margin-bottom: 8px; font-size: 1.05rem; }
+  .empty p { font-size: 0.9rem; }
 
   /* ─────────── Toast ─────────── */
   #toast-host {
     position: fixed; top: 16px; right: 16px; z-index: 1000;
-    display: flex; flex-direction: column; gap: 8px;
+    display: flex; flex-direction: column; gap: 10px; max-width: 420px;
   }
   .toast {
-    padding: 12px 18px; border-radius: 2px; font-size: 0.88rem;
-    background: var(--ink); color: #fff; box-shadow: var(--shadow-lg);
-    animation: slidein 200ms ease; min-width: 260px; max-width: 400px;
-    border-left: 3px solid var(--accent);
+    padding: 14px 18px; border-radius: var(--radius-md); font-size: 0.88rem;
+    background: var(--navy); color: #fff; box-shadow: var(--shadow-lg);
+    animation: slidein 200ms ease;
+    border-left: 3px solid var(--blue);
+    display: flex; gap: 12px; align-items: flex-start;
   }
   .toast.ok { border-left-color: var(--ok); }
   .toast.err { border-left-color: var(--err); }
-  @keyframes slidein { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } }
+  .toast::before {
+    content: 'i'; font-weight: 700; font-size: 0.75rem;
+    width: 18px; height: 18px; border-radius: 50%; background: var(--blue); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 1px;
+  }
+  .toast.ok::before { content: '✓'; background: var(--ok); }
+  .toast.err::before { content: '!'; background: var(--err); }
+  @keyframes slidein { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 
   /* ─────────── Modal ─────────── */
   .modal-backdrop {
-    position: fixed; inset: 0; background: rgba(10,14,26,0.4); z-index: 100;
+    position: fixed; inset: 0; background: rgba(15,37,66,0.5); z-index: 100;
     display: flex; align-items: flex-start; justify-content: center;
     padding-top: 80px; animation: fadein 150ms ease;
+    backdrop-filter: blur(3px);
   }
   .modal {
-    background: var(--paper); padding: 32px; border-radius: 2px;
+    background: var(--white); padding: 36px; border-radius: var(--radius-lg);
     max-width: 640px; width: 90%; max-height: 85vh; overflow-y: auto;
     box-shadow: var(--shadow-lg);
   }
+  .modal h2 { font-size: 1.35rem; font-weight: 600; margin-bottom: 8px; }
   @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
 
-  /* ─────────── Utilities ─────────── */
+  /* ─────────── Misc ─────────── */
   .loading {
-    display: inline-block; padding: 60px 20px; text-align: center;
-    color: var(--ink-mute); font-size: 0.9rem; width: 100%;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    padding: 60px 20px; color: var(--ink-mute); font-size: 0.9rem; width: 100%;
   }
-  .loading::after {
-    content: '…'; display: inline-block; animation: dots 1.5s infinite;
+  .loading::before {
+    content: ''; width: 16px; height: 16px; border-radius: 50%;
+    border: 2px solid var(--line); border-top-color: var(--blue);
+    animation: spin 700ms linear infinite;
   }
-  @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60%, 100% { content: '...'; } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
   hr { border: none; border-top: 1px solid var(--line-soft); margin: 24px 0; }
-  .pill-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill-row { display: flex; gap: 8px; flex-wrap: wrap; }
   .pill {
-    padding: 3px 10px; background: var(--paper-warm); border-radius: 12px;
-    font-size: 0.75rem; color: var(--ink-soft);
+    padding: 4px 12px; background: var(--paper-warm); border-radius: var(--radius-pill);
+    font-size: 0.78rem; color: var(--ink-soft);
   }
   .warning-box {
-    background: #fff4e0; border-left: 3px solid var(--warn); padding: 12px 16px;
-    font-size: 0.85rem; margin: 16px 0;
+    background: var(--warn-soft); border-left: 3px solid var(--warn);
+    padding: 14px 18px; font-size: 0.88rem; margin: 16px 0; border-radius: var(--radius-sm);
   }
   .data-editor {
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.82rem;
+    font-family: 'JetBrains Mono', monospace; font-size: 0.82rem;
     line-height: 1.65; border: 1px solid var(--line);
-    background: var(--paper-warm); padding: 14px; border-radius: 2px;
+    background: var(--paper); padding: 16px; border-radius: var(--radius-md);
     min-height: 240px; resize: vertical; width: 100%;
   }
   .help { font-size: 0.78rem; color: var(--ink-mute); margin-top: 4px; }
+
+  .insured-name { font-weight: 500; color: var(--ink); }
+  .insured-loc { font-size: 0.78rem; color: var(--ink-mute); margin-top: 2px; }
+
+  /* ─────────── Altruis logo SVG (simple wordmark-icon) ─────────── */
 </style>
 </head>
 <body>
 <div id="root"></div>
 <div id="toast-host"></div>
+
+<!-- Altruis icon: a stylized A/peak shape -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <defs>
+    <symbol id="altruis-icon" viewBox="0 0 32 32">
+      <path d="M16 3 L29 27 L22 27 L16 15 L10 27 L3 27 Z" fill="#6797EE"/>
+      <path d="M16 3 L22 15 L16 15 Z" fill="#0F2542"/>
+    </symbol>
+  </defs>
+</svg>
 
 <script type="module">
 // ─────────────────────────────────────────────────────────────
@@ -391,6 +586,19 @@ const el = (tag, props = {}, ...children) => {
   }
   return n;
 };
+
+// Embedded SVG icon for the brand mark
+function brandIcon(size = 32) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 32 32');
+  svg.setAttribute('width', size); svg.setAttribute('height', size);
+  svg.innerHTML = `
+    <path d="M16 3 L29 27 L22 27 L16 15 L10 27 L3 27 Z" fill="#6797EE"/>
+    <path d="M16 3 L22 15 L16 15 Z" fill="#0F2542"/>
+  `;
+  return svg;
+}
+
 const money = (n) => {
   if (n == null) return '—';
   const sign = n < 0 ? '(' : '';
@@ -401,12 +609,12 @@ const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { year: 'nume
 const fmtDateTime = (d) => d ? new Date(d).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
 
 function toast(msg, kind = '') {
-  const t = el('div', { className: `toast ${kind}` }, msg);
+  const t = el('div', { className: `toast ${kind}` }, el('div', {}, msg));
   $('#toast-host').appendChild(t);
   setTimeout(() => {
     t.style.opacity = '0'; t.style.transition = 'opacity 200ms';
     setTimeout(() => t.remove(), 200);
-  }, 3800);
+  }, 4200);
 }
 
 async function api(path, opts = {}) {
@@ -415,7 +623,6 @@ async function api(path, opts = {}) {
   if (body !== undefined) init.body = JSON.stringify(body);
   const res = await fetch(path, init);
   if (res.status === 401) {
-    // Kick back to login
     state.user = null;
     render();
     throw new Error('Not authenticated');
@@ -423,7 +630,7 @@ async function api(path, opts = {}) {
   if (!res.ok) {
     const errBody = await res.json().catch(() => ({ detail: res.statusText }));
     const msg = errBody.detail || errBody.message || res.statusText;
-    if (!silent) toast('Error: ' + msg, 'err');
+    if (!silent) toast(msg, 'err');
     throw new Error(msg);
   }
   const ct = res.headers.get('content-type') || '';
@@ -436,17 +643,27 @@ function statusBadge(s) {
   return el('span', { className: `badge badge-${normalized}` }, s);
 }
 
-function showModal(title, content) {
+function showModal(title, content, opts = {}) {
   const backdrop = el('div', {
     className: 'modal-backdrop',
     onClick: (e) => { if (e.target === backdrop) closeModal(); }
   }, el('div', { className: 'modal' },
-    el('h2', { className: 'serif', style: { marginBottom: '20px' } }, title),
+    el('h2', {}, title),
+    opts.subtitle ? el('p', { className: 'subtle', style: { marginBottom: '24px' } }, opts.subtitle) : null,
     content));
   backdrop.id = 'modal';
   document.body.appendChild(backdrop);
 }
 function closeModal() { document.getElementById('modal')?.remove(); }
+
+function userInitials(user) {
+  if (!user) return '?';
+  const name = user.name || user.email || '';
+  const parts = name.split(/[\s@.]+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return '?';
+}
 
 // ─────────────────────────────────────────────────────────────
 // App state
@@ -456,16 +673,13 @@ const state = {
   env: 'mock',
   view: 'dashboard',
   subView: null,
-
   submissions: { loading: false, items: [], total: 0 },
   quotes: { loading: false, items: [], total: 0 },
   policies: { loading: false, items: [], total: 0 },
   documents: { loading: false, items: [], total: 0 },
-
   selectedSubmission: null,
   selectedQuote: null,
   selectedPolicy: null,
-
   filter: { mine_only: false, status: null },
 };
 
@@ -484,31 +698,52 @@ function render() {
 // ─────────────────────────────────────────────────────────────
 function envBanner() {
   const labels = {
-    mock: 'Mock Environment  ·  No data sent to Joshu  ·  All records are in-memory',
-    test: 'Test Environment  ·  Joshu Test Container  ·  Not Production',
-    production: 'Production Environment  ·  LIVE DATA',
+    mock: 'Mock environment · No data is sent to Joshu · All records are in-memory',
+    test: 'Test environment · Joshu test container · Not production',
+    production: 'Production environment · Live data',
   };
   return el('div', { className: `env-banner ${state.env}` }, labels[state.env] || state.env);
 }
 
 // ─────────────────────────────────────────────────────────────
-// Login screen
+// Login screen (hero split)
 // ─────────────────────────────────────────────────────────────
 function loginView() {
-  const wrap = el('div', {},
+  return el('div', { className: 'login-wrap' },
     envBanner(),
-    el('div', { className: 'login-wrap' }, loginCard()));
-  return wrap;
+    el('div', { className: 'login-shell' },
+      loginLeft(),
+      loginRight()));
 }
 
-function loginCard() {
+function loginLeft() {
+  return el('div', { className: 'login-left' },
+    el('div', { className: 'login-brand-mark' },
+      el('div', { className: 'login-brand-mark-icon' }, brandIcon(36)),
+      el('div', { className: 'login-brand-name' },
+        'Altruis',
+        el('span', { className: 'sub' }, 'Broker Portal'))),
+    el('div', { className: 'login-hero' },
+      el('div', { className: 'eyebrow on-dark' }, 'Specialty Insurance MGA'),
+      el('h1', {}, 'Insurance value, unlocked by ',
+        el('span', { className: 'accent' }, 'technology'),
+        ' and ', el('span', { className: 'accent' }, 'human'), ' expertise.'),
+      el('p', {},
+        'Altruis Group builds specialized insurance programs that treat policies as assets — not annual expenses. Submit, quote, and bind at the speed your book deserves.')),
+    el('div', { className: 'login-footnote' },
+      el('span', {}, 'A-rated carrier partners'),
+      el('span', {}, '48-state footprint'),
+      el('span', {}, '<48hr average turnaround')));
+}
+
+function loginRight() {
   const form = { email: '', password: '', loading: false, error: null };
   const card = el('div', { className: 'login-card' });
 
   const rerender = () => {
     card.innerHTML = '';
-    card.appendChild(el('div', { className: 'login-brand' }, 'Altruis'));
-    card.appendChild(el('div', { className: 'login-sub' }, 'Broker Portal'));
+    card.appendChild(el('h2', {}, 'Sign in to your portal'));
+    card.appendChild(el('p', { className: 'lead' }, 'Access your agency’s submissions, quotes, and policies.'));
 
     const fEl = el('form', {
       onSubmit: async (e) => {
@@ -523,6 +758,7 @@ function loginCard() {
           state.user = res.user;
           state.env = res.environment;
           render();
+          setTimeout(loadView, 0);
         } catch (e) {
           form.loading = false;
           form.error = e.message;
@@ -534,32 +770,37 @@ function loginCard() {
         el('label', {}, 'Email'),
         el('input', {
           type: 'email', required: true, autofocus: true,
+          placeholder: 'you@agency.com',
           value: form.email, onInput: (e) => { form.email = e.target.value; },
         })),
       el('div', { className: 'field' },
         el('label', {}, 'Password'),
         el('input', {
-          type: 'password', required: true,
+          type: 'password', required: true, placeholder: '••••••••',
           value: form.password, onInput: (e) => { form.password = e.target.value; },
         })),
       form.error ? el('div', { className: 'login-err' }, form.error) : null,
       el('button', { type: 'submit', disabled: form.loading },
-        form.loading ? 'Signing in…' : 'Sign In')
+        form.loading ? 'Signing in' : 'Sign in')
     );
     card.appendChild(fEl);
 
-    // Demo credentials hint (mock only)
     if (state.env === 'mock') {
       card.appendChild(el('div', { className: 'login-hint' },
-        el('strong', {}, 'Demo accounts (mock environment)'),
-        el('div', { style: { marginTop: '6px' } },
-          'Sign in with ', el('code', {}, 'jane.broker@acmesurplus.com'),
-          ' · ', el('code', {}, 'marcus.ortiz@acmesurplus.com'),
-          ' · ', el('code', {}, 'admin@acmesurplus.com')),
-        el('div', { style: { marginTop: '4px' } }, 'Any password works in mock mode.')
+        el('strong', { style: { color: 'var(--ink)' } }, 'Demo accounts'),
+        el('div', { style: { marginTop: '8px' } },
+          'Try ', el('code', {}, 'jane.broker@acmesurplus.com'),
+          ' or ', el('code', {}, 'admin@acmesurplus.com'),
+          '. Any password works in mock mode.')
+      ));
+    } else if (state.env === 'test') {
+      card.appendChild(el('div', { className: 'login-hint' },
+        el('strong', { style: { color: 'var(--ink)' } }, 'Test environment'),
+        el('div', { style: { marginTop: '8px' } },
+          'Any email works. The portal uses a shared API token for this container.')
       ));
     }
-    // Restore focus after rerender
+
     setTimeout(() => {
       const first = card.querySelector('input');
       if (first && !form.loading) first.focus();
@@ -567,7 +808,7 @@ function loginCard() {
   };
 
   rerender();
-  return card;
+  return el('div', { className: 'login-right' }, card);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -594,8 +835,11 @@ function navItem(key, label) {
 
 function sidebar() {
   return el('aside', { className: 'sidebar' },
-    el('div', { className: 'brand' }, 'Altruis'),
-    el('div', { className: 'brand-sub' }, 'Broker Portal'),
+    el('div', { className: 'brand-mark' },
+      el('div', { className: 'brand-mark-icon' }, brandIcon(32)),
+      el('div', { className: 'brand-mark-name' },
+        'Altruis',
+        el('span', { className: 'sub' }, 'Broker Portal'))),
 
     el('div', { className: 'nav-section' }, 'Pipeline'),
     navItem('dashboard', 'Dashboard'),
@@ -610,15 +854,17 @@ function sidebar() {
     navItem('new-submission', 'New Submission'),
 
     el('div', { className: 'user-box' },
-      el('div', { className: 'u-name' }, state.user.name || state.user.email),
-      el('div', { className: 'u-meta' }, state.user.store_name || 'Independent'),
-      el('div', { className: 'u-meta' }, state.user.role || 'Broker'),
+      el('div', { className: 'u-row' },
+        el('div', { className: 'user-avatar' }, userInitials(state.user)),
+        el('div', { className: 'u-info' },
+          el('div', { className: 'u-name' }, state.user.name || state.user.email),
+          el('div', { className: 'u-meta' }, state.user.store_name || 'Independent'))),
       el('button', {
         onClick: async () => {
           await api('/api/auth/logout', { method: 'POST', silent: true });
           state.user = null; render();
         }
-      }, 'Sign Out')
+      }, 'Sign out')
     )
   );
 }
@@ -643,65 +889,67 @@ async function loadView() {
     if (state.view === 'submissions' && !state.subView) {
       state.submissions.loading = true; render();
       const res = await api(`/api/submissions?mine_only=${state.filter.mine_only}`);
-      state.submissions = { loading: false, items: res.items, total: res.total_items };
+      state.submissions = { loading: false, items: res.items || [], total: res.total_items || 0 };
       render();
     } else if (state.view === 'quotes' && !state.subView) {
       state.quotes.loading = true; render();
       const res = await api('/api/quotes');
-      state.quotes = { loading: false, items: res.items, total: res.total_items };
+      state.quotes = { loading: false, items: res.items || [], total: res.total_items || 0 };
       render();
     } else if (state.view === 'policies' && !state.subView) {
       state.policies.loading = true; render();
       const res = await api('/api/policies');
-      state.policies = { loading: false, items: res.items, total: res.total_items };
+      state.policies = { loading: false, items: res.items || [], total: res.total_items || 0 };
       render();
     } else if (state.view === 'documents') {
       state.documents.loading = true; render();
       const res = await api('/api/documents');
-      state.documents = { loading: false, items: res.items, total: res.total_items };
+      state.documents = { loading: false, items: res.items || [], total: res.total_items || 0 };
       render();
     } else if (state.view === 'dashboard') {
-      // Load counts for dashboard cards
       const [subs, quotes, pols, docs] = await Promise.all([
-        api('/api/submissions?per_page=5'),
-        api('/api/quotes?per_page=5'),
-        api('/api/policies?per_page=5'),
-        api('/api/documents?per_page=5'),
+        api('/api/submissions?per_page=8').catch(() => ({ items: [], total_items: 0 })),
+        api('/api/quotes?per_page=5').catch(() => ({ items: [], total_items: 0 })),
+        api('/api/policies?per_page=5').catch(() => ({ items: [], total_items: 0 })),
+        api('/api/documents?per_page=5').catch(() => ({ items: [], total_items: 0 })),
       ]);
-      state.submissions = { loading: false, items: subs.items, total: subs.total_items };
-      state.quotes = { loading: false, items: quotes.items, total: quotes.total_items };
-      state.policies = { loading: false, items: pols.items, total: pols.total_items };
-      state.documents = { loading: false, items: docs.items, total: docs.total_items };
+      state.submissions = { loading: false, items: subs.items || [], total: subs.total_items || 0 };
+      state.quotes = { loading: false, items: quotes.items || [], total: quotes.total_items || 0 };
+      state.policies = { loading: false, items: pols.items || [], total: pols.total_items || 0 };
+      state.documents = { loading: false, items: docs.items || [], total: docs.total_items || 0 };
       render();
     }
-  } catch (e) { /* toast already shown by api() */ }
+  } catch (e) { /* toast already shown */ }
 }
 
 // ─────────────────────────────────────────────────────────────
-// Dashboard
+// Dashboard — "The pipeline" treatment echoing the marketing site
 // ─────────────────────────────────────────────────────────────
 function dashboardView() {
   const recent = (state.submissions.items || []).slice(0, 8);
 
   return el('div', {},
-    pageHeader('Dashboard', 'Your agency’s in-flight business',
+    el('div', { className: 'page-header' },
+      el('div', {},
+        el('div', { className: 'eyebrow' }, 'Overview'),
+        el('h1', {}, 'Your pipeline')),
       el('button', {
         className: 'btn btn-primary',
         onClick: () => { state.view = 'new-submission'; render(); }
-      }, 'New Submission')),
+      }, 'New submission')),
 
-    el('div', { className: 'stats' },
+    el('div', { className: 'stats-grid' },
       statCard('Submissions', state.submissions.total, 'Across your agency'),
-      statCard('Open Quotes', state.quotes.total, 'Awaiting action'),
-      statCard('Policies In Force', state.policies.total, 'Currently bound'),
-      statCard('Documents', state.documents.total, 'Library'),
+      statCard('Open quotes', state.quotes.total, 'Awaiting action'),
+      statCard('Policies in force', state.policies.total, 'Currently bound'),
+      statCard('Documents', state.documents.total, 'Available to download'),
     ),
 
     el('div', { className: 'card' },
       el('div', { className: 'card-head' },
         el('div', {},
-          el('h2', { className: 'serif' }, 'Recent Submissions'),
-          el('div', { className: 'subtle' }, 'Latest activity from your agency')),
+          el('div', { className: 'eyebrow' }, 'Recent activity'),
+          el('h2', {}, 'Latest submissions')),
         el('button', {
           className: 'btn btn-ghost',
           onClick: () => { state.view = 'submissions'; render(); loadView(); }
@@ -709,25 +957,18 @@ function dashboardView() {
       recent.length === 0
         ? el('div', { className: 'empty' },
           el('h3', {}, 'Nothing yet'),
-          el('p', {}, 'Create a submission to begin.'))
+          el('p', {}, 'Click New submission to begin.'))
         : submissionsTable(recent)
     )
   );
 }
 
 function statCard(label, value, sub) {
+  const val = value != null ? value.toLocaleString() : '0';
   return el('div', { className: 'stat' },
     el('div', { className: 'stat-label' }, label),
-    el('div', { className: 'stat-value' }, value?.toLocaleString?.() ?? value ?? '0'),
+    el('div', { className: 'stat-value' }, val),
     el('div', { className: 'stat-sub' }, sub));
-}
-
-function pageHeader(title, eyebrow, action) {
-  return el('div', { className: 'page-header' },
-    el('div', {},
-      eyebrow ? el('div', { className: 'eyebrow' }, eyebrow) : null,
-      el('h1', { className: 'serif' }, title)),
-    action || null);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -735,28 +976,29 @@ function pageHeader(title, eyebrow, action) {
 // ─────────────────────────────────────────────────────────────
 function submissionsListView() {
   return el('div', {},
-    pageHeader('Submissions', 'All submissions in your agency',
-      el('div', { style: { display: 'flex', gap: '10px', alignItems: 'center' } },
-        el('label', {
-          className: 'field-inline', style: { color: 'var(--ink-mute)', fontSize: '0.85rem' }
-        },
+    el('div', { className: 'page-header' },
+      el('div', {},
+        el('div', { className: 'eyebrow' }, 'Pipeline'),
+        el('h1', {}, 'Submissions')),
+      el('div', { style: { display: 'flex', gap: '16px', alignItems: 'center' } },
+        el('label', { className: 'field-inline' },
           el('input', {
             type: 'checkbox', checked: state.filter.mine_only,
             onChange: (e) => { state.filter.mine_only = e.target.checked; loadView(); }
           }),
-          'Mine only'),
+          'My submissions only'),
         el('button', {
           className: 'btn btn-primary',
           onClick: () => { state.view = 'new-submission'; render(); }
-        }, 'New Submission'))),
+        }, 'New submission'))),
 
     el('div', { className: 'card' },
       state.submissions.loading
-        ? el('div', { className: 'loading' }, 'Loading')
+        ? el('div', { className: 'loading' }, 'Loading submissions')
         : state.submissions.items.length === 0
           ? el('div', { className: 'empty' },
-            el('h3', {}, 'No submissions'),
-            el('p', {}, 'Click New Submission to begin.'))
+            el('h3', {}, 'No submissions yet'),
+            el('p', {}, 'Click New submission to get started.'))
           : submissionsTable(state.submissions.items)));
 }
 
@@ -777,12 +1019,12 @@ function submissionsTable(items) {
       }
     },
       el('td', {},
-        el('div', { style: { fontWeight: 500 } },
+        el('div', { className: 'insured-name' },
           s.data?.['insured.name'] || s.insured_name || '—'),
-        el('div', { style: { fontSize: '0.78rem', color: 'var(--ink-mute)' } },
+        el('div', { className: 'insured-loc' },
           [s.data?.['insured.split_address.city'], s.data?.['insured.split_address.state']]
             .filter(Boolean).join(', ') || '—')),
-      el('td', { className: 'mono', style: { fontSize: '0.82rem' } }, `#${s.id}`),
+      el('td', { className: 'mono' }, `#${s.id}`),
       el('td', {}, s.flow || 'New'),
       el('td', {}, fmtDate(s.effective_at)),
       el('td', {}, statusBadge(s.status)),
@@ -797,7 +1039,7 @@ async function loadSubmission(id) {
   try {
     const [sub, quotes] = await Promise.all([
       api(`/api/submissions/${id}`),
-      api(`/api/quotes?submission_id=${id}`),
+      api(`/api/quotes?submission_id=${id}`).catch(() => ({ items: [] })),
     ]);
     state.selectedSubmission = { ...sub, quotes: quotes.items || [] };
     render();
@@ -813,10 +1055,11 @@ function submissionDetailView() {
   const canSubmit = s.status === 'Incomplete';
 
   return el('div', {},
-    pageHeader(
-      data['insured.name'] || 'Submission ' + s.id,
-      `Submission  ·  #${s.id}  ·  ${s.flow || 'New'}`,
-      el('div', { style: { display: 'flex', gap: '8px' } },
+    el('div', { className: 'page-header' },
+      el('div', {},
+        el('div', { className: 'eyebrow' }, `Submission · #${s.id} · ${s.flow || 'New'}`),
+        el('h1', {}, data['insured.name'] || 'Submission ' + s.id)),
+      el('div', { style: { display: 'flex', gap: '10px' } },
         el('button', {
           className: 'btn btn-secondary',
           onClick: () => { state.subView = null; render(); loadView(); }
@@ -824,19 +1067,22 @@ function submissionDetailView() {
         canEdit ? el('button', {
           className: 'btn btn-secondary',
           onClick: () => openEditDataModal(s)
-        }, 'Edit Data') : null,
+        }, 'Edit data') : null,
         canSubmit ? el('button', {
           className: 'btn btn-primary',
           onClick: () => submitSubmission(s.id)
-        }, 'Submit for Quote') : null)),
+        }, 'Submit for quote') : null)),
 
     el('div', { className: 'detail-grid' },
       el('div', {},
         el('div', { className: 'card' },
-          el('h2', { className: 'serif' }, 'Submission Data'),
+          el('div', { className: 'eyebrow' }, 'Data'),
+          el('h2', {}, 'Submission data'),
+          el('p', { className: 'subtle', style: { marginTop: '8px' } },
+            'Key/value data points defined by the product schema.'),
           Object.keys(data).length === 0
             ? el('div', { className: 'empty' },
-              el('p', {}, 'No data yet. Click Edit Data to populate.'))
+              el('p', {}, 'No data yet. Click Edit data to populate.'))
             : el('dl', { className: 'kv-list' },
               ...Object.entries(data).map(([k, v]) => [
                 el('dt', {}, k),
@@ -844,14 +1090,14 @@ function submissionDetailView() {
               ]).flat())),
 
         s.quotes && s.quotes.length > 0 ? el('div', { className: 'card' },
-          el('h2', { className: 'serif' }, 'Quotes'),
-          el('div', { className: 'subtle' }, `${s.quotes.length} quote version(s)`),
-          el('table', {},
+          el('div', { className: 'eyebrow' }, 'Quotes'),
+          el('h2', {}, `${s.quotes.length} quote version${s.quotes.length > 1 ? 's' : ''}`),
+          el('table', { style: { marginTop: '16px' } },
             el('thead', {}, el('tr', {},
               el('th', {}, 'Quote'),
               el('th', {}, 'Status'),
-              el('th', { className: 'num' }, 'Total Premium'),
-              el('th', { className: 'num' }, 'Total Invoice'),
+              el('th', { className: 'num' }, 'Total premium'),
+              el('th', { className: 'num' }, 'Total invoice'),
               el('th', {}, 'Created'))),
             el('tbody', {}, ...s.quotes.map(q => el('tr', {
               className: 'clickable',
@@ -860,7 +1106,7 @@ function submissionDetailView() {
                 loadQuote(q.id);
               }
             },
-              el('td', { className: 'mono', style: { fontSize: '0.82rem' } }, `#${q.id}`),
+              el('td', { className: 'mono' }, `#${q.id}`),
               el('td', {}, statusBadge(q.status)),
               el('td', { className: 'num' }, money(q.data?.total_premium)),
               el('td', { className: 'num' }, money(q.data?.total_invoice)),
@@ -870,35 +1116,35 @@ function submissionDetailView() {
 
       el('div', {},
         el('div', { className: 'card' },
-          el('h3', {}, 'Details'),
-          el('dl', { className: 'kv-list', style: { marginTop: '12px' } },
+          el('div', { className: 'eyebrow' }, 'Details'),
+          el('h3', {}, 'Overview'),
+          el('dl', { className: 'kv-list', style: { marginTop: '16px' } },
             el('dt', {}, 'Status'), el('dd', {}, statusBadge(s.status)),
             el('dt', {}, 'Flow'), el('dd', {}, s.flow),
-            el('dt', {}, 'Effective Date'), el('dd', {}, fmtDate(s.effective_at)),
+            el('dt', {}, 'Effective date'), el('dd', {}, fmtDate(s.effective_at)),
             el('dt', {}, 'Created'), el('dd', {}, fmtDateTime(s.created_at)),
             el('dt', {}, 'Submitted'), el('dd', {}, fmtDateTime(s.submitted_at)),
-            el('dt', {}, 'Product Version'), el('dd', {}, s.product_version_id),
+            el('dt', {}, 'Product version'), el('dd', {}, s.product_version_id),
             s.policy_id ? [
               el('dt', {}, 'Policy'),
               el('dd', { className: 'mono' }, s.policy_id)
             ] : null,
-            el('dt', {}, 'Test Flag'), el('dd', {}, s.test ? 'Yes' : 'No')))
+            el('dt', {}, 'Test flag'), el('dd', {}, s.test ? 'Yes' : 'No')))
       )
     ));
 }
 
 function openEditDataModal(sub) {
   const form = { data_raw: JSON.stringify(sub.data || {}, null, 2) };
-  showModal('Edit Submission Data', el('div', {},
-    el('p', { className: 'subtle', style: { marginBottom: '12px' } },
-      'JSON-formatted submission data. Keys follow the Joshu schema ',
-      el('code', {}, 'insured.*, app.*, data.*')),
+  showModal('Edit submission data', el('div', {},
     el('textarea', {
       className: 'data-editor', rows: '16',
       value: form.data_raw,
       onInput: (e) => { form.data_raw = e.target.value; }
     }),
-    el('div', { style: { marginTop: '16px', display: 'flex', gap: '8px', justifyContent: 'flex-end' } },
+    el('div', { className: 'help', style: { marginBottom: '20px' } },
+      'Keys follow the Joshu schema (insured.*, app.*, data.*).'),
+    el('div', { style: { display: 'flex', gap: '10px', justifyContent: 'flex-end' } },
       el('button', { className: 'btn btn-secondary', onClick: closeModal }, 'Cancel'),
       el('button', {
         className: 'btn btn-primary',
@@ -913,13 +1159,14 @@ function openEditDataModal(sub) {
             toast('Invalid JSON: ' + e.message, 'err');
           }
         }
-      }, 'Save Data'))));
+      }, 'Save data'))),
+    { subtitle: 'JSON-formatted submission data.' });
 }
 
 async function submitSubmission(id) {
   try {
     await api(`/api/submissions/${id}/submit`, { method: 'POST' });
-    toast('Submission submitted — rating initiated', 'ok');
+    toast('Submission submitted for rating', 'ok');
     loadSubmission(id);
   } catch (e) { /* toast shown */ }
 }
@@ -929,28 +1176,32 @@ async function submitSubmission(id) {
 // ─────────────────────────────────────────────────────────────
 function quotesListView() {
   return el('div', {},
-    pageHeader('Quotes', 'All quotes across your agency'),
+    el('div', { className: 'page-header' },
+      el('div', {},
+        el('div', { className: 'eyebrow' }, 'Pipeline'),
+        el('h1', {}, 'Quotes'))),
     el('div', { className: 'card' },
       state.quotes.loading
-        ? el('div', { className: 'loading' }, 'Loading')
+        ? el('div', { className: 'loading' }, 'Loading quotes')
         : state.quotes.items.length === 0
           ? el('div', { className: 'empty' },
-            el('h3', {}, 'No quotes yet'))
+            el('h3', {}, 'No quotes yet'),
+            el('p', {}, 'Submitting a submission creates a quote.'))
           : el('table', {},
             el('thead', {}, el('tr', {},
               el('th', {}, 'Quote'),
               el('th', {}, 'Submission'),
               el('th', {}, 'Status'),
-              el('th', { className: 'num' }, 'Total Premium'),
-              el('th', { className: 'num' }, 'Total Invoice'),
+              el('th', { className: 'num' }, 'Total premium'),
+              el('th', { className: 'num' }, 'Total invoice'),
               el('th', {}, 'Expires'),
               el('th', {}, 'Updated'))),
             el('tbody', {}, ...state.quotes.items.map(q => el('tr', {
               className: 'clickable',
               onClick: () => { state.subView = q.id; loadQuote(q.id); }
             },
-              el('td', { className: 'mono', style: { fontSize: '0.82rem' } }, `#${q.id}`),
-              el('td', { className: 'mono', style: { fontSize: '0.82rem' } }, `#${q.submission_id}`),
+              el('td', { className: 'mono' }, `#${q.id}`),
+              el('td', { className: 'mono' }, `#${q.submission_id}`),
               el('td', {}, statusBadge(q.status)),
               el('td', { className: 'num' }, money(q.data?.total_premium)),
               el('td', { className: 'num' }, money(q.data?.total_invoice)),
@@ -964,7 +1215,7 @@ async function loadQuote(id) {
   try {
     const [q, docs] = await Promise.all([
       api(`/api/quotes/${id}`),
-      api(`/api/documents?quote_id=${id}`),
+      api(`/api/documents?quote_id=${id}`).catch(() => ({ items: [] })),
     ]);
     state.selectedQuote = { ...q, documents: docs.items || [] };
     render();
@@ -976,12 +1227,14 @@ function quoteDetailView() {
   if (!q) return el('div', { className: 'loading' }, 'Loading');
 
   const data = q.data || {};
-  const canBind = q.status === 'QuotePublished';
   const canRequestBinder = q.status === 'QuotePublished';
 
   return el('div', {},
-    pageHeader('Quote #' + q.id, `Submission #${q.submission_id}  ·  ${q.status}`,
-      el('div', { style: { display: 'flex', gap: '8px' } },
+    el('div', { className: 'page-header' },
+      el('div', {},
+        el('div', { className: 'eyebrow' }, `Quote · Submission #${q.submission_id}`),
+        el('h1', {}, 'Quote #' + q.id)),
+      el('div', { style: { display: 'flex', gap: '10px' } },
         el('button', {
           className: 'btn btn-secondary',
           onClick: () => { state.subView = null; render(); loadView(); }
@@ -989,36 +1242,39 @@ function quoteDetailView() {
         canRequestBinder ? el('button', {
           className: 'btn btn-primary',
           onClick: () => requestBinder(q.id)
-        }, 'Request Binder') : null)),
+        }, 'Request binder') : null)),
 
     el('div', { className: 'detail-grid' },
       el('div', {},
         el('div', { className: 'card' },
-          el('h2', { className: 'serif' }, 'Premium Summary'),
+          el('div', { className: 'eyebrow' }, 'Pricing'),
+          el('h2', {}, 'Premium summary'),
           Object.keys(data).length === 0
-            ? el('div', { className: 'empty' }, 'Premium data not yet available')
-            : el('table', {},
+            ? el('div', { className: 'empty', style: { marginTop: '16px' } },
+              'Premium data not yet available')
+            : el('table', { style: { marginTop: '16px' } },
               el('tbody', {},
                 premRow('Property', data.property_premium),
-                premRow('General Liability', data.gl_premium),
-                premRow('Equipment Breakdown', data.eb_premium),
+                premRow('General liability', data.gl_premium),
+                premRow('Equipment breakdown', data.eb_premium),
                 premRow('Cyber', data.cyber_premium),
                 premRow('EPLI', data.epli_premium),
                 premRow('TRIA', data.tria_premium),
                 el('tr', { style: { borderTop: '2px solid var(--ink)' } },
-                  el('td', { style: { fontWeight: 600 } }, 'Total Premium'),
+                  el('td', { style: { fontWeight: 600 } }, 'Total premium'),
                   el('td', { className: 'num', style: { fontWeight: 600 } },
                     money(data.total_premium))),
-                premRow('Surplus Lines Taxes', data.total_taxes),
+                premRow('Surplus lines taxes', data.total_taxes),
                 premRow('Fees', data.total_fees),
-                el('tr', { style: { background: 'var(--paper-warm)' } },
-                  el('td', { style: { fontWeight: 700 } }, 'Total Invoice'),
-                  el('td', { className: 'num', style: { fontWeight: 700 } },
+                el('tr', { style: { background: 'var(--blue-tint)' } },
+                  el('td', { style: { fontWeight: 700 } }, 'Total invoice'),
+                  el('td', { className: 'num', style: { fontWeight: 700, color: 'var(--blue)' } },
                     money(data.total_invoice)))))),
 
         q.documents && q.documents.length > 0 ? el('div', { className: 'card' },
-          el('h3', {}, 'Documents'),
-          el('table', { style: { marginTop: '12px' } },
+          el('div', { className: 'eyebrow' }, 'Documents'),
+          el('h3', {}, 'Quote documents'),
+          el('table', { style: { marginTop: '16px' } },
             el('thead', {}, el('tr', {},
               el('th', {}, 'Type'),
               el('th', {}, 'Name'),
@@ -1033,7 +1289,7 @@ function quoteDetailView() {
                 fmtDateTime(d.created_time)),
               el('td', {},
                 el('a', {
-                  className: 'btn btn-ghost',
+                  className: 'btn btn-ghost btn-sm',
                   href: `/api/documents/${d.id}/download`,
                   target: '_blank'
                 }, 'Open'))))))) : null
@@ -1041,14 +1297,15 @@ function quoteDetailView() {
 
       el('div', {},
         el('div', { className: 'card' },
-          el('h3', {}, 'Quote Details'),
-          el('dl', { className: 'kv-list', style: { marginTop: '12px' } },
+          el('div', { className: 'eyebrow' }, 'Details'),
+          el('h3', {}, 'Quote metadata'),
+          el('dl', { className: 'kv-list', style: { marginTop: '16px' } },
             el('dt', {}, 'Quote ID'), el('dd', { className: 'mono' }, q.id),
             el('dt', {}, 'Status'), el('dd', {}, statusBadge(q.status)),
             el('dt', {}, 'Submission'), el('dd', { className: 'mono' }, q.submission_id),
             el('dt', {}, 'Expires'), el('dd', {}, fmtDate(q.quote_expires_at)),
             el('dt', {}, 'Created'), el('dd', {}, fmtDateTime(q.created_at)),
-            el('dt', {}, 'Authority Level'), el('dd', {}, q.authority_level || '—')))
+            el('dt', {}, 'Authority level'), el('dd', {}, q.authority_level || '—')))
       )
     ));
 }
@@ -1074,14 +1331,17 @@ async function requestBinder(id) {
 // ─────────────────────────────────────────────────────────────
 function policiesListView() {
   return el('div', {},
-    pageHeader('Policies', 'In-force and historical policies'),
+    el('div', { className: 'page-header' },
+      el('div', {},
+        el('div', { className: 'eyebrow' }, 'Book'),
+        el('h1', {}, 'Policies'))),
     el('div', { className: 'card' },
       state.policies.loading
-        ? el('div', { className: 'loading' }, 'Loading')
+        ? el('div', { className: 'loading' }, 'Loading policies')
         : state.policies.items.length === 0
           ? el('div', { className: 'empty' },
             el('h3', {}, 'No policies yet'),
-            el('p', {}, 'Bind a quote to see policies here.'))
+            el('p', {}, 'Bound quotes become policies here.'))
           : el('table', {},
             el('thead', {}, el('tr', {},
               el('th', {}, 'Insured'),
@@ -1089,17 +1349,16 @@ function policiesListView() {
               el('th', {}, 'Effective'),
               el('th', {}, 'Renews'),
               el('th', {}, 'Status'),
-              el('th', {}, 'Last Updated'))),
+              el('th', {}, 'Updated'))),
             el('tbody', {}, ...state.policies.items.map(p => el('tr', {
               className: 'clickable',
               onClick: () => { state.subView = p.id; loadPolicy(p.id); }
             },
               el('td', {},
-                el('div', { style: { fontWeight: 500 } }, p.insured_name || '—'),
-                el('div', { style: { fontSize: '0.78rem', color: 'var(--ink-mute)' } },
-                  p.product_name || '')),
-              el('td', { className: 'mono', style: { fontSize: '0.78rem' } },
-                p.id ? p.id.split('-')[0] + '…' : '—'),
+                el('div', { className: 'insured-name' }, p.insured_name || '—'),
+                el('div', { className: 'insured-loc' }, p.product_name || '')),
+              el('td', { className: 'mono' },
+                p.id ? (p.id.length > 12 ? p.id.slice(0, 8) + '…' : p.id) : '—'),
               el('td', {}, fmtDate(p.effective_date)),
               el('td', {}, fmtDate(p.renews_at)),
               el('td', {}, statusBadge(p.status)),
@@ -1110,8 +1369,7 @@ function policiesListView() {
 async function loadPolicy(id) {
   state.selectedPolicy = null; render();
   try {
-    const p = await api(`/api/policies/${id}`);
-    state.selectedPolicy = p;
+    state.selectedPolicy = await api(`/api/policies/${id}`);
     render();
   } catch (e) { /* toast shown */ }
 }
@@ -1125,8 +1383,11 @@ function policyDetailView() {
   const canCancel = ['Active', 'Future'].includes(p.status);
 
   return el('div', {},
-    pageHeader(p.insured_name || 'Policy', `Policy  ·  ${p.id}`,
-      el('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+    el('div', { className: 'page-header' },
+      el('div', {},
+        el('div', { className: 'eyebrow' }, `Policy · ${p.id ? p.id.slice(0, 8) + '…' : ''}`),
+        el('h1', {}, p.insured_name || 'Policy')),
+      el('div', { style: { display: 'flex', gap: '10px', flexWrap: 'wrap' } },
         el('button', {
           className: 'btn btn-secondary',
           onClick: () => { state.subView = null; render(); loadView(); }
@@ -1134,7 +1395,7 @@ function policyDetailView() {
         canEndorse ? el('button', {
           className: 'btn btn-secondary',
           onClick: () => startLifecycleTxn(p, 'Endorsement')
-        }, 'Request Endorsement') : null,
+        }, 'Endorse') : null,
         canRenew ? el('button', {
           className: 'btn btn-secondary',
           onClick: () => startLifecycleTxn(p, 'Renewal')
@@ -1142,26 +1403,28 @@ function policyDetailView() {
         canCancel ? el('button', {
           className: 'btn btn-danger',
           onClick: () => startLifecycleTxn(p, 'ManualCancellation')
-        }, 'Request Cancellation') : null)),
+        }, 'Cancel') : null)),
 
     el('div', { className: 'detail-grid' },
       el('div', {},
         el('div', { className: 'card' },
-          el('h2', { className: 'serif' }, 'Policy Summary'),
-          el('dl', { className: 'kv-list', style: { marginTop: '12px' } },
-            el('dt', {}, 'Named Insured'), el('dd', {}, p.insured_name || '—'),
+          el('div', { className: 'eyebrow' }, 'Overview'),
+          el('h2', {}, 'Policy summary'),
+          el('dl', { className: 'kv-list', style: { marginTop: '16px' } },
+            el('dt', {}, 'Named insured'), el('dd', {}, p.insured_name || '—'),
             el('dt', {}, 'Product'), el('dd', {}, p.product_name || '—'),
-            el('dt', {}, 'Effective Date'), el('dd', {}, fmtDate(p.effective_date)),
-            el('dt', {}, 'Renews At'), el('dd', {}, fmtDate(p.renews_at)),
+            el('dt', {}, 'Effective date'), el('dd', {}, fmtDate(p.effective_date)),
+            el('dt', {}, 'Renews'), el('dd', {}, fmtDate(p.renews_at)),
             el('dt', {}, 'Status'), el('dd', {}, statusBadge(p.status)),
             p.ongoing_change ? [
-              el('dt', {}, 'Ongoing Change'),
+              el('dt', {}, 'Ongoing change'),
               el('dd', {}, `${p.ongoing_change} (${p.ongoing_change_user_role || 'Broker'})`)
             ] : null)),
 
         p.transactions && p.transactions.length > 0 ? el('div', { className: 'card' },
+          el('div', { className: 'eyebrow' }, 'Ledger'),
           el('h3', {}, 'Transactions'),
-          el('table', { style: { marginTop: '12px' } },
+          el('table', { style: { marginTop: '16px' } },
             el('thead', {}, el('tr', {},
               el('th', {}, 'Flow'),
               el('th', {}, 'Effective'),
@@ -1173,7 +1436,8 @@ function policyDetailView() {
               el('td', {}, fmtDate(t.effective_at)),
               el('td', {}, statusBadge(t.status)),
               el('td', {
-                className: 'mono', style: { fontSize: '0.82rem', cursor: t.latest_submission_id ? 'pointer' : 'default' },
+                className: 'mono',
+                style: { cursor: t.latest_submission_id ? 'pointer' : 'default' },
                 onClick: () => {
                   if (!t.latest_submission_id) return;
                   state.view = 'submissions'; state.subView = t.latest_submission_id;
@@ -1186,11 +1450,12 @@ function policyDetailView() {
 
       el('div', {},
         el('div', { className: 'card' },
-          el('h3', {}, 'Details'),
-          el('dl', { className: 'kv-list', style: { marginTop: '12px' } },
+          el('div', { className: 'eyebrow' }, 'Details'),
+          el('h3', {}, 'Metadata'),
+          el('dl', { className: 'kv-list', style: { marginTop: '16px' } },
             el('dt', {}, 'Policy UUID'), el('dd', { className: 'mono' }, p.id),
             el('dt', {}, 'Created'), el('dd', {}, fmtDateTime(p.created_at)),
-            el('dt', {}, 'Product Version'), el('dd', {}, p.product_version_id || '—'),
+            el('dt', {}, 'Product version'), el('dd', {}, p.product_version_id || '—'),
             el('dt', {}, 'Insured ID'), el('dd', {}, p.insured_id || '—')))
       )
     ));
@@ -1203,7 +1468,7 @@ async function startLifecycleTxn(policy, flow) {
     ManualCancellation: 'cancellation request',
   };
   const label = names[flow] || flow;
-  if (!confirm(`Start a new ${label}? This will create a new submission you can fill in.`)) return;
+  if (!confirm(`Start a new ${label}? A new submission will be created for you to fill in.`)) return;
   try {
     const res = await api(`/api/policies/${policy.id}/transactions`, {
       method: 'POST',
@@ -1220,13 +1485,17 @@ async function startLifecycleTxn(policy, flow) {
 // ─────────────────────────────────────────────────────────────
 function documentsView() {
   return el('div', {},
-    pageHeader('Documents', 'Quote letters, binders, policies, applications'),
+    el('div', { className: 'page-header' },
+      el('div', {},
+        el('div', { className: 'eyebrow' }, 'Library'),
+        el('h1', {}, 'Documents'))),
     el('div', { className: 'card' },
       state.documents.loading
-        ? el('div', { className: 'loading' }, 'Loading')
+        ? el('div', { className: 'loading' }, 'Loading documents')
         : state.documents.items.length === 0
           ? el('div', { className: 'empty' },
-            el('h3', {}, 'No documents yet'))
+            el('h3', {}, 'No documents yet'),
+            el('p', {}, 'Quote letters, binders, and policies appear here as they’re generated.'))
           : el('table', {},
             el('thead', {}, el('tr', {},
               el('th', {}, 'Name'),
@@ -1238,13 +1507,13 @@ function documentsView() {
             el('tbody', {}, ...state.documents.items.map(d => el('tr', {},
               el('td', { style: { fontWeight: 500 } }, d.name || 'Untitled'),
               el('td', {}, d.document_type),
-              el('td', { className: 'mono', style: { fontSize: '0.82rem' } }, `#${d.quote_id}`),
+              el('td', { className: 'mono' }, `#${d.quote_id}`),
               el('td', {}, statusBadge(d.status)),
               el('td', { style: { fontSize: '0.85rem', color: 'var(--ink-mute)' } },
                 fmtDateTime(d.created_time)),
               el('td', {},
                 el('a', {
-                  className: 'btn btn-ghost',
+                  className: 'btn btn-ghost btn-sm',
                   href: `/api/documents/${d.id}/download`,
                   target: '_blank'
                 }, 'Open'))))))));
@@ -1264,21 +1533,23 @@ function newSubmissionView() {
   const rerender = () => {
     container.innerHTML = '';
     container.appendChild(
-      pageHeader('New Submission', 'Start a new risk submission',
+      el('div', { className: 'page-header' },
+        el('div', {},
+          el('div', { className: 'eyebrow' }, 'New submission'),
+          el('h1', {}, 'Start a new risk')),
         el('button', {
           className: 'btn btn-secondary',
           onClick: () => { state.view = 'dashboard'; render(); loadView(); }
-        }, '← Back'))
-    );
+        }, '← Back')));
 
     container.appendChild(
       el('div', { className: 'card' },
         el('p', { className: 'subtle' },
-          'Create a new submission record. You’ll fill in the insured and coverage details on the next screen.'),
+          'Create a new submission record. Insured and coverage details are filled in on the next screen.'),
 
-        el('div', { className: 'form-grid', style: { marginTop: '20px' } },
+        el('div', { className: 'form-grid', style: { marginTop: '24px' } },
           el('div', { className: 'field' },
-            el('label', {}, 'Requested Effective Date'),
+            el('label', {}, 'Requested effective date'),
             el('input', {
               type: 'date', value: form.effective_date,
               onInput: (e) => { form.effective_date = e.target.value; }
@@ -1294,7 +1565,7 @@ function newSubmissionView() {
               'Product is selected automatically based on effective date'))),
 
         el('div', {
-          style: { marginTop: '24px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }
+          style: { marginTop: '28px', display: 'flex', justifyContent: 'flex-end', gap: '12px' }
         },
           el('button', {
             className: 'btn btn-secondary',
@@ -1320,7 +1591,7 @@ function newSubmissionView() {
                 form.creating = false; rerender();
               }
             }
-          }, form.creating ? 'Creating…' : 'Create Submission'))
+          }, form.creating ? 'Creating' : 'Create submission'))
       )
     );
   };

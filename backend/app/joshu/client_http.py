@@ -108,12 +108,18 @@ class HttpJoshuClient(JoshuClientBase):
     # Core request helpers — ALL traffic flows through these
     # ------------------------------------------------------------------
 
-    def _headers(self, bearer_token: str | None = None) -> dict[str, str]:
+    def _headers(self, bearer_token: str | None = None, *, with_body: bool = False) -> dict[str, str]:
         """Build auth headers.
 
         Joshu accepts either:
           - Authorization: Bearer <token>   (from email/password login)
           - Authorization: Token <api_key>  (from pre-generated API token)
+
+        Content-Type is only set when ``with_body=True``. GET requests
+        have no body, and sending ``Content-Type: application/json`` on
+        a GET causes Joshu's JSON parser to attempt to parse the empty
+        body and return a 400 "EOF while parsing a value at line 1
+        column 0" error.
 
         If a real bearer_token is passed (future broker login), prefer it.
         If the caller passes the API_TOKEN_SENTINEL, or None, or an empty
@@ -121,10 +127,10 @@ class HttpJoshuClient(JoshuClientBase):
         """
         from app.session import API_TOKEN_SENTINEL
 
-        headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        }
+        headers: dict[str, str] = {"Accept": "application/json"}
+        if with_body:
+            headers["Content-Type"] = "application/json"
+
         # Use the bearer token only if it's a real token (not our sentinel)
         real_bearer = (
             bearer_token
