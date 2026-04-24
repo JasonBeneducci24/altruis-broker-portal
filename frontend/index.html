@@ -1765,10 +1765,27 @@ function submissionMainCard(s) {
   const activeFields = form.fields.filter(f =>
     f.section === activeSection.code && f.visible !== false);
 
-  // Determine if this is an asset section with 2+ assets
+  // Determine if this is an asset section with 2+ populated assets.
+  //
+  // Joshu's schema reports `is_asset: true` for sections like `structures`
+  // and reports one datapoint per asset_idx the product schema can support —
+  // which may be MANY indices even when the actual data only has zero or
+  // one entry. If we relied solely on the count of asset_idx groups, a
+  // brand-new submission would render as "7 empty Asset cards" which is
+  // confusing and wrong.
+  //
+  // Real rule: only render as multi-asset cards when at least 2 distinct
+  // assets have actual data. Everything else is a flat form or an empty
+  // section that will later gain an "Add item" action.
   const isAssetSection = activeSection.is_asset;
   const assetGroups = isAssetSection ? groupFieldsByAsset(activeFields) : null;
-  const isMultiAsset = assetGroups && assetGroups.length >= 2;
+  const populatedGroups = assetGroups
+    ? assetGroups.filter(g => g.fields.some(f => f.value != null && f.value !== ''))
+    : null;
+  const isMultiAsset = !!(populatedGroups && populatedGroups.length >= 2);
+  // When we treat as multi-asset, we only render the populated groups.
+  // (Empty asset slots are hidden until there's a proper "Add" workflow.)
+  const displayedGroups = isMultiAsset ? populatedGroups : null;
 
   // Overall completion for the progress bar
   const totals = sections.reduce(
@@ -1804,13 +1821,13 @@ function submissionMainCard(s) {
             ? el('div', { className: 'form-pane-error' }, activeSection.section_error)
             : el('div', { className: 'form-pane-sub' },
                 isMultiAsset
-                  ? `${assetGroups.length} ${inferAssetNoun(activeSection, 2)} · ${activeSection.completed} of ${activeSection.visible_count} fields complete`
+                  ? `${displayedGroups.length} ${inferAssetNoun(activeSection, displayedGroups.length)} · ${activeSection.completed} of ${activeSection.visible_count} fields complete`
                   : `${activeSection.completed} of ${activeSection.visible_count} fields complete`),
           // Expand/Collapse-all row for asset sections
           isMultiAsset
             ? el('div', { className: 'asset-controls' },
                 el('button', { className: 'btn-sm-ghost',
-                  onClick: () => { expandAllAssets(activeSection.code, assetGroups); render(); }
+                  onClick: () => { expandAllAssets(activeSection.code, displayedGroups); render(); }
                 }, 'Expand all'),
                 el('button', { className: 'btn-sm-ghost',
                   onClick: () => { collapseAllAssets(activeSection.code); render(); }
@@ -1823,7 +1840,7 @@ function submissionMainCard(s) {
             el('p', {}, 'No fields in this section are currently visible.'))
           : isMultiAsset
             ? el('div', { className: 'asset-list' },
-                ...assetGroups.map(g => renderAssetCard(activeSection, g, isEditing)))
+                ...displayedGroups.map(g => renderAssetCard(activeSection, g, isEditing)))
             : el('div', { className: 'form-grid' },
                 ...activeFields.map(f => renderFormField(f, isEditing))),
 
@@ -1848,9 +1865,9 @@ function submissionMainCard(s) {
       isMultiAsset
         ? el('div', { className: 'form-rail form-rail-right' },
             el('div', { className: 'asset-rail-head' },
-              el('div', { className: 'eyebrow' }, inferAssetNoun(activeSection, assetGroups.length)),
-              el('div', { className: 'asset-rail-count' }, `${assetGroups.length} total`)),
-            ...assetGroups.map(g => assetRailItem(activeSection, g)))
+              el('div', { className: 'eyebrow' }, inferAssetNoun(activeSection, displayedGroups.length)),
+              el('div', { className: 'asset-rail-count' }, `${displayedGroups.length} total`)),
+            ...displayedGroups.map(g => assetRailItem(activeSection, g)))
         : null));
 }
 
