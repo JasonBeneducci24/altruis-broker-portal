@@ -656,6 +656,10 @@
     border-top: 1px solid var(--line-2);
     background: var(--white);
   }
+  /* In an asset card's body, tighten the grid a bit for density */
+  .asset-card-body .form-grid {
+    gap: 14px 28px;
+  }
   /* Medium viewports — stack stats below title */
   @media (max-width: 1200px) {
     .asset-card-summary {
@@ -854,17 +858,51 @@
   .toggle-label { font-size: 0.88rem; color: var(--navy); }
   .toggle input:disabled + .toggle-switch { opacity: 0.5; cursor: not-allowed; }
 
-  /* Readonly form display */
+  /* ──────────────────────────────────────────────────────────────
+   * Locked value display — read-only view of a field
+   * Same grid position as the edit input, but no frame, no box:
+   * the value sits directly below the eyebrow label.
+   * ────────────────────────────────────────────────────────────── */
+  .locked-value {
+    padding: 0; background: transparent; border: none;
+    font-size: 0.98rem; color: var(--ink); font-weight: 500;
+    min-height: 28px; display: flex; align-items: center;
+    line-height: 1.35; word-break: break-word;
+  }
+  .locked-value.empty { color: var(--mute); font-weight: 400; }
+
+  /* Compact locked boolean — ✓ Yes (green) / — No (muted) as a chip */
+  .locked-bool {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 0.92rem; font-weight: 500; color: var(--ink);
+    min-height: 28px;
+  }
+  .locked-bool.yes { color: var(--ok, #0E8B5E); }
+  .locked-bool.no { color: var(--mute); font-weight: 400; }
+  .locked-bool.empty { color: var(--mute); font-weight: 400; }
+  .locked-bool.empty::before { content: '—'; }
+
+  /* Locked form-field label — smaller, uppercase eyebrow
+     In edit mode, label reverts to normal. */
+  .form-field.is-locked { gap: 2px; }
+  .form-field.is-locked > label {
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute, var(--mute));
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+  .form-field.is-locked .req { display: none; }
+
+  /* Legacy readonly-value class — kept as thin compat alias
+     (any older render path still hitting this will get the same flat style) */
   .readonly-value {
-    padding: 10px 14px; background: var(--cream);
-    border: 1px solid var(--line-2); border-radius: var(--radius-sm);
-    font-size: 0.92rem; color: var(--navy); min-height: 40px;
-    display: flex; align-items: center;
+    padding: 0; background: transparent; border: none;
+    font-size: 0.98rem; color: var(--ink); font-weight: 500;
+    min-height: 28px; display: flex; align-items: center;
   }
-  .readonly-value.empty {
-    color: var(--mute); font-style: normal; font-size: 0.85rem;
-    background: transparent; border-style: dashed; min-height: 40px;
-  }
+  .readonly-value.empty { color: var(--mute); font-weight: 400; }
 
   /* ─────────── Detail layout ─────────── */
   .detail-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
@@ -2117,6 +2155,9 @@ function renderFormField(field, isEditing) {
     ? state.submissionDirty[field.code]
     : field.value;
 
+  // Full-width for addresses and long text; status-flag booleans get a
+  // compact half-width treatment (they're pulled out into a chip row in
+  // renderBooleanRow but still render here if a card has only one or two).
   const isFullWidth = ['location'].includes(field.type) ||
                       (field.code && (field.code.endsWith('.address') || field.code.endsWith('.location')));
 
@@ -2124,28 +2165,23 @@ function renderFormField(field, isEditing) {
     displayLabel,
     field.required ? el('span', { className: 'req' }, '*') : null);
 
-  if (!isEditing) {
-    return el('div', { className: `form-field ${isFullWidth ? 'full' : ''}` }, labelEl,
-      el('div', { className: `readonly-value ${currentValue == null || currentValue === '' ? 'empty' : ''}` },
-        currentValue == null || currentValue === '' ? 'Not provided' : formatDatapointValue(currentValue)),
-      field.validation_error ? el('div', { className: 'err-msg' }, field.validation_error) : null);
-  }
-
-  // Editing mode — render input based on type
-  const input = renderFieldInput(field, currentValue);
-  return el('div', { className: `form-field ${isFullWidth ? 'full' : ''}` }, labelEl, input,
-    field.validation_error ? el('div', { className: 'err-msg' }, field.validation_error) : null);
+  // Same structure in both modes — render the input, lock it if not editing
+  const input = renderFieldInput(field, currentValue, !isEditing);
+  return el('div', { className: `form-field ${isFullWidth ? 'full' : ''} ${isEditing ? 'is-editing' : 'is-locked'}` },
+    labelEl, input,
+    field.validation_error && isEditing ? el('div', { className: 'err-msg' }, field.validation_error) : null);
 }
 
-function renderFieldInput(field, value) {
-  const onChange = (newVal) => {
+function renderFieldInput(field, value, locked = false) {
+  const onChange = locked ? (() => {}) : ((newVal) => {
     state.submissionDirty[field.code] = newVal;
     scheduleAutoSave();
-  };
+  });
 
   // If the value is still wrapped (shouldn't happen after backend unwrap
   // but just in case), strip the wrapper for the input
   const cleanValue = unwrapForInput(value);
+  const hasValue = cleanValue !== null && cleanValue !== undefined && cleanValue !== '';
 
   // ── Slider: for Number/Monetary fields with 3+ numeric options
   // (e.g. AOP Deductible: $1k / $2.5k / $5k / $10k / $25k / $50k)
@@ -2153,12 +2189,26 @@ function renderFieldInput(field, value) {
       (field.type === 'number' || field.type === 'monetary')) {
     const allNumeric = field.options.every(o => !isNaN(parseFloat(o.value)));
     if (allNumeric) {
+      // In locked mode, sliders become a simple labeled value — sliders
+      // don't read well as disabled controls. In edit mode, use the real slider.
+      if (locked) {
+        const matching = field.options.find(o => String(o.value) === String(cleanValue));
+        const displayText = matching?.label || matching?.value ||
+                           (hasValue ? formatByType(field, cleanValue) : '');
+        return lockedValueEl(displayText);
+      }
       return renderSlider(field, cleanValue, onChange);
     }
   }
 
   // ── Dropdown: for fields with fewer options or non-numeric options
   if (field.options && field.options.length > 0) {
+    if (locked) {
+      const matching = field.options.find(o => String(o.value) === String(cleanValue));
+      const displayText = matching?.label || matching?.value ||
+                         (hasValue ? String(cleanValue) : '');
+      return lockedValueEl(displayText);
+    }
     return el('select', {
       onChange: (e) => onChange(e.target.value || null),
     }, el('option', { value: '' }, '— Select —'),
@@ -2169,7 +2219,14 @@ function renderFieldInput(field, value) {
   }
 
   if (field.type === 'boolean') {
-    const checked = cleanValue === true || cleanValue === 'true';
+    const checked = cleanValue === true || cleanValue === 'true' ||
+                    cleanValue === 1 || cleanValue === '1';
+    if (locked) {
+      // Locked booleans show as a compact chip with ✓ or — icon
+      return el('div', {
+        className: `locked-bool ${checked ? 'yes' : 'no'} ${hasValue ? '' : 'empty'}`,
+      }, checked ? '✓ Yes' : (hasValue ? '— No' : ''));
+    }
     return el('label', { className: 'toggle' },
       el('input', { type: 'checkbox', checked,
         onChange: (e) => onChange(e.target.checked) }),
@@ -2178,37 +2235,159 @@ function renderFieldInput(field, value) {
   }
 
   if (field.type === 'date') {
+    if (locked) return lockedValueEl(hasValue ? formatByType(field, cleanValue) : '');
     return el('input', { type: 'date', value: cleanValue || '',
       onInput: (e) => onChange(e.target.value || null) });
   }
 
   if (field.type === 'number' || field.type === 'monetary') {
-    // cleanValue may still be a {currency, amount} object — extract amount
     const numVal = typeof cleanValue === 'object' && cleanValue?.amount != null
       ? cleanValue.amount : (cleanValue ?? '');
+    if (locked) {
+      return lockedValueEl(hasValue ? formatByType(field, numVal) : '');
+    }
     return el('input', { type: 'number', value: numVal,
       placeholder: field.type === 'monetary' ? '0.00' : '',
       onInput: (e) => onChange(e.target.value || null) });
   }
 
   if (field.type === 'location') {
-    // Use formatter to get a clean display string for Location types
     const strVal = typeof cleanValue === 'object'
       ? formatDatapointValue(cleanValue)
       : (cleanValue || '');
     const displayVal = strVal === '—' ? '' : strVal;
+    if (locked) return lockedValueEl(displayVal);
     return el('input', { type: 'text', value: displayVal,
       placeholder: 'Address, City, State ZIP',
       onInput: (e) => onChange(e.target.value || null) });
   }
 
-  // Default: text
+  // Default: text (includes Array values which format nicely)
+  if (locked) {
+    return lockedValueEl(hasValue ? formatByType(field, cleanValue) : '');
+  }
   const inputType = field.format === 'EmailAddress' ? 'email'
     : field.format === 'PhoneNumber' ? 'tel'
     : field.format === 'WebsiteAddress' ? 'url'
     : 'text';
   return el('input', { type: inputType, value: cleanValue || '',
     onInput: (e) => onChange(e.target.value || null) });
+}
+
+// A locked (read-only) value — no frame, just the formatted value in place.
+// Empty values show a subtle em-dash rather than "Not provided" which was
+// both loud and confusing when applied to populated rows missing one field.
+function lockedValueEl(text) {
+  const display = (text === null || text === undefined || text === '' || text === '—') ? '—' : text;
+  const isEmpty = display === '—';
+  return el('div', { className: `locked-value ${isEmpty ? 'empty' : ''}` }, display);
+}
+
+// Format a value by its inferred meaning, not just its Joshu type.
+// This is what turns "3619920" into "$3,619,920" and "60332" into "60,332 sq ft".
+function formatByType(field, value) {
+  if (value === null || value === undefined || value === '') return '—';
+
+  // Handle structured values (Monetary objects, Location objects, arrays)
+  if (Array.isArray(value)) {
+    return value.filter(v => v !== null && v !== undefined && v !== '').join(', ');
+  }
+  if (typeof value === 'object') {
+    if (value.amount != null) return formatMoney(value.amount);
+    return formatDatapointValue(value);  // falls through to legacy formatter
+  }
+
+  const str = String(value).trim();
+  if (!str) return '—';
+
+  const code = (field.code || '').toLowerCase();
+  const label = (field.label || '').toLowerCase();
+  const fmt = (field.format || '').toLowerCase();
+
+  // Percentage: codes/labels mentioning percent, windhail%, or format=Percentage
+  if (fmt === 'percentage' || code.includes('percentage') || code.includes('_percent') ||
+      code === 'windhailpercentage' || label.endsWith('%') || label.includes('percentage')) {
+    return formatNumber(str) + '%';
+  }
+
+  // Year: code/label = year_built, or value is a plausible 4-digit year with no decimal
+  if (code.includes('year') || /^year/.test(label) || /^\d{4}$/.test(str)) {
+    return str;
+  }
+
+  // Square footage: code/label mentions sq ft
+  if (code.includes('square_footage') || code.includes('sq_ft') || code.includes('sqft') ||
+      label.includes('square foot') || label.includes('sq ft')) {
+    return formatNumber(str) + ' sq ft';
+  }
+
+  // Stories: singular/plural
+  if (code === 'stories' || code.endsWith('.stories') || label === 'stories') {
+    const n = parseFloat(str);
+    if (!isNaN(n)) {
+      const whole = Math.round(n);
+      return whole === 1 ? '1 story' : `${whole} stories`;
+    }
+  }
+
+  // Building count / location count / count fields: plain number with commas
+  if (code.includes('_count') || code.endsWith('.count') || label.endsWith('count')) {
+    return formatNumber(str);
+  }
+
+  // Monetary: type=monetary, Joshu Text that starts with "$", or codes that imply money
+  // Explicit: aop_deductible, building_value, annual_sales, bpp_limit, limits, premiums, etc.
+  if (field.type === 'monetary' || str.startsWith('$') || /^\$[\d,]/.test(str)) {
+    // Already formatted or has $ sign — normalize
+    return formatMoney(str.replace(/^\$/, ''));
+  }
+  if (code.includes('value') || code.includes('premium') || code.includes('limit') ||
+      code.includes('sales') || code.includes('deductible') ||
+      code.includes('sublimit') || code.includes('pay') ||
+      code.endsWith('.pollutantcleanuplim') || code.endsWith('.papersandrecords') ||
+      code.endsWith('.waterbackuplimit') || code.endsWith('.wind_hail_minimum_dollar') ||
+      code.endsWith('.wind_hail_dollar_figure')) {
+    // Only apply $ if numeric — skip strings like "365 Days" that look like limits
+    const stripped = str.replace(/[,$]/g, '');
+    if (/^-?\d+(\.\d+)?$/.test(stripped)) {
+      return formatMoney(stripped);
+    }
+  }
+
+  // Plain number with decimal that looks like a count/numeric stat: format with commas
+  if (/^-?\d+(\.\d+)?$/.test(str.replace(/,/g, ''))) {
+    const cleaned = str.replace(/,/g, '');
+    const num = parseFloat(cleaned);
+    if (!isNaN(num)) return formatNumber(cleaned);
+  }
+
+  // Default: trust the raw value (already a string)
+  return str;
+}
+
+function formatMoney(raw) {
+  if (raw === null || raw === undefined || raw === '') return '—';
+  const cleaned = String(raw).replace(/[$,]/g, '').trim();
+  const num = parseFloat(cleaned);
+  if (isNaN(num)) return String(raw);
+  // Drop cents if whole dollars — $3,619,920 reads cleaner than $3,619,920.00
+  const hasCents = Math.round(num * 100) % 100 !== 0;
+  return '$' + num.toLocaleString('en-US', {
+    minimumFractionDigits: hasCents ? 2 : 0,
+    maximumFractionDigits: hasCents ? 2 : 0,
+  });
+}
+
+function formatNumber(raw) {
+  if (raw === null || raw === undefined || raw === '') return '—';
+  const cleaned = String(raw).replace(/,/g, '').trim();
+  const num = parseFloat(cleaned);
+  if (isNaN(num)) return String(raw);
+  const hasDecimal = Math.round(num * 100) % 100 !== 0;
+  return num.toLocaleString('en-US', {
+    minimumFractionDigits: hasDecimal ? 2 : 0,
+    maximumFractionDigits: hasDecimal ? 2 : 0,
+  });
 }
 
 // ─────────────────────────────────────────────────────────────
