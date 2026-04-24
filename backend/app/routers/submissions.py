@@ -110,6 +110,59 @@ async def get_submission_form(
     return normalized
 
 
+@router.get("/{submission_id}/debug")
+async def debug_submission_raw(
+    submission_id: str,
+    session=Depends(require_session),
+    client: JoshuClientBase = Depends(get_joshu_client),
+):
+    """DIAGNOSTIC: return the raw Joshu responses for /submission-status
+    and /submission-data side by side, for debugging when the form view
+    shows "Not provided" on fields that should be populated.
+
+    Shape::
+        {
+          "submission_id": "...",
+          "status_raw": {...},       # full /submission-status response
+          "data_raw": [...],         # full /submission-data response (array of code/value entries)
+          "data_codes": ["app.aop_deductible", ...],   # all unique codes in the data response
+          "data_code_sample": [...], # first 20 entries to eyeball the shape
+          "structure_entries": [...], # just entries where code contains 'structure' or 'location'
+        }
+    """
+    status_raw = await client.get_submission_status(session["t"], submission_id)
+    data_values = await client.get_submission_data(session["t"], submission_id)
+    raw_data = data_values.get("_raw") if isinstance(data_values, dict) else None
+
+    codes = []
+    structure_entries = []
+    if isinstance(raw_data, list):
+        for item in raw_data:
+            if not isinstance(item, dict):
+                continue
+            code = item.get("code", "")
+            codes.append(code)
+            low = code.lower()
+            if ("structure" in low or "location" in low or "building" in low or
+                "address" in low or "peril" in low):
+                structure_entries.append(item)
+
+    return {
+        "submission_id": submission_id,
+        "data_raw_length": len(raw_data) if isinstance(raw_data, list) else "not_a_list",
+        "data_codes_sorted": sorted(set(codes)),
+        "structure_entries": structure_entries,
+        "data_sample_first_20": raw_data[:20] if isinstance(raw_data, list) else raw_data,
+        "status_raw_sections_summary": [
+            {"code": s.get("code"), "is_asset": s.get("is_asset"),
+             "condition_met": s.get("condition_met"),
+             "datapoint_count": len(s.get("datapoints", []) or [])}
+            for s in status_raw.get("sections", []) if isinstance(s, dict)
+        ] if isinstance(status_raw, dict) else [],
+    }
+
+
+
 @router.put("/{submission_id}/data")
 async def update_submission_data(
     submission_id: str,
