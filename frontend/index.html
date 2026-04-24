@@ -1014,10 +1014,11 @@ function submissionsTable(items) {
     el('tbody', {}, ...items.map(s => el('tr', {
       className: 'clickable',
       onClick: () => {
-        // Joshu paths use unique_id (UUID), not the numeric id
-        const pathId = s.unique_id || s.id;
-        state.subView = pathId;
-        loadSubmission(pathId);
+        // Joshu's submissions endpoint uses the numeric id in path params
+        // (the "can not parse to a i32" error confirmed this). Policies use
+        // UUIDs. Quotes — unknown, try numeric first.
+        state.subView = s.id;
+        loadSubmission(s.id);
       }
     },
       el('td', {},
