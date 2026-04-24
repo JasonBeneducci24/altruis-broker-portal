@@ -30,7 +30,7 @@ async def list_documents(
 
 @router.get("/{document_id}")
 async def get_document(
-    document_id: int,
+    document_id: str,
     session=Depends(require_session),
     client: JoshuClientBase = Depends(get_joshu_client),
 ):
@@ -40,7 +40,7 @@ async def get_document(
 
 @router.get("/{document_id}/download")
 async def download_document(
-    document_id: int,
+    document_id: str,
     session=Depends(require_session),
     client: JoshuClientBase = Depends(get_joshu_client),
 ):

@@ -30,7 +30,7 @@ async def list_quotes(
 
 @router.get("/{quote_id}")
 async def get_quote(
-    quote_id: int,
+    quote_id: str,
     session=Depends(require_session),
     client: JoshuClientBase = Depends(get_joshu_client),
 ):
@@ -41,7 +41,7 @@ async def get_quote(
 
 @router.post("/{quote_id}/publish")
 async def publish_quote(
-    quote_id: int,
+    quote_id: str,
     session=Depends(require_session),
     client: JoshuClientBase = Depends(get_joshu_client),
 ):
@@ -51,7 +51,7 @@ async def publish_quote(
 
 @router.post("/{quote_id}/bind")
 async def bind_quote(
-    quote_id: int,
+    quote_id: str,
     session=Depends(require_session),
     client: JoshuClientBase = Depends(get_joshu_client),
 ):

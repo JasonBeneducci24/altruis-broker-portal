@@ -104,6 +104,7 @@ class Submission(BaseModel):
     id: int
     unique_id: str | None = None
     product_version_id: int
+    product_version_revision_id: str | None = None
     user_id: int
     underwriter_id: int | None = None
     store_id: int | None = None
@@ -119,14 +120,18 @@ class Submission(BaseModel):
     decline_reason: str | None = None
     external_id: str | None = None
     original_submission_id: int | None = None
+    clearance_approval_reason: str | None = None
     processing: bool = False
     additional_details: str | None = None
     test: bool = False
     policy_id: str | None = None
+    transaction_id: str | None = None
     flow: OngoingChange
     effective_at: datetime | None = None
-    # Data is a free-form product-specific object
+    # Structured data (may not be present on list responses from Joshu)
     data: dict[str, Any] | None = None
+    # Clearance hash contains the list of datapoint names (not values)
+    clearance_hash: dict[str, Any] | None = None
 
 
 # ------------------------------------------------------------------

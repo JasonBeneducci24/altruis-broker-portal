@@ -259,15 +259,35 @@ class HttpJoshuClient(JoshuClientBase):
         data = await self._get("/submissions", params=params, bearer_token=token)
         return Paginated.model_validate(data)
 
-    async def get_submission(self, token, submission_id: int) -> Submission:
+    async def get_submission(self, token, submission_id: str | int) -> Submission:
+        # Joshu path params use unique_id (UUID), not the numeric id.
+        # The numeric id is for display only. Accept either here and pass
+        # through — the routers will ensure UUIDs are used when known.
         data = await self._get(f"/submissions/{submission_id}", bearer_token=token)
         return Submission.model_validate(data)
 
-    async def get_submission_data(self, token, submission_id: int) -> dict[str, Any]:
-        data = await self._get(
-            f"/submissions/{submission_id}/data", bearer_token=token,
-        )
-        return data if isinstance(data, dict) else {"raw": data}
+    async def get_submission_data(self, token, submission_id: str | int) -> dict[str, Any]:
+        """Fetch the datapoint values for a submission.
+
+        Joshu's exact URL for this is not documented in the parts of the v3
+        reference we reviewed. Try the common patterns in order, returning
+        the first successful response. If all fail, return an empty dict
+        (the detail page will render without data rather than erroring).
+        """
+        candidates = [
+            f"/submissions/{submission_id}/data",
+            f"/submissions/{submission_id}/datapoints",
+            f"/submissions/{submission_id}/values",
+        ]
+        for path in candidates:
+            try:
+                data = await self._get(path, bearer_token=token)
+                if data:
+                    return data if isinstance(data, dict) else {"raw": data}
+            except Exception:
+                continue
+        log.info("No data endpoint found for submission %s (tried %s)", submission_id, candidates)
+        return {}
 
     async def update_submission_data(self, token, submission_id, data):
         self._assert_test_mode_for_write()
@@ -325,13 +345,24 @@ class HttpJoshuClient(JoshuClientBase):
         data = await self._get("/quotes", params=params, bearer_token=token)
         return Paginated.model_validate(data)
 
-    async def get_quote(self, token, quote_id: int) -> Quote:
+    async def get_quote(self, token, quote_id: str | int) -> Quote:
         data = await self._get(f"/quotes/{quote_id}", bearer_token=token)
         return Quote.model_validate(data)
 
-    async def get_quote_data(self, token, quote_id: int) -> dict[str, Any]:
-        data = await self._get(f"/quotes/{quote_id}/data", bearer_token=token)
-        return data if isinstance(data, dict) else {"raw": data}
+    async def get_quote_data(self, token, quote_id: str | int) -> dict[str, Any]:
+        """Fetch quote datapoint values. Same resilience pattern as submissions."""
+        candidates = [
+            f"/quotes/{quote_id}/data",
+            f"/quotes/{quote_id}/datapoints",
+        ]
+        for path in candidates:
+            try:
+                data = await self._get(path, bearer_token=token)
+                if data:
+                    return data if isinstance(data, dict) else {"raw": data}
+            except Exception:
+                continue
+        return {}
 
     async def update_quote_status(self, token, quote_id: int, status: str) -> Quote:
         self._assert_test_mode_for_write()

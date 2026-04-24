@@ -67,20 +67,60 @@ async def list_submissions(
     return result.model_dump(mode="json")
 
 
+import re
+
+_UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
+
+
+async def _resolve_submission_uuid(client: JoshuClientBase, token: str, submission_id: str) -> str:
+    """If submission_id looks numeric, try to find its UUID via the list endpoint.
+
+    Joshu's v3 detail endpoints use unique_id (UUID), not the numeric id. The
+    frontend passes UUIDs for records the user clicked (since those come from
+    the list response). But some callers (e.g. transaction navigation) only
+    know the numeric id — this helper translates if possible, and otherwise
+    just passes through to let Joshu's 404 propagate.
+    """
+    if _UUID_RE.match(submission_id):
+        return submission_id
+    try:
+        numeric = int(submission_id)
+    except ValueError:
+        return submission_id
+
+    # Try a single id-filter query — cheap, and if Joshu doesn't support it
+    # we just fall through and let the numeric id go to Joshu (which 404s).
+    try:
+        # Call the underlying client method directly with a kwarg Joshu might
+        # support. Not all implementations accept this; we tolerate the error.
+        import inspect
+        sig = inspect.signature(client.list_submissions)
+        if "id" in sig.parameters:
+            batch = await client.list_submissions(token, id=numeric, per_page=1)  # type: ignore[call-arg]
+            if batch.items:
+                uid = batch.items[0].get("unique_id")
+                if uid:
+                    return uid
+    except Exception:
+        pass
+    return submission_id
+
+
 @router.get("/{submission_id}")
 async def get_submission(
-    submission_id: int,
+    submission_id: str,
     session=Depends(require_session),
     client: JoshuClientBase = Depends(get_joshu_client),
 ):
-    sub = await client.get_submission(session["t"], submission_id)
-    data = await client.get_submission_data(session["t"], submission_id)
+    uid = await _resolve_submission_uuid(client, session["t"], submission_id)
+    sub = await client.get_submission(session["t"], uid)
+    data = await client.get_submission_data(session["t"], uid)
     return {**sub.model_dump(mode="json"), "data": data}
 
 
 @router.put("/{submission_id}/data")
 async def update_submission_data(
-    submission_id: int,
+    submission_id: str,
     body: dict[str, Any],
     session=Depends(require_session),
     client: JoshuClientBase = Depends(get_joshu_client),
@@ -91,7 +131,7 @@ async def update_submission_data(
 
 @router.post("/{submission_id}/submit")
 async def submit_submission(
-    submission_id: int,
+    submission_id: str,
     session=Depends(require_session),
     client: JoshuClientBase = Depends(get_joshu_client),
 ):

@@ -39,7 +39,7 @@ class JoshuClientBase(ABC):
         ...
 
     @abstractmethod
-    async def get_product(self, token: str, product_id: int) -> Product:
+    async def get_product(self, token: str, product_id: str | int) -> Product:
         ...
 
     # ---------- Submissions ----------
@@ -58,21 +58,21 @@ class JoshuClientBase(ABC):
         ...
 
     @abstractmethod
-    async def get_submission(self, token: str, submission_id: int) -> Submission:
+    async def get_submission(self, token: str, submission_id: str | int) -> Submission:
         ...
 
     @abstractmethod
-    async def get_submission_data(self, token: str, submission_id: int) -> dict[str, Any]:
+    async def get_submission_data(self, token: str, submission_id: str | int) -> dict[str, Any]:
         """Return the structured data points for a submission (insured.*, app.*, data.*)."""
 
     @abstractmethod
     async def update_submission_data(
-        self, token: str, submission_id: int, data: dict[str, Any]
+        self, token: str, submission_id: str | int, data: dict[str, Any]
     ) -> dict[str, Any]:
         ...
 
     @abstractmethod
-    async def submit_submission(self, token: str, submission_id: int) -> Submission:
+    async def submit_submission(self, token: str, submission_id: str | int) -> Submission:
         """Move a submission from Incomplete → Submitted (triggers rating)."""
 
     # ---------- Policies ----------
@@ -118,21 +118,21 @@ class JoshuClientBase(ABC):
     # ---------- Quotes ----------
     @abstractmethod
     async def list_quotes(
-        self, token: str, *, submission_id: int | None = None,
+        self, token: str, *, submission_id: str | int | None = None,
         page: int = 1, per_page: int = 25,
     ) -> Paginated:
         ...
 
     @abstractmethod
-    async def get_quote(self, token: str, quote_id: int) -> Quote:
+    async def get_quote(self, token: str, quote_id: str | int) -> Quote:
         ...
 
     @abstractmethod
-    async def get_quote_data(self, token: str, quote_id: int) -> dict[str, Any]:
+    async def get_quote_data(self, token: str, quote_id: str | int) -> dict[str, Any]:
         ...
 
     @abstractmethod
-    async def update_quote_status(self, token: str, quote_id: int, status: str) -> Quote:
+    async def update_quote_status(self, token: str, quote_id: str | int, status: str) -> Quote:
         """Broker uses this to publish a quote → binder → coverage active."""
 
     # ---------- Documents ----------
@@ -141,7 +141,7 @@ class JoshuClientBase(ABC):
         self,
         token: str,
         *,
-        quote_id: int | None = None,
+        quote_id: str | int | None = None,
         document_type: DocumentType | None = None,
         page: int = 1,
         per_page: int = 25,
@@ -149,9 +149,9 @@ class JoshuClientBase(ABC):
         ...
 
     @abstractmethod
-    async def get_document(self, token: str, document_id: int) -> Document:
+    async def get_document(self, token: str, document_id: str | int) -> Document:
         ...
 
     @abstractmethod
-    async def download_document(self, token: str, document_id: int) -> tuple[bytes, str]:
+    async def download_document(self, token: str, document_id: str | int) -> tuple[bytes, str]:
         """Return (file_bytes, content_type)."""

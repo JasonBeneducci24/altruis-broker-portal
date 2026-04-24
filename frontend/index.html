@@ -1014,16 +1014,18 @@ function submissionsTable(items) {
     el('tbody', {}, ...items.map(s => el('tr', {
       className: 'clickable',
       onClick: () => {
-        state.subView = s.id;
-        loadSubmission(s.id);
+        // Joshu paths use unique_id (UUID), not the numeric id
+        const pathId = s.unique_id || s.id;
+        state.subView = pathId;
+        loadSubmission(pathId);
       }
     },
       el('td', {},
         el('div', { className: 'insured-name' },
-          s.data?.['insured.name'] || s.insured_name || '—'),
+          s.data?.['insured.name'] || s.insured_name ||
+          (s.clearance_hash?.datapoints ? 'Insured data available on open' : '—')),
         el('div', { className: 'insured-loc' },
-          [s.data?.['insured.split_address.city'], s.data?.['insured.split_address.state']]
-            .filter(Boolean).join(', ') || '—')),
+          s.flow === 'New' ? 'New business' : s.flow)),
       el('td', { className: 'mono' }, `#${s.id}`),
       el('td', {}, s.flow || 'New'),
       el('td', {}, fmtDate(s.effective_at)),
@@ -1037,10 +1039,13 @@ async function loadSubmission(id) {
   state.selectedSubmission = null;
   render();
   try {
-    const [sub, quotes] = await Promise.all([
-      api(`/api/submissions/${id}`),
-      api(`/api/quotes?submission_id=${id}`).catch(() => ({ items: [] })),
-    ]);
+    // id here can be either the UUID or numeric id; the backend handles both.
+    // The submission detail response will include the numeric id which we
+    // then use to fetch related quotes.
+    const sub = await api(`/api/submissions/${id}`);
+    const numericId = sub.id;
+    const quotes = await api(`/api/quotes?submission_id=${numericId}`)
+      .catch(() => ({ items: [] }));
     state.selectedSubmission = { ...sub, quotes: quotes.items || [] };
     render();
   } catch (e) { /* toast shown */ }
@@ -1102,8 +1107,9 @@ function submissionDetailView() {
             el('tbody', {}, ...s.quotes.map(q => el('tr', {
               className: 'clickable',
               onClick: () => {
-                state.view = 'quotes'; state.subView = q.id;
-                loadQuote(q.id);
+                const pathId = q.unique_id || q.id;
+                state.view = 'quotes'; state.subView = pathId;
+                loadQuote(pathId);
               }
             },
               el('td', { className: 'mono' }, `#${q.id}`),
@@ -1151,10 +1157,11 @@ function openEditDataModal(sub) {
         onClick: async () => {
           try {
             const parsed = JSON.parse(form.data_raw);
-            await api(`/api/submissions/${sub.id}/data`, { method: 'PUT', body: parsed });
+            const pathId = sub.unique_id || sub.id;
+            await api(`/api/submissions/${pathId}/data`, { method: 'PUT', body: parsed });
             toast('Data saved', 'ok');
             closeModal();
-            loadSubmission(sub.id);
+            loadSubmission(pathId);
           } catch (e) {
             toast('Invalid JSON: ' + e.message, 'err');
           }
@@ -1165,9 +1172,11 @@ function openEditDataModal(sub) {
 
 async function submitSubmission(id) {
   try {
-    await api(`/api/submissions/${id}/submit`, { method: 'POST' });
+    // Use the currently-loaded submission's unique_id if available
+    const pathId = state.selectedSubmission?.unique_id || id;
+    await api(`/api/submissions/${pathId}/submit`, { method: 'POST' });
     toast('Submission submitted for rating', 'ok');
-    loadSubmission(id);
+    loadSubmission(pathId);
   } catch (e) { /* toast shown */ }
 }
 
@@ -1198,7 +1207,10 @@ function quotesListView() {
               el('th', {}, 'Updated'))),
             el('tbody', {}, ...state.quotes.items.map(q => el('tr', {
               className: 'clickable',
-              onClick: () => { state.subView = q.id; loadQuote(q.id); }
+              onClick: () => {
+                const pathId = q.unique_id || q.id;
+                state.subView = pathId; loadQuote(pathId);
+              }
             },
               el('td', { className: 'mono' }, `#${q.id}`),
               el('td', { className: 'mono' }, `#${q.submission_id}`),
@@ -1213,10 +1225,10 @@ function quotesListView() {
 async function loadQuote(id) {
   state.selectedQuote = null; render();
   try {
-    const [q, docs] = await Promise.all([
-      api(`/api/quotes/${id}`),
-      api(`/api/documents?quote_id=${id}`).catch(() => ({ items: [] })),
-    ]);
+    // id may be UUID or numeric; fetch detail, then use numeric id for related filters
+    const q = await api(`/api/quotes/${id}`);
+    const docs = await api(`/api/documents?quote_id=${q.id}`)
+      .catch(() => ({ items: [] }));
     state.selectedQuote = { ...q, documents: docs.items || [] };
     render();
   } catch (e) { /* toast shown */ }
