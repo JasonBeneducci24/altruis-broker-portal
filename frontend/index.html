@@ -643,6 +643,73 @@ function statusBadge(s) {
   return el('span', { className: `badge badge-${normalized}` }, s);
 }
 
+// Format a datapoint value for display. Joshu's `/submission-data` returns
+// values already unwrapped by the backend, but some (Monetary, Location)
+// remain as objects because they don't reduce to a single string.
+function formatDatapointValue(v) {
+  if (v == null || v === '') return '—';
+  if (typeof v === 'boolean') return v ? 'Yes' : 'No';
+  if (typeof v === 'number' || typeof v === 'string') return String(v);
+  if (Array.isArray(v)) return v.map(formatDatapointValue).join(', ');
+  if (typeof v === 'object') {
+    // Monetary: { currency, amount }
+    if (v.currency && v.amount != null) {
+      const n = parseFloat(v.amount);
+      if (!isNaN(n)) return n.toLocaleString('en-US', { style: 'currency', currency: v.currency });
+      return `${v.amount} ${v.currency}`;
+    }
+    // NamedParsedAddress: { name }
+    if (v.name && typeof v.name === 'string') return v.name;
+    // ParsedGoogleAddress: { formatted_address }
+    if (v.formatted_address) return v.formatted_address;
+    // Location: {NamedParsedAddress: {...}} or {ParsedGoogleAddress: {...}}
+    if (v.NamedParsedAddress) return formatDatapointValue(v.NamedParsedAddress);
+    if (v.ParsedGoogleAddress) return formatDatapointValue(v.ParsedGoogleAddress);
+    // Fallback — compact JSON
+    return JSON.stringify(v);
+  }
+  return String(v);
+}
+
+// Render a list of datapoint key-values, grouped by their prefix
+// (insured.* / app.* / data.* / other) for readability.
+function renderDataList(data) {
+  // Filter out internal keys
+  const entries = Object.entries(data || {}).filter(([k]) => !k.startsWith('_'));
+  if (entries.length === 0) {
+    return el('div', { className: 'empty' },
+      el('p', {}, 'No data yet. Click Edit data to populate, or this submission may not have data values accessible.'));
+  }
+
+  // Group by prefix
+  const groups = { insured: [], app: [], data: [], other: [] };
+  for (const [k, v] of entries) {
+    const prefix = k.split('.')[0];
+    if (groups[prefix]) groups[prefix].push([k, v]);
+    else groups.other.push([k, v]);
+  }
+
+  const blocks = [];
+  const labels = { insured: 'Insured', app: 'Application', data: 'Coverage', other: 'Other' };
+  for (const [group, items] of Object.entries(groups)) {
+    if (!items.length) continue;
+    blocks.push(el('div', { style: { marginTop: '20px' } },
+      el('div', {
+        style: {
+          fontSize: '0.68rem', letterSpacing: '0.12em', textTransform: 'uppercase',
+          color: 'var(--blue)', fontWeight: 600, marginBottom: '10px',
+          borderBottom: '1px solid var(--line-soft)', paddingBottom: '6px',
+        }
+      }, labels[group]),
+      el('dl', { className: 'kv-list' },
+        ...items.map(([k, v]) => [
+          el('dt', {}, k),
+          el('dd', {}, formatDatapointValue(v)),
+        ]).flat())));
+  }
+  return el('div', {}, ...blocks);
+}
+
 function showModal(title, content, opts = {}) {
   const backdrop = el('div', {
     className: 'modal-backdrop',
@@ -1086,14 +1153,7 @@ function submissionDetailView() {
           el('h2', {}, 'Submission data'),
           el('p', { className: 'subtle', style: { marginTop: '8px' } },
             'Key/value data points defined by the product schema.'),
-          Object.keys(data).length === 0
-            ? el('div', { className: 'empty' },
-              el('p', {}, 'No data yet. Click Edit data to populate.'))
-            : el('dl', { className: 'kv-list' },
-              ...Object.entries(data).map(([k, v]) => [
-                el('dt', {}, k),
-                el('dd', {}, typeof v === 'object' ? JSON.stringify(v) : String(v))
-              ]).flat())),
+          renderDataList(data)),
 
         s.quotes && s.quotes.length > 0 ? el('div', { className: 'card' },
           el('div', { className: 'eyebrow' }, 'Quotes'),
@@ -1108,9 +1168,9 @@ function submissionDetailView() {
             el('tbody', {}, ...s.quotes.map(q => el('tr', {
               className: 'clickable',
               onClick: () => {
-                const pathId = q.unique_id || q.id;
-                state.view = 'quotes'; state.subView = pathId;
-                loadQuote(pathId);
+                // Joshu quotes endpoint uses numeric id in path (same as submissions)
+                state.view = 'quotes'; state.subView = q.id;
+                loadQuote(q.id);
               }
             },
               el('td', { className: 'mono' }, `#${q.id}`),
@@ -1209,8 +1269,8 @@ function quotesListView() {
             el('tbody', {}, ...state.quotes.items.map(q => el('tr', {
               className: 'clickable',
               onClick: () => {
-                const pathId = q.unique_id || q.id;
-                state.subView = pathId; loadQuote(pathId);
+                // Joshu quotes endpoint uses numeric id
+                state.subView = q.id; loadQuote(q.id);
               }
             },
               el('td', { className: 'mono' }, `#${q.id}`),

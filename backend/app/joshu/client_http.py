@@ -69,6 +69,91 @@ def _not_ready(operation: str) -> HttpClientNotReadyError:
     )
 
 
+def _flatten_code_value_array(raw: Any) -> dict[str, Any]:
+    """Flatten Joshu's [{code, value}] datapoint response to {code: simple_value}.
+
+    Joshu returns datapoint values as an array of objects like::
+
+        [
+          {"code": "insured.name", "value": {"V1": {"Text": "Acme LLC"}}},
+          {"code": "insured.location", "value": {"V1": {"Location": {...}}}},
+          {"code": "app.aop_deductible", "value": {"V1": {"Number": "5000"}}},
+          {"code": "app.effective_date", "value": {"V1": {"Date": "2026-06-01"}}},
+          {"code": "app.cyber_status", "value": {"V1": {"Boolean": true}}},
+        ]
+
+    The value is wrapped in a version tag ("V1") then a type discriminator.
+    We extract the underlying simple value for display, while also preserving
+    the raw response under `_raw` so callers who want to re-submit the data
+    (for updates) can do so in Joshu's expected shape.
+    """
+    if not isinstance(raw, list):
+        return {"_raw": raw}
+
+    result: dict[str, Any] = {"_raw": raw}
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        code = item.get("code")
+        if not code:
+            continue
+        result[code] = _extract_simple_value(item.get("value"))
+    return result
+
+
+def _extract_simple_value(wrapped: Any) -> Any:
+    """Unwrap Joshu's versioned-tagged discriminated-union values.
+
+    Accepts shapes like:
+      {"V1": {"Text": "..."}} → "..."
+      {"V1": {"Number": "5000"}} → "5000"
+      {"V1": {"Boolean": true}} → True
+      {"V1": {"Null": {}}} → None
+      {"V1": {"Monetary": {"currency": "USD", "amount": "1000"}}} → dict as-is
+      {"V1": {"Location": {"NamedParsedAddress": {"name": "..."}}}} → dict as-is
+      {"V1": {"Array": [...]}} → list (each element recursively unwrapped)
+
+    Values we don't recognize pass through untouched for the UI to render.
+    """
+    if wrapped is None:
+        return None
+    if not isinstance(wrapped, dict):
+        return wrapped
+    # Unwrap the version tag ("V0", "V1", etc.) — take the first/only key
+    for version_key in ("V1", "V0"):
+        if version_key in wrapped:
+            inner = wrapped[version_key]
+            break
+    else:
+        # Unknown shape — take first key if there's only one
+        if len(wrapped) == 1:
+            inner = next(iter(wrapped.values()))
+        else:
+            return wrapped
+
+    if not isinstance(inner, dict):
+        return inner
+
+    # Type discriminator — Null/Boolean/Text/Number/Monetary/Date/DateTime/Location/Array
+    for type_key in ("Null",):
+        if type_key in inner:
+            return None
+    for type_key in ("Text", "Number", "Date", "DateTime", "Boolean"):
+        if type_key in inner:
+            return inner[type_key]
+    if "Monetary" in inner:
+        # Return the whole monetary dict — the UI can render "1000 USD"
+        return inner["Monetary"]
+    if "Location" in inner:
+        # Location has its own OneOf shape — pass through and let UI handle
+        return inner["Location"]
+    if "Array" in inner:
+        arr = inner["Array"]
+        return [_extract_simple_value(v) for v in arr] if isinstance(arr, list) else arr
+    # Unknown type — return as-is
+    return inner
+
+
 class HttpJoshuClient(JoshuClientBase):
     """Real HTTP client for altruis.joshu.insure — reads enabled, writes dormant."""
 
@@ -267,27 +352,20 @@ class HttpJoshuClient(JoshuClientBase):
         return Submission.model_validate(data)
 
     async def get_submission_data(self, token, submission_id: str | int) -> dict[str, Any]:
-        """Fetch the datapoint values for a submission.
+        """Fetch datapoint values for a submission.
 
-        Joshu's exact URL for this is not documented in the parts of the v3
-        reference we reviewed. Try the common patterns in order, returning
-        the first successful response. If all fail, return an empty dict
-        (the detail page will render without data rather than erroring).
+        Per Joshu docs: GET /submission-data/{id} returns an Array of
+        {code, value} objects, where value is a discriminated union
+        (Boolean/Text/Number/Monetary/Date/Location/etc.). We flatten
+        this into a simple {code: simplified_value} dict for display,
+        preserving the original shape under `_raw` for downstream use.
         """
-        candidates = [
-            f"/submissions/{submission_id}/data",
-            f"/submissions/{submission_id}/datapoints",
-            f"/submissions/{submission_id}/values",
-        ]
-        for path in candidates:
-            try:
-                data = await self._get(path, bearer_token=token)
-                if data:
-                    return data if isinstance(data, dict) else {"raw": data}
-            except Exception:
-                continue
-        log.info("No data endpoint found for submission %s (tried %s)", submission_id, candidates)
-        return {}
+        try:
+            raw = await self._get(f"/submission-data/{submission_id}", bearer_token=token)
+        except Exception as e:
+            log.warning("submission-data fetch failed for %s: %s", submission_id, e)
+            return {}
+        return _flatten_code_value_array(raw)
 
     async def update_submission_data(self, token, submission_id, data):
         self._assert_test_mode_for_write()
@@ -350,19 +428,13 @@ class HttpJoshuClient(JoshuClientBase):
         return Quote.model_validate(data)
 
     async def get_quote_data(self, token, quote_id: str | int) -> dict[str, Any]:
-        """Fetch quote datapoint values. Same resilience pattern as submissions."""
-        candidates = [
-            f"/quotes/{quote_id}/data",
-            f"/quotes/{quote_id}/datapoints",
-        ]
-        for path in candidates:
-            try:
-                data = await self._get(path, bearer_token=token)
-                if data:
-                    return data if isinstance(data, dict) else {"raw": data}
-            except Exception:
-                continue
-        return {}
+        """Fetch datapoint values for a quote via /quote-data/{id}."""
+        try:
+            raw = await self._get(f"/quote-data/{quote_id}", bearer_token=token)
+        except Exception as e:
+            log.warning("quote-data fetch failed for %s: %s", quote_id, e)
+            return {}
+        return _flatten_code_value_array(raw)
 
     async def update_quote_status(self, token, quote_id: int, status: str) -> Quote:
         self._assert_test_mode_for_write()
