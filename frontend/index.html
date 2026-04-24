@@ -921,6 +921,102 @@
     letter-spacing: -0.005em;
   }
 
+  /* ──────────────────────────────────────────────────────────────
+   * Property-listing asset card body
+   * Hero → category rows → bool strip → more-details disclosure
+   * ────────────────────────────────────────────────────────────── */
+
+  /* Hero: address + sub + 4 stat tiles */
+  .asset-hero {
+    padding: 4px 0 18px;
+    border-bottom: 1px solid var(--line-2);
+    margin-bottom: 18px;
+  }
+  .asset-hero-addr {
+    font-size: 1.15rem; font-weight: 600;
+    color: var(--navy); letter-spacing: -0.01em;
+    line-height: 1.25;
+  }
+  .asset-hero-sub {
+    font-size: 0.82rem; color: var(--mute);
+    margin-top: 4px; font-weight: 400;
+  }
+  .asset-hero-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
+    margin-top: 18px;
+  }
+  .asset-hero-stat {
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .asset-hero-stat-value {
+    font-size: 1.4rem; font-weight: 600;
+    color: var(--navy); letter-spacing: -0.015em;
+    line-height: 1.1;
+  }
+  .asset-hero-stat-label {
+    font-size: 0.68rem; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--mute);
+    font-weight: 500;
+  }
+
+  /* Category rows: inline dense facts grouped by theme */
+  .asset-cat-row {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 16px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line-2);
+    align-items: baseline;
+  }
+  .asset-cat-row:last-of-type {
+    border-bottom: none;
+  }
+  .asset-cat-label {
+    font-size: 0.7rem; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--mute);
+    font-weight: 600;
+  }
+  .asset-cat-values {
+    font-size: 0.92rem; color: var(--ink);
+    line-height: 1.55;
+  }
+  .asset-cat-value {
+    color: var(--navy);
+  }
+  .asset-cat-sep {
+    color: var(--line);
+    margin: 0 8px;
+    font-weight: 400;
+  }
+
+  /* "More details" disclosure at the bottom */
+  .asset-more {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line-2);
+  }
+  .asset-more-toggle {
+    background: none; border: none; padding: 0;
+    font-size: 0.82rem; color: var(--blue);
+    font-weight: 500; cursor: pointer;
+    font-family: inherit;
+    letter-spacing: -0.005em;
+  }
+  .asset-more-toggle:hover { color: var(--navy); text-decoration: underline; }
+  .asset-more-grid {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--line-2);
+  }
+
+  /* Responsive — stack hero stats on narrow */
+  @media (max-width: 900px) {
+    .asset-hero-stats { grid-template-columns: repeat(2, 1fr); gap: 14px; }
+    .asset-cat-row { grid-template-columns: 1fr; gap: 4px; }
+  }
+
   /* Locked form-field label — smaller, uppercase eyebrow
      In edit mode, label reverts to normal. */
   .form-field.is-locked { gap: 2px; }
@@ -1280,6 +1376,9 @@ function formatDatapointValue(v) {
 function unwrapForInput(v) {
   if (v == null) return '';
   if (typeof v === 'boolean' || typeof v === 'number' || typeof v === 'string') return v;
+  // Arrays: already unwrapped list of simple values (like ["Self Storage"]).
+  // Pass through so formatByType can join them for display.
+  if (Array.isArray(v)) return v;
   if (typeof v === 'object') {
     for (const wrapper of ['Plain', 'V1', 'V0']) {
       if (v[wrapper] && typeof v[wrapper] === 'object') {
@@ -1290,6 +1389,7 @@ function unwrapForInput(v) {
         if ('Null' in inner) return '';
         if ('Monetary' in inner) return unwrapForInput(inner.Monetary);
         if ('Location' in inner) return unwrapForInput(inner.Location);
+        if ('Array' in inner) return Array.isArray(inner.Array) ? inner.Array : [];
       }
     }
     // Location — Joshu returns these as {NamedParsedAddress: {name}} or
@@ -2157,26 +2257,207 @@ function renderAssetCard(section, group, isEditing) {
         `${group.completed}/${group.total}`)),
     el('div', { className: 'asset-card-chevron' }, isOpen ? '⌃' : '⌄'));
 
-  // Expanded body (only if open)
-  // Split fields into two groups for visual variety:
-  //   - mainFields: rendered in the 2-column grid (Address, Values, Construction, etc.)
-  //   - boolFields: rendered as a compact chip strip below the grid (Status flags)
-  // This avoids the monotony of 30 identical rows of "LABEL / value".
+  // Expanded body — property-listing style:
+  //   1. Hero block — title (address), subtitle (loc/bldg #), 4 stat tiles
+  //   2. Category rows — CONSTRUCTION, COVERAGE, WIND/HAIL, OCCUPANCY (dense inline)
+  //   3. Status chip strip — booleans as ✓/— pills
+  //   4. More details — disclosure for anything left over
+  // Edit mode falls back to the full grid so the broker can edit every field.
   const body = isOpen ? (() => {
     const visible = group.fields.filter(f => f.visible !== false);
-    const { main, bools } = isEditing
-      ? { main: visible, bools: [] }  // in edit mode keep all in grid (toggles need space)
-      : partitionAssetFields(visible);
-    return el('div', { className: 'asset-card-body' },
-      el('div', { className: 'form-grid' },
-        ...main.map(f => renderFormField(f, isEditing))),
-      bools.length > 0
-        ? el('div', { className: 'asset-bool-strip' },
-            ...bools.map(f => renderBoolChip(f)))
-        : null);
+    if (isEditing) {
+      return el('div', { className: 'asset-card-body is-editing' },
+        el('div', { className: 'form-grid' },
+          ...visible.map(f => renderFormField(f, true))));
+    }
+    return renderAssetReadBody(section, group, visible);
   })() : null;
 
   return el('div', { className: `asset-card ${isOpen ? 'open' : ''}` }, summary, body);
+}
+
+// ──────────────────────────────────────────────────────────────
+// Property-listing-style read body
+// ──────────────────────────────────────────────────────────────
+
+// Field code match helpers — normalize codes to lowercase-terminal-segment
+// so we can match against short keys regardless of whether Joshu sends
+// "app.building_value" or "structures.building_value" or "building_value".
+function codeTail(field) {
+  const c = (field.code || '').toLowerCase();
+  return c.includes('.') ? c.split('.').pop() : c;
+}
+function hasValue(field) {
+  const v = unwrapForInput(field.value);
+  return v !== null && v !== undefined && v !== '';
+}
+
+// Find a field in a list whose code-tail matches any of the keys
+function findByTail(fields, keys) {
+  for (const key of keys) {
+    const k = key.toLowerCase();
+    const f = fields.find(ff => codeTail(ff) === k);
+    if (f) return f;
+  }
+  return null;
+}
+
+// Render the expanded body using categorized, dense layout
+function renderAssetReadBody(section, group, fields) {
+  // Partition once — booleans out to strip, the rest stays for categorization
+  const { bools } = partitionAssetFields(fields);
+  const boolCodes = new Set(bools.map(f => f.code));
+  const nonBool = fields.filter(f => !boolCodes.has(f.code));
+
+  // ── 1. Hero stats — 4 tiles ────────────────────────
+  // Priority: Building Value, Square Footage, Stories, Year Built
+  // Fall back to any other populated Monetary/Number if those are missing.
+  const heroClaimed = new Set();
+  const pickHero = (tails) => {
+    const f = findByTail(nonBool, tails);
+    if (f && hasValue(f)) { heroClaimed.add(f.code); return f; }
+    return null;
+  };
+  const heroFields = [
+    pickHero(['building_value', 'total_value', 'tiv']),
+    pickHero(['square_footage']),
+    pickHero(['stories']),
+    pickHero(['year_built']),
+  ].filter(Boolean);
+
+  // ── 2. Address block (title + subtitle context)  ────
+  const addr = findByTail(nonBool, ['location_address', 'address']);
+  const locNum = findByTail(nonBool, ['location_number']);
+  const bldgNum = findByTail(nonBool, ['building_number']);
+  if (addr) heroClaimed.add(addr.code);
+  if (locNum) heroClaimed.add(locNum.code);
+  if (bldgNum) heroClaimed.add(bldgNum.code);
+
+  const subtitleParts = [];
+  if (locNum && hasValue(locNum)) {
+    subtitleParts.push(`Loc #${formatByType(locNum, unwrapForInput(locNum.value))}`);
+  }
+  if (bldgNum && hasValue(bldgNum)) {
+    subtitleParts.push(`Bldg #${formatByType(bldgNum, unwrapForInput(bldgNum.value))}`);
+  }
+
+  const hero = el('div', { className: 'asset-hero' },
+    addr && hasValue(addr)
+      ? el('div', { className: 'asset-hero-addr' }, formatByType(addr, unwrapForInput(addr.value)))
+      : null,
+    subtitleParts.length
+      ? el('div', { className: 'asset-hero-sub' }, subtitleParts.join(' · '))
+      : null,
+    heroFields.length
+      ? el('div', { className: 'asset-hero-stats' },
+          ...heroFields.map(f => el('div', { className: 'asset-hero-stat' },
+            el('div', { className: 'asset-hero-stat-value' }, formatByType(f, unwrapForInput(f.value))),
+            el('div', { className: 'asset-hero-stat-label' }, f.label))))
+      : null);
+
+  // ── 3. Categorized rows ────────────────────────────
+  // Each category picks fields by code-tail match, renders them as a dense
+  // inline "label value · label value · label value" row.
+  // Fields claimed by a category get removed from the "more details" pool.
+  const claimed = new Set(heroClaimed);
+  const buildRow = (categoryLabel, tails, formatters = {}) => {
+    const picked = [];
+    for (const tail of tails) {
+      const f = findByTail(nonBool, [tail]);
+      if (f && hasValue(f)) {
+        picked.push(f);
+        claimed.add(f.code);
+      }
+    }
+    if (!picked.length) return null;
+    return el('div', { className: 'asset-cat-row' },
+      el('div', { className: 'asset-cat-label' }, categoryLabel),
+      el('div', { className: 'asset-cat-values' },
+        ...picked.flatMap((f, i) => {
+          const formatter = formatters[codeTail(f)] || ((field, v) => {
+            const fLabel = field.label.replace(/\s*(status|limit)\s*$/i, '').trim();
+            return `${fLabel}: ${formatByType(field, v)}`;
+          });
+          const v = unwrapForInput(f.value);
+          const text = formatter(f, v);
+          const els = [el('span', { className: 'asset-cat-value' }, text)];
+          if (i < picked.length - 1) {
+            els.push(el('span', { className: 'asset-cat-sep' }, '·'));
+          }
+          return els;
+        })));
+  };
+
+  // Category: Construction — physical building info
+  const construction = buildRow('Construction', [
+    'construction_type', 'roof_type', 'roof_geometry',
+    'valuation_method', 'coinsurance_percentage',
+  ], {
+    construction_type: (f, v) => v,  // just the value, no label
+    roof_type: (f, v) => `${v} roof`,
+    roof_geometry: (f, v) => v,  // just value
+    valuation_method: (f, v) => v,
+    coinsurance_percentage: (f, v) => `${formatByType(f, v)} coinsurance`,
+  });
+
+  // Category: Coverage — limits
+  const coverage = buildRow('Coverage', [
+    'bpp_limit', 'ol_2and3_limit', 'annual_sales', 'building_count',
+  ], {
+    bpp_limit: (f, v) => `BPP ${formatByType(f, v)}`,
+    ol_2and3_limit: (f, v) => `OL 2&3 ${formatByType(f, v)}`,
+    annual_sales: (f, v) => `${formatByType(f, v)} annual sales`,
+    building_count: (f, v) => `${v} buildings`,
+  });
+
+  // Category: Wind/Hail — deductible and exposure
+  const windhail = buildRow('Wind / Hail', [
+    'windhailpercentage', 'wind_hail_dollar_figure',
+  ], {
+    windhailpercentage: (f, v) => `${formatByType(f, v)} deductible`,
+    wind_hail_dollar_figure: (f, v) => `${formatByType(f, v)} minimum`,
+  });
+
+  // Category: Occupancy — what's there
+  const occupancy = buildRow('Occupancy', [
+    'building_occupancy', 'vacant_land_acreage',
+  ], {
+    building_occupancy: (f, v) => Array.isArray(v) ? v.join(', ') : String(v),
+    vacant_land_acreage: (f, v) => `${formatByType(f, v)} acres vacant`,
+  });
+
+  // ── 4. Bool strip ──────────────────────────────────
+  const boolStrip = bools.length > 0
+    ? el('div', { className: 'asset-bool-strip' },
+        ...bools.map(f => renderBoolChip(f)))
+    : null;
+
+  // ── 5. More details — anything not claimed above ──
+  // Only show fields with a value (empty fields hide in read mode)
+  // or fields explicitly required but empty (so broker sees what's missing).
+  const moreFields = nonBool.filter(f => {
+    if (claimed.has(f.code)) return false;
+    return hasValue(f) || f.required;
+  });
+  const moreKey = `more:${section.code}:${group.idx}`;
+  const moreOpen = !!state.expandedMore?.[moreKey];
+  const more = moreFields.length > 0
+    ? el('div', { className: 'asset-more' },
+        el('button', {
+          className: 'asset-more-toggle',
+          onClick: () => {
+            if (!state.expandedMore) state.expandedMore = {};
+            state.expandedMore[moreKey] = !moreOpen;
+            render();
+          },
+        }, moreOpen ? `Hide details (${moreFields.length})` : `Show more details (${moreFields.length})`),
+        moreOpen
+          ? el('div', { className: 'form-grid asset-more-grid' },
+              ...moreFields.map(f => renderFormField(f, false)))
+          : null)
+    : null;
+
+  return el('div', { className: 'asset-card-body' }, hero, construction, coverage, windhail, occupancy, boolStrip, more);
 }
 
 // Decide which fields go in the main grid vs. the compact bool strip.
