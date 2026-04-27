@@ -1180,6 +1180,10 @@
     display: flex; align-items: center; justify-content: center;
     font-weight: 600; font-size: 1rem;
   }
+  .status-banner-icon svg {
+    width: 18px; height: 18px;
+    display: block;
+  }
   .status-banner.locked {
     background: var(--info-soft); color: var(--info);
     border-left: 3px solid var(--info);
@@ -1195,6 +1199,17 @@
     border-left: 3px solid var(--err);
   }
   .status-banner.declined .status-banner-icon { background: var(--err); color: #fff; }
+
+  /* Two-line date+time render in the overview bar */
+  .overview-datetime { line-height: 1.25; }
+  .overview-datetime-date {
+    font-size: 0.95rem; font-weight: 500;
+    color: var(--navy);
+  }
+  .overview-datetime-time {
+    font-size: 0.78rem; color: var(--mute);
+    margin-top: 2px; font-weight: 400;
+  }
 
   /* Horizontal overview bar — sits above the form instead of a right sidebar */
   .overview-bar {
@@ -1395,6 +1410,74 @@ function brandWordmark(color = 'white', height = 42) {
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
 const fmtDateTime = (d) => d ? new Date(d).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
+
+// Cleaner two-line date+time render for the overview bar — the date sits
+// above the time. Returns a virtual element rather than a string so the
+// caller can inject it directly into a cell.
+function fmtSubmittedDateTime(d) {
+  if (!d) return '—';
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return '—';
+  const datePart = dt.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  const timePart = dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return el('div', { className: 'overview-datetime' },
+    el('div', { className: 'overview-datetime-date' }, datePart),
+    el('div', { className: 'overview-datetime-time' }, timePart));
+}
+
+// Map Joshu's flow value to a friendlier label. Joshu emits short codes
+// like "New", "Renewal", etc. — we render with the word "Policy" appended
+// where it reads more clearly.
+function friendlyFlow(raw) {
+  if (!raw) return '—';
+  const s = String(raw).trim();
+  const map = {
+    'New':           'New Policy',
+    'Renewal':       'Renewal Policy',
+    'Endorsement':   'Endorsement',
+    'Cancellation':  'Cancellation',
+    'Reinstatement': 'Reinstatement',
+  };
+  // Case-insensitive lookup, but preserve original capitalization on miss
+  for (const [key, val] of Object.entries(map)) {
+    if (s.toLowerCase() === key.toLowerCase()) return val;
+  }
+  return s;
+}
+
+// Minimal padlock icon — single-stroke outline, no gradient or shading.
+// Sized to inherit from .status-banner-icon's font-size; uses currentColor
+// so banner-state styles tint it (blue when locked, etc.).
+function lockIconSvg() {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '1.6');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+  svg.setAttribute('aria-hidden', 'true');
+  // Shackle (the curve at the top)
+  const shackle = document.createElementNS(ns, 'path');
+  shackle.setAttribute('d', 'M8 10V7a4 4 0 0 1 8 0v3');
+  // Body (rounded rectangle)
+  const body = document.createElementNS(ns, 'rect');
+  body.setAttribute('x', '5');
+  body.setAttribute('y', '10');
+  body.setAttribute('width', '14');
+  body.setAttribute('height', '10');
+  body.setAttribute('rx', '2');
+  // Keyhole (small circle)
+  const hole = document.createElementNS(ns, 'circle');
+  hole.setAttribute('cx', '12');
+  hole.setAttribute('cy', '15');
+  hole.setAttribute('r', '1.2');
+  svg.appendChild(shackle);
+  svg.appendChild(body);
+  svg.appendChild(hole);
+  return svg;
+}
 const money = (n) => {
   if (n == null) return '—';
   return Math.abs(n).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
@@ -2034,7 +2117,7 @@ function statusBanner(s) {
   }
   if (status === 'Submitted' || status === 'Pending') {
     return el('div', { className: 'status-banner locked' },
-      el('div', { className: 'status-banner-icon' }, '🔒'),
+      el('div', { className: 'status-banner-icon' }, lockIconSvg()),
       el('div', { style: { flex: 1 } },
         el('div', { className: 'status-banner-title' },
           `Submitted${s.submitted_at ? ' ' + fmtDate(s.submitted_at) : ''}`),
@@ -2129,9 +2212,9 @@ function submissionMainCard(s) {
         el('div', { className: 'form-progress-title' },
           isEditing ? 'Complete the submission' : 'Application'),
         el('div', { className: 'form-progress-count' },
-          `${totals.completed} of ${totals.total} complete`, pct === 100
-            ? el('span', { className: 'form-progress-pct done' }, ' · ready to submit')
-            : el('span', { className: 'form-progress-pct' }, ` · ${pct}%`))),
+          pct === 100
+            ? el('span', { className: 'form-progress-pct done' }, 'Ready to submit')
+            : el('span', { className: 'form-progress-pct' }, `${pct}%`))),
       el('div', { className: 'form-progress-bar' },
         el('div', { className: 'form-progress-fill', style: { width: `${pct}%` } }))),
 
@@ -3578,18 +3661,15 @@ async function submitForQuote(id) {
 
 function submissionOverviewBar(s) {
   // Compact horizontal strip that sits ABOVE the form.
-  // Dropped: product version, test flag, and the "Overview" header/eyebrow.
-  // Kept: Status, Flow, Effective, Created, Submitted, Policy (if present).
+  // Slimmed to 4 columns: Status · Type · Effective · Submitted.
+  // Dropped: Created (redundant with Submitted), Policy (internal UUID),
+  // product version, test flag, eyebrow header.
   const items = [
-    { label: 'Status', value: statusBadge(s.status) },
-    { label: 'Flow',   value: s.flow || '—' },
+    { label: 'Status',     value: statusBadge(s.status) },
+    { label: 'Type',       value: friendlyFlow(s.flow) },
     { label: 'Effective',  value: fmtDate(s.effective_at) },
-    { label: 'Created',    value: fmtDateTime(s.created_at) },
-    { label: 'Submitted',  value: fmtDateTime(s.submitted_at) },
+    { label: 'Submitted',  value: fmtSubmittedDateTime(s.submitted_at) },
   ];
-  if (s.policy_id) {
-    items.push({ label: 'Policy', value: el('span', { className: 'mono' }, s.policy_id) });
-  }
   return el('div', { className: 'overview-bar' },
     ...items.map(i => el('div', { className: 'overview-item' },
       el('div', { className: 'overview-item-label' }, i.label),
