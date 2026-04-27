@@ -1644,6 +1644,126 @@
     font-weight: 500;
   }
 
+  /* ─── Asset card — v2 layout (read & edit) ────────────────────────
+     Replaces the 4-tile hero + stacked category rows with:
+       • Identity strip: building value as the single big number on the
+         left, prose context line + risk tag on the right
+       • Two-column body: Coverage list (left) / descriptive blocks (right)
+     This consolidates the same data into a more scannable layout,
+     consistent across read and edit modes. */
+  .asset-hero-v2 {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 28px;
+    align-items: start;
+    padding: 20px 0 18px;
+    border-bottom: 1px solid var(--line-2);
+    margin-bottom: 18px;
+  }
+  .asset-hero-v2.asset-hero-edit {
+    /* Edit mode: lighter footprint (no big-value emphasis), but keep
+       identity for context. */
+    padding: 14px 0 12px;
+    margin-bottom: 16px;
+  }
+  .asset-hero-bigvalue { }
+  .asset-hero-bigvalue-amount {
+    font-size: 2rem; font-weight: 600;
+    color: var(--navy, var(--ink));
+    letter-spacing: -0.024em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .asset-hero-edit .asset-hero-bigvalue-amount {
+    font-size: 1.4rem;
+  }
+  .asset-hero-bigvalue-label {
+    font-size: 0.7rem; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--mute);
+    margin-top: 6px;
+  }
+  .asset-hero-identity {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 16px;
+    padding-top: 4px;
+  }
+  .asset-hero-identity-strip {
+    font-size: 0.95rem;
+    color: var(--ink-mute);
+    line-height: 1.4;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Two-column body */
+  .asset-body-grid {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 36px;
+    padding-bottom: 4px;
+  }
+  .asset-body-col {
+    display: flex; flex-direction: column;
+    gap: 18px;
+  }
+  .asset-body-block { }
+  .asset-body-block-label {
+    font-size: 0.7rem; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--mute);
+    margin-bottom: 8px;
+  }
+  .asset-body-block-value {
+    font-size: 0.92rem;
+    color: var(--ink);
+    line-height: 1.55;
+    letter-spacing: -0.005em;
+  }
+  .asset-body-block-chips {
+    display: flex; flex-wrap: wrap; gap: 7px;
+  }
+
+  /* Coverage list — quote-document style with dotted leader */
+  .asset-body-coverage-list {
+    display: flex; flex-direction: column;
+    gap: 8px;
+  }
+  .asset-body-coverage-row {
+    display: flex; align-items: baseline;
+    gap: 8px;
+    font-size: 0.92rem;
+  }
+  .asset-body-coverage-label {
+    color: var(--ink);
+    flex-shrink: 0;
+    max-width: 70%;
+  }
+  .asset-body-coverage-leader {
+    flex: 1;
+    border-bottom: 1px dotted var(--line);
+    margin-bottom: 4px;
+    min-width: 16px;
+  }
+  .asset-body-coverage-value {
+    color: var(--navy, var(--ink));
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+    text-align: right;
+  }
+
+  /* Mobile: stack the body columns */
+  @media (max-width: 720px) {
+    .asset-hero-v2 {
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+    .asset-body-grid {
+      grid-template-columns: 1fr;
+      gap: 22px;
+    }
+  }
+
   /* Category rows: inline dense facts grouped by theme */
   .asset-cat-row {
     display: grid;
@@ -3889,23 +4009,18 @@ function renderAssetCard(section, group, isEditing, displayLabelOverride, titleO
     el('div', { className: 'asset-card-chevron' }, isOpen ? '\u2303' : '\u2304'));
 
   // Expanded body — property-listing style:
-  //   1. Hero block — title (address), subtitle (loc/bldg #), 4 stat tiles
-  //   2. Category rows — CONSTRUCTION, COVERAGE, WIND/HAIL, OCCUPANCY (dense inline)
-  //   3. Status chip strip — booleans as ✓/— pills
-  //   4. More details — disclosure for anything left over
-  // Edit mode falls back to the full grid so the broker can edit every field —
-  // EXCEPT for underwriter-only risk classification fields (ex_wind_status,
-  // wind/hail deductible) which are populated by underwriting and should
-  // render as locked even when the broker is editing.
+  //   Identity strip (building value + "1 story · Built 2025 · 4,350 sq ft")
+  //   Two-column body: Coverage on left, descriptive attributes on right
+  //   More details — disclosure for any unclaimed fields
+  // Edit mode shares the identity strip so the broker always sees what
+  // building they're editing, then drops to a flat form grid for the
+  // editable fields. Underwriter-only risk classification fields
+  // (ex_wind_status, wind/hail deductible) render as locked even in
+  // edit mode.
   const body = isOpen ? (() => {
     const visible = group.fields.filter(f => f.visible !== false);
     if (isEditing) {
-      return el('div', { className: 'asset-card-body is-editing' },
-        el('div', { className: 'form-grid' },
-          ...visible.map(f => {
-            const locked = isBrokerLockedField(f);
-            return renderFormField(f, isEditing && !locked);
-          })));
+      return renderAssetEditBody(section, group, visible, isBrokerLockedField);
     }
     return renderAssetReadBody(section, group, visible);
   })() : null;
@@ -3945,271 +4060,214 @@ function renderAssetReadBody(section, group, fields) {
   const { bools } = partitionAssetFields(fields);
   const boolCodes = new Set(bools.map(f => f.code));
   const nonBool = fields.filter(f => !boolCodes.has(f.code));
+  const claimed = new Set();
 
-  // ── 1. Hero stats — 4 tiles ────────────────────────
-  // Priority: Building Value, Square Footage, Stories, Year Built
-  // Fall back to any other populated Monetary/Number if those are missing.
-  // For these specific fields a literal 0 is treated as "missing" rather
-  // than a valid value — a building with $0 value or 0 sq ft or year 0
-  // is missing data, not legitimate state.
-  const heroClaimed = new Set();
-  const isMeaningfullyPopulated = (f) => {
+  // ── 1. Hero — building value as the single big number, plus an
+  //         identity strip ("1 story · Built 2025 · 4,350 sq ft") ────
+  // Treat literal 0 as "missing" for these specific fields — a building
+  // with $0 value or 0 sq ft is missing data, not legitimate state.
+  const isMeaningful = (f) => {
     if (!hasValue(f)) return false;
     const v = unwrapForInput(f.value);
     const n = Number(v);
     if (Number.isFinite(n) && n === 0) return false;
     return true;
   };
-  const pickHero = (tails) => {
-    const f = findByTail(nonBool, tails);
-    if (f && isMeaningfullyPopulated(f)) { heroClaimed.add(f.code); return f; }
-    return null;
-  };
-  const heroFields = [
-    pickHero(['building_value', 'total_value', 'tiv']),
-    pickHero(['square_footage']),
-    pickHero(['stories']),
-    pickHero(['year_built']),
-  ].filter(Boolean);
+  const claimAndReturn = (f) => { if (f) claimed.add(f.code); return f; };
+  const valueField = claimAndReturn(
+    findByTail(nonBool, ['building_value', 'total_value', 'tiv'])
+  );
+  const sqftField  = claimAndReturn(findByTail(nonBool, ['square_footage']));
+  const storiesF   = claimAndReturn(findByTail(nonBool, ['stories']));
+  const yearF      = claimAndReturn(findByTail(nonBool, ['year_built']));
 
-  // ── 2. Address block (title + subtitle context)  ────
+  const identityParts = [];
+  if (storiesF && isMeaningful(storiesF)) {
+    const v = Number(unwrapForInput(storiesF.value));
+    identityParts.push(`${v} ${v === 1 ? 'story' : 'stories'}`);
+  }
+  if (yearF && isMeaningful(yearF)) {
+    identityParts.push(`Built ${unwrapForInput(yearF.value)}`);
+  }
+  if (sqftField && isMeaningful(sqftField)) {
+    const n = Number(unwrapForInput(sqftField.value));
+    identityParts.push(`${n.toLocaleString()} sq ft`);
+  }
+
+  // ── 2. Address & subtitle plumbing (unchanged from before) ────────
   const addr = findByTail(nonBool, ['location_address', 'address']);
   const locNum = findByTail(nonBool, ['location_number']);
   const bldgNum = findByTail(nonBool, ['building_number']);
-  // We also peek at blanketed_status (a boolean) and buildings (count) to
-  // format the subtitle correctly. blanketed_status is in `bools`, not
-  // `nonBool`, so look it up in the original fields list.
   const blanketedStatus = fields.find(f => codeTail(f) === 'blanketed_status');
   const buildingsCount = findByTail(nonBool, ['buildings', 'building_count']);
-  if (addr) heroClaimed.add(addr.code);
-  if (locNum) heroClaimed.add(locNum.code);
-  if (bldgNum) heroClaimed.add(bldgNum.code);
-  if (buildingsCount) heroClaimed.add(buildingsCount.code);
+  if (addr) claimed.add(addr.code);
+  if (locNum) claimed.add(locNum.code);
+  if (bldgNum) claimed.add(bldgNum.code);
+  if (buildingsCount) claimed.add(buildingsCount.code);
+  if (blanketedStatus) claimed.add(blanketedStatus.code);
 
-  // Subtitle format depends on blanket status:
-  //   blanketed = true  →  "Location 1 - Buildings 1-8"
-  //   blanketed = false →  "Location 1 - Building 1"
-  // If blanketed_status field is absent or empty, default to the
-  // not-blanketed format (single building).
-  const subtitleParts = [];
-  if (locNum && hasValue(locNum)) {
-    const locVal = unwrapForInput(locNum.value);
-    let subtitle = `Location ${locVal}`;
-    const isBlanketed = blanketedStatus && isTruthyBool(unwrapForInput(blanketedStatus.value));
-    if (isBlanketed) {
-      const count = buildingsCount && hasValue(buildingsCount)
-        ? unwrapForInput(buildingsCount.value)
-        : null;
-      if (count && Number(count) > 1) {
-        subtitle += ` \u2014 Buildings 1-${count}`;
-      } else {
-        subtitle += ' \u2014 Buildings (blanketed)';
-      }
-    } else if (bldgNum && hasValue(bldgNum)) {
-      subtitle += ` \u2014 Building ${unwrapForInput(bldgNum.value)}`;
-    }
-    subtitleParts.push(subtitle);
-  } else if (bldgNum && hasValue(bldgNum)) {
-    // Fallback: no location number, just show building number
-    subtitleParts.push(`Building ${unwrapForInput(bldgNum.value)}`);
-  }
-
-  // Risk classification tag — sits in the hero header rather than as a body row.
-  // Shows EITHER:
-  //   • Wind/Hail deductible info (e.g. "5% W/H · $10K min") when the
-  //     building has standard wind/hail coverage, OR
-  //   • "Ex Wind" pill when ex_wind_status is true (no W/H coverage)
-  // These are mutually exclusive and populated by underwriting AFTER the
-  // initial submission is processed — so on a fresh broker submission,
-  // neither will render. They're informational only and not editable
-  // by the broker (locked even in edit mode below).
+  // ── 3. Risk classification tag — Ex Wind OR W/H deductible (or none).
+  // Suppress entirely when:
+  //   • ex_wind_status is true → "Ex Wind" pill
+  //   • windhailpercentage is 0% or missing → no pill at all (a 0%
+  //     deductible isn't meaningful info; treat the same as missing)
+  //   • Otherwise show "X% W/H · $YK min"
   const exWindField = fields.find(f => codeTail(f) === 'ex_wind_status');
   const isExWind = exWindField && isTruthyBool(unwrapForInput(exWindField.value));
-  if (exWindField) heroClaimed.add(exWindField.code);
+  if (exWindField) claimed.add(exWindField.code);
 
   const whPctF = findByTail(nonBool, ['windhailpercentage']);
   const whMinF = findByTail(nonBool, ['wind_hail_dollar_figure']);
-  const whParts = [];
-  if (!isExWind) {
-    if (whPctF && hasValue(whPctF)) {
-      whParts.push(`${formatByType(whPctF, unwrapForInput(whPctF.value))} W/H`);
-      heroClaimed.add(whPctF.code);
-    }
-    if (whMinF && hasValue(whMinF)) {
+  if (whPctF) claimed.add(whPctF.code);
+  if (whMinF) claimed.add(whMinF.code);
+
+  // Determine if W/H values are meaningful (non-zero, non-empty)
+  const whPctMeaningful = whPctF && isMeaningful(whPctF);
+  const whMinMeaningful = whMinF && isMeaningful(whMinF);
+
+  let riskTag = null;
+  if (isExWind) {
+    riskTag = el('div', { className: 'asset-hero-tag asset-hero-tag-exwind', title: 'Ex Wind \u2014 no wind/hail coverage' },
+      el('span', { className: 'asset-hero-tag-part' }, 'Ex Wind'));
+  } else if (whPctMeaningful) {
+    // Build the W/H pill only when the percentage is a real value.
+    const whParts = [`${formatByType(whPctF, unwrapForInput(whPctF.value))} W/H`];
+    if (whMinMeaningful) {
       const minVal = formatByType(whMinF, unwrapForInput(whMinF.value));
-      // Compact "$10K min" rather than "$10,000 minimum" — but only when
-      // the dollar amount is a clean multiple of 1000 with no cents.
       const compact = minVal.replace(/^\$(\d+),000$/, '$$$1K');
       whParts.push(`${compact} min`);
-      heroClaimed.add(whMinF.code);
     }
-  } else {
-    // Even if W/H fields exist alongside ex_wind, mark them claimed so
-    // they don't double-render in the "more details" pool.
-    if (whPctF) heroClaimed.add(whPctF.code);
-    if (whMinF) heroClaimed.add(whMinF.code);
+    riskTag = el('div', { className: 'asset-hero-tag', title: 'Wind/Hail deductible' },
+      ...whParts.map((p, i) => [
+        el('span', { className: 'asset-hero-tag-part' }, p),
+        i < whParts.length - 1 ? el('span', { className: 'asset-hero-tag-sep' }, '\u00b7') : null,
+      ]).flat().filter(Boolean));
   }
 
-  // Build the risk-classification tag(s) for the top right of the card
-  const riskTag = isExWind
-    ? el('div', { className: 'asset-hero-tag asset-hero-tag-exwind', title: 'Ex Wind — no wind/hail coverage' },
-        el('span', { className: 'asset-hero-tag-part' }, 'Ex Wind'))
-    : whParts.length
-      ? el('div', { className: 'asset-hero-tag', title: 'Wind/Hail deductible' },
-          ...whParts.map((p, i) => [
-            el('span', { className: 'asset-hero-tag-part' }, p),
-            i < whParts.length - 1 ? el('span', { className: 'asset-hero-tag-sep' }, '·') : null,
-          ]).flat().filter(Boolean))
-      : null;
+  // ── 4. Hero block — single big number (building value) on the left,
+  //          identity line + risk tag on the right.
+  const heroLeft = valueField && isMeaningful(valueField)
+    ? el('div', { className: 'asset-hero-bigvalue' },
+        el('div', { className: 'asset-hero-bigvalue-amount' },
+          formatByType(valueField, unwrapForInput(valueField.value))),
+        el('div', { className: 'asset-hero-bigvalue-label' }, 'Building value'))
+    : null;
 
-  const heroTopRow = el('div', { className: 'asset-hero-top' },
-    el('div', { className: 'asset-hero-title-block' },
-      addr && hasValue(addr)
-        ? el('div', { className: 'asset-hero-addr' }, formatByType(addr, unwrapForInput(addr.value)))
-        : null,
-      subtitleParts.length
-        ? el('div', { className: 'asset-hero-sub' }, subtitleParts.join(' \u00b7 '))
-        : null),
+  const heroRight = el('div', { className: 'asset-hero-identity' },
+    identityParts.length
+      ? el('div', { className: 'asset-hero-identity-strip' }, identityParts.join(' \u00b7 '))
+      : null,
     riskTag);
 
-  const hero = el('div', { className: 'asset-hero' },
-    heroTopRow,
-    heroFields.length
-      ? el('div', { className: 'asset-hero-stats' },
-          ...heroFields.map(f => el('div', { className: 'asset-hero-stat' },
-            el('div', { className: 'asset-hero-stat-value' }, formatByType(f, unwrapForInput(f.value))),
-            el('div', { className: 'asset-hero-stat-label' }, f.label))))
-      : null);
+  const hero = el('div', { className: 'asset-hero asset-hero-v2' },
+    heroLeft,
+    heroRight);
 
-  // ── 3. Categorized rows ────────────────────────────
-  // Each category picks fields by code-tail match, renders them as a dense
-  // inline "label value · label value · label value" row.
-  // Fields claimed by a category get removed from the "more details" pool.
-  const claimed = new Set(heroClaimed);
-  // Build a category row with INLINE values: "VAL · VAL · VAL"
-  // For tight, scannable groups like Construction.
-  const buildRow = (categoryLabel, tails, formatters = {}) => {
-    const picked = [];
-    for (const tail of tails) {
-      const f = findByTail(nonBool, [tail]);
-      if (f && hasValue(f)) {
-        picked.push(f);
-        claimed.add(f.code);
-      }
+  // ── 5. Construction (chips inline) ────────────────────────────────
+  const constructionParts = [];
+  const collectConstruction = (tail, fmt) => {
+    const f = findByTail(nonBool, [tail]);
+    if (f && hasValue(f)) {
+      const v = unwrapForInput(f.value);
+      constructionParts.push(fmt ? fmt(v) : String(v));
+      claimed.add(f.code);
     }
-    if (!picked.length) return null;
-    return el('div', { className: 'asset-cat-row' },
-      el('div', { className: 'asset-cat-label' }, categoryLabel),
-      el('div', { className: 'asset-cat-values' },
-        ...picked.flatMap((f, i) => {
-          const formatter = formatters[codeTail(f)] || ((field, v) => {
-            const fLabel = field.label.replace(/\s*(status|limit)\s*$/i, '').trim();
-            return `${fLabel}: ${formatByType(field, v)}`;
-          });
-          const v = unwrapForInput(f.value);
-          const text = formatter(f, v);
-          const els = [el('span', { className: 'asset-cat-value' }, text)];
-          if (i < picked.length - 1) {
-            els.push(el('span', { className: 'asset-cat-sep' }, '·'));
-          }
-          return els;
-        })));
   };
+  collectConstruction('construction_type');
+  collectConstruction('roof_type', v => `${v} roof`);
+  collectConstruction('roof_geometry');
+  collectConstruction('valuation_method');
+  collectConstruction('coinsurance_percentage', v => `${v}% coinsurance`);
 
-  // Build a category row with LIST values: each item on its own line,
-  // "Label" on the left, "Amount" right-aligned. Reads like a coverage schedule.
-  // For groups like Coverage where each line is a distinct policy item.
-  const buildList = (categoryLabel, tails, formatters = {}) => {
-    const picked = [];
-    for (const tail of tails) {
-      const f = findByTail(nonBool, [tail]);
-      if (f && hasValue(f)) {
-        picked.push(f);
-        claimed.add(f.code);
-      }
-    }
-    if (!picked.length) return null;
-    return el('div', { className: 'asset-cat-row' },
-      el('div', { className: 'asset-cat-label' }, categoryLabel),
-      el('div', { className: 'asset-cat-list' },
-        ...picked.map(f => {
-          const formatter = formatters[codeTail(f)];
-          const v = unwrapForInput(f.value);
-          // Each formatter returns {label, value} for list rendering
-          const item = formatter
-            ? formatter(f, v)
-            : { label: f.label.replace(/\s*(status|limit)\s*$/i, '').trim(), value: formatByType(f, v) };
-          return el('div', { className: 'asset-cat-list-row' },
-            el('div', { className: 'asset-cat-list-label' }, item.label),
-            el('div', { className: 'asset-cat-list-value' }, item.value));
-        })));
+  // ── 6. Coverage list (money fields, forced monetary formatting) ───
+  // Joshu sends BPP/OL/Annual Sales as raw numbers in some submissions —
+  // not flagged as monetary. Force the $ prefix and thousands separator
+  // for these specific fields so they read as the dollar amounts they
+  // actually represent.
+  const formatAsMoney = (raw) => {
+    if (raw === null || raw === undefined || raw === '') return '\u2014';
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return String(raw);
+    return `$${n.toLocaleString()}`;
   };
+  const COVERAGE_ROWS = [
+    { tail: 'bpp_limit',      label: 'Business Personal Property' },
+    { tail: 'ol_2and3_limit', label: 'Ordinance & Law 2 & 3' },
+    { tail: 'annual_sales',   label: 'BI & EE Limit' },
+  ];
+  const coverageRows = COVERAGE_ROWS.map(spec => {
+    const f = findByTail(nonBool, [spec.tail]);
+    if (!f || !hasValue(f)) return null;
+    claimed.add(f.code);
+    return { label: spec.label, value: formatAsMoney(unwrapForInput(f.value)) };
+  }).filter(Boolean);
 
-  // Category: Construction — physical building info (inline)
-  const construction = buildRow('Construction', [
-    'construction_type', 'roof_type', 'roof_geometry',
-    'valuation_method', 'coinsurance_percentage',
-  ], {
-    construction_type: (f, v) => v,
-    roof_type: (f, v) => `${v} roof`,
-    roof_geometry: (f, v) => v,
-    valuation_method: (f, v) => v,
-    coinsurance_percentage: (f, v) => `${formatByType(f, v)} coinsurance`,
-  });
+  // ── 7. Occupancy ──────────────────────────────────────────────────
+  const occupancyParts = [];
+  const occF = findByTail(nonBool, ['building_occupancy']);
+  if (occF && hasValue(occF)) {
+    const v = unwrapForInput(occF.value);
+    occupancyParts.push(Array.isArray(v) ? v.join(', ') : String(v));
+    claimed.add(occF.code);
+  }
+  const vacF = findByTail(nonBool, ['vacant_land_acreage']);
+  if (vacF && hasValue(vacF)) {
+    occupancyParts.push(`${formatByType(vacF, unwrapForInput(vacF.value))} acres vacant`);
+    claimed.add(vacF.code);
+  }
 
-  // Category: Coverage — limits as a list, label/amount per row.
-  // Quote-document naming and money-only fields. The integer "Buildings"
-  // count is no longer rendered here — it's encoded in the subtitle
-  // (e.g. "Buildings 1-8" when blanketed) instead.
-  const coverage = buildList('Coverage', [
-    'bpp_limit', 'ol_2and3_limit', 'annual_sales',
-  ], {
-    bpp_limit: (f, v) => ({ label: 'Business Personal Property', value: formatByType(f, v) }),
-    ol_2and3_limit: (f, v) => ({ label: 'Ordinance & Law 2 & 3', value: formatByType(f, v) }),
-    annual_sales: (f, v) => ({ label: 'BI & EE Limit', value: formatByType(f, v) }),
-  });
-
-  // Wind/Hail moved to hero tag — no body row.
-
-  // Category: Occupancy — what's there
-  const occupancy = buildRow('Occupancy', [
-    'building_occupancy', 'vacant_land_acreage',
-  ], {
-    building_occupancy: (f, v) => Array.isArray(v) ? v.join(', ') : String(v),
-    vacant_land_acreage: (f, v) => `${formatByType(f, v)} acres vacant`,
-  });
-
-  // ── 4. Bool strip ──────────────────────────────────
-  // Show ONLY building features here (Sprinklered, Surveillance, Fenced,
-  // Automated Gate, Open Sided). Three categories of booleans are excluded:
-  //   • Coverage configuration (gl_only_status, blanketed_status) — these
-  //     either shouldn't render at all (gl_only) or are encoded in the
-  //     subtitle (blanketed → "Buildings 1-8")
-  //   • Underwriter-only risk classification (ex_wind_status) — already
-  //     surfaced as the hero risk tag, doesn't belong as a chip too
-  // The chips remain locked in edit mode for the underwriter-only ones,
-  // but those are already filtered out here so the question is moot for them.
+  // ── 8. Bool feature chips (affirmative only) ──────────────────────
   const HIDDEN_BOOL_CHIPS = new Set([
     'gl_only_status',
     'blanketed_status',
     'ex_wind_status',
   ]);
-  // Show ONLY affirmative features (the building actually has them).
-  // A muted "— No" chip for every absent feature creates noise without
-  // signal — the broker doesn't need to see "No Sprinklered" to know
-  // there are no sprinklers. Only Yes/true values render here.
   const featureBools = bools.filter(f => {
     if (HIDDEN_BOOL_CHIPS.has(codeTail(f))) return false;
     return isTruthyBool(unwrapForInput(f.value));
   });
-  const boolStrip = featureBools.length > 0
-    ? el('div', { className: 'asset-bool-strip' },
-        ...featureBools.map(f => renderBoolChip(f)))
+
+  // ── 9. Two-column body ─────────────────────────────────────────────
+  // Left column: Coverage list (money / what's covered)
+  // Right column: descriptive attributes (Construction, Occupancy, Features)
+  const leftCol = coverageRows.length > 0
+    ? el('div', { className: 'asset-body-col asset-body-col-left' },
+        el('div', { className: 'asset-body-block' },
+          el('div', { className: 'asset-body-block-label' }, 'Coverage'),
+          el('div', { className: 'asset-body-coverage-list' },
+            ...coverageRows.map(r =>
+              el('div', { className: 'asset-body-coverage-row' },
+                el('div', { className: 'asset-body-coverage-label' }, r.label),
+                el('div', { className: 'asset-body-coverage-leader' }),
+                el('div', { className: 'asset-body-coverage-value' }, r.value))))))
     : null;
 
-  // ── 5. More details — anything not claimed above ──
-  // Only show fields with a value (empty fields hide in read mode)
-  // or fields explicitly required but empty (so broker sees what's missing).
+  const rightColBlocks = [];
+  if (constructionParts.length > 0) {
+    rightColBlocks.push(el('div', { className: 'asset-body-block' },
+      el('div', { className: 'asset-body-block-label' }, 'Construction'),
+      el('div', { className: 'asset-body-block-value' }, constructionParts.join(' \u00b7 '))));
+  }
+  if (occupancyParts.length > 0) {
+    rightColBlocks.push(el('div', { className: 'asset-body-block' },
+      el('div', { className: 'asset-body-block-label' }, 'Occupancy'),
+      el('div', { className: 'asset-body-block-value' }, occupancyParts.join(' \u00b7 '))));
+  }
+  if (featureBools.length > 0) {
+    rightColBlocks.push(el('div', { className: 'asset-body-block' },
+      el('div', { className: 'asset-body-block-label' }, 'Features'),
+      el('div', { className: 'asset-body-block-chips' },
+        ...featureBools.map(f => renderBoolChip(f)))));
+  }
+  const rightCol = rightColBlocks.length > 0
+    ? el('div', { className: 'asset-body-col asset-body-col-right' }, ...rightColBlocks)
+    : null;
+
+  const body = (leftCol || rightCol)
+    ? el('div', { className: 'asset-body-grid' }, leftCol, rightCol)
+    : null;
+
+  // ── 10. More details — anything not claimed above ─────────────────
   const moreFields = nonBool.filter(f => {
     if (claimed.has(f.code)) return false;
     return hasValue(f) || f.required;
@@ -4232,7 +4290,63 @@ function renderAssetReadBody(section, group, fields) {
           : null)
     : null;
 
-  return el('div', { className: 'asset-card-body' }, hero, construction, coverage, occupancy, boolStrip, more);
+  return el('div', { className: 'asset-card-body' }, hero, body, more);
+}
+
+// Edit-mode body. Keeps the same identity strip at the top of the card
+// so the broker always sees "Building N · 1 story · Built 2025 · 4,350 sq ft"
+// while editing — preserves card identity. Below the strip, the standard
+// form grid renders all editable fields (with underwriter-only fields
+// rendered as locked).
+function renderAssetEditBody(section, group, visible, lockedPredicate) {
+  // Identity strip — pull stories/year/sqft to show as prose context.
+  const isMeaningful = (f) => {
+    if (!hasValue(f)) return false;
+    const v = unwrapForInput(f.value);
+    const n = Number(v);
+    if (Number.isFinite(n) && n === 0) return false;
+    return true;
+  };
+  const sqftField = findByTail(visible, ['square_footage']);
+  const storiesF  = findByTail(visible, ['stories']);
+  const yearF     = findByTail(visible, ['year_built']);
+  const valueField = findByTail(visible, ['building_value', 'total_value', 'tiv']);
+
+  const identityParts = [];
+  if (storiesF && isMeaningful(storiesF)) {
+    const v = Number(unwrapForInput(storiesF.value));
+    identityParts.push(`${v} ${v === 1 ? 'story' : 'stories'}`);
+  }
+  if (yearF && isMeaningful(yearF)) {
+    identityParts.push(`Built ${unwrapForInput(yearF.value)}`);
+  }
+  if (sqftField && isMeaningful(sqftField)) {
+    const n = Number(unwrapForInput(sqftField.value));
+    identityParts.push(`${n.toLocaleString()} sq ft`);
+  }
+
+  const heroLeft = valueField && isMeaningful(valueField)
+    ? el('div', { className: 'asset-hero-bigvalue' },
+        el('div', { className: 'asset-hero-bigvalue-amount' },
+          formatByType(valueField, unwrapForInput(valueField.value))),
+        el('div', { className: 'asset-hero-bigvalue-label' }, 'Building value'))
+    : null;
+  const heroRight = identityParts.length
+    ? el('div', { className: 'asset-hero-identity' },
+        el('div', { className: 'asset-hero-identity-strip' }, identityParts.join(' \u00b7 ')))
+    : null;
+
+  const hero = (heroLeft || heroRight)
+    ? el('div', { className: 'asset-hero asset-hero-v2 asset-hero-edit' }, heroLeft, heroRight)
+    : null;
+
+  return el('div', { className: 'asset-card-body is-editing' },
+    hero,
+    el('div', { className: 'form-grid' },
+      ...visible.map(f => {
+        const locked = lockedPredicate(f);
+        return renderFormField(f, !locked);
+      })));
 }
 
 // ──────────────────────────────────────────────────────────────
