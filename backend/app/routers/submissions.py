@@ -65,26 +65,104 @@ async def list_submissions(
     result = await client.list_submissions(session["t"], **kwargs)
     payload = result.model_dump(mode="json")
 
-    # Enrich each row with `insured_name` if Joshu provided one anywhere
-    # in the row's data. Joshu's list endpoint may or may not include the
-    # named insured — when it does, it can appear in any of these places:
-    #   - row.data.insured.name        (nested object form)
-    #   - row.data["insured.name"]     (flat datapoint key form)
-    #   - row.insured.name             (top-level — rare)
-    # Frontend reads `row.insured_name` first, falls through to data lookups
-    # if missing. We do the lookup once on the server so all clients
-    # benefit from a consistent flat key.
+    # Enrich each row with `insured_name`. Per Joshu's API docs, the
+    # `/submissions` list endpoint does NOT return insured info directly —
+    # but `/policies` does. Each submission has a `policy_id` (UUID) that
+    # points to its policy, and the policy entity carries `insured_name`.
+    #
+    # Strategy:
+    #   1. Fetch the policies list once (1 extra API call total)
+    #   2. Build a {policy_id → insured_name} lookup
+    #   3. Map each submission to its insured via policy_id
+    #   4. For rows whose policy doesn't have an insured_name yet (e.g.
+    #      Incomplete submissions that haven't been fully created on the
+    #      Joshu side), fall back to fetching that submission's data and
+    #      extracting `insured.name` from the datapoints.
+    #
+    # The fallback is per-row but only runs for the small subset of
+    # Incomplete rows. Submitted/Pending/Bound/Declined rows always have
+    # an `insured_name` via the policy.
     items = payload.get("items") or []
+
+    # Step 1+2: build policy_id → insured_name map.
+    # We fetch enough policies to cover all submissions on this page.
+    # For 25 submissions, fetch 50 policies (Joshu's max) to give some
+    # headroom; if more are needed, the user will see "Submission #ID"
+    # for the unmapped rows, which is the same behaviour as before.
+    policy_name_map: dict[str, str] = {}
+    try:
+        policies_result = await client.list_policies(session["t"], page=1, per_page=50)
+        for prow in (policies_result.items or []):
+            # items is typed as list[Any] in the Paginated schema —
+            # in practice each entry is a plain dict from Joshu's response.
+            if not isinstance(prow, dict):
+                # Defensive: if Joshu ever switches to typed objects, adapt.
+                pid = getattr(prow, "id", None)
+                pname = getattr(prow, "insured_name", None)
+            else:
+                pid = prow.get("id")
+                pname = prow.get("insured_name")
+            if pid and pname and isinstance(pname, str) and pname.strip():
+                policy_name_map[str(pid)] = pname.strip()
+    except Exception:
+        # If the policies fetch fails, we just don't enrich. Worst case
+        # the rows show "Submission #ID" — same as before.
+        pass
+
+    # Step 3: assign names from the policy map
+    incomplete_rows: list[dict] = []
     for row in items:
         if not isinstance(row, dict):
             continue
         if row.get("insured_name"):
-            continue  # already populated
-        name = _extract_insured_name(row)
+            continue
+        pid = row.get("policy_id")
+        if pid and pid in policy_name_map:
+            row["insured_name"] = policy_name_map[pid]
+            continue
+        # Couldn't find a name via policy — queue for the per-row fallback
+        # if the row is Incomplete (i.e. the broker is still working on it).
+        if row.get("status") == "Incomplete":
+            incomplete_rows.append(row)
+
+    # Step 4: per-row fallback for Incomplete submissions.
+    # This is N extra API calls but only for incomplete drafts, which is
+    # a small slice in practice. Cap at 10 rows so a page full of drafts
+    # doesn't hammer Joshu.
+    for row in incomplete_rows[:10]:
+        sub_id = row.get("id")
+        if not sub_id:
+            continue
+        try:
+            data = await client.get_submission_data(session["t"], sub_id)
+        except Exception:
+            continue
+        name = _extract_name_from_data_dict(data)
         if name:
             row["insured_name"] = name
 
     return payload
+
+
+def _extract_name_from_data_dict(data: dict) -> str | None:
+    """Pull insured.name out of a flattened /submission-data response.
+
+    The flatten step in joshu/client_http.py converts Joshu's
+    Array<{code, value}> into a flat {code: simplified_value} dict.
+    For Text-typed datapoints the simplified value is just the string.
+    """
+    if not isinstance(data, dict):
+        return None
+    val = data.get("insured.name")
+    if val is None:
+        return None
+    if isinstance(val, str) and val.strip():
+        return val.strip()
+    # Some flatten paths may leave a {Plain:{Text:...}} envelope intact —
+    # walk it.
+    if isinstance(val, dict):
+        return _unwrap_simple(val)
+    return None
 
 
 def _extract_insured_name(row: dict) -> str | None:
@@ -108,7 +186,6 @@ def _extract_insured_name(row: dict) -> str | None:
                 return n.strip()
 
         # Flat datapoint form: {"insured.name": "..."}
-        # Value may be a wrapped Joshu type — strip wrapper layers.
         flat = data.get("insured.name")
         if flat is not None:
             extracted = _unwrap_simple(flat)

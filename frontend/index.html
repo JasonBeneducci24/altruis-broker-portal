@@ -330,64 +330,196 @@
   .btn-sm { padding: 8px 14px; font-size: 0.82rem; }
   .btn-lg { padding: 16px 26px; font-size: 0.95rem; }
 
-  /* ─────────── Dashboard action cards ─────────── */
-  .action-grid {
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
-    margin-bottom: 32px;
+  /* ─────────── Dashboard ───────────
+   * Editorial layout — greeting → consolidated pipeline panel →
+   * recent submissions list. No tile grid, no big-number cards —
+   * the design wants to feel like a workspace, not a SaaS template.
+   */
+  .dashboard {
+    max-width: 1100px;
   }
-  .action-card {
-    background: var(--white); border: 1px solid var(--line-soft);
-    border-radius: var(--radius-lg); padding: 24px 26px;
-    transition: all 150ms; cursor: pointer; position: relative; overflow: hidden;
+  .dashboard-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    margin-bottom: 36px; gap: 24px; flex-wrap: wrap;
   }
-  .action-card:hover { border-color: var(--blue); box-shadow: var(--shadow-md); transform: translateY(-1px); }
-  .action-card-pipe {
-    position: absolute; top: 0; left: 0; width: 4px; height: 100%;
-    background: var(--blue);
+  .dashboard-header-left { flex: 1; min-width: 0; }
+  .dashboard-greeting {
+    font-size: 2.1rem; font-weight: 600; letter-spacing: -0.022em;
+    color: var(--navy, var(--ink)); line-height: 1.15;
+    margin-bottom: 6px;
   }
-  .action-card.urgent .action-card-pipe { background: var(--warn); }
-  .action-card.ok .action-card-pipe { background: var(--ok); }
-  .action-card-label {
-    font-size: 0.68rem; font-weight: 600; letter-spacing: 0.12em;
-    text-transform: uppercase; color: var(--ink-mute); margin-bottom: 12px;
+  .dashboard-subgreeting {
+    font-size: 0.95rem; color: var(--ink-mute, var(--mute));
+    font-weight: 400;
   }
-  .action-card-value {
-    font-size: 2rem; font-weight: 600; letter-spacing: -0.03em;
-    line-height: 1; color: var(--ink); margin-bottom: 10px;
-  }
-  .action-card-desc { font-size: 0.88rem; color: var(--ink-soft); }
-  .action-card-cta {
-    margin-top: 14px; font-size: 0.82rem; color: var(--blue);
-    font-weight: 500; display: flex; align-items: center; gap: 4px;
-  }
-  .action-card-cta::after { content: '→'; transition: transform 150ms; }
-  .action-card:hover .action-card-cta::after { transform: translateX(3px); }
 
-  /* ─────────── Stats row (supplementary on dashboard) ─────────── */
-  .stats-row {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
-    background: var(--white); border: 1px solid var(--line-soft);
-    border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 28px;
+  /* Consolidated pipeline panel — replaces 4 separate stat tiles */
+  .pipeline-panel {
+    background: var(--white);
+    border: 1px solid var(--line-soft, var(--line));
+    border-radius: var(--radius-lg);
+    padding: 28px 32px 24px;
+    margin-bottom: 36px;
   }
-  .stat {
-    padding: 20px 24px; border-right: 1px solid var(--line-soft);
-    position: relative;
+  .pipeline-panel-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 18px;
   }
-  .stat:last-child { border-right: none; }
-  .stat::before {
-    content: ''; position: absolute; top: 22px; left: 24px;
-    width: 5px; height: 5px; border-radius: 50%; background: var(--blue);
+  .pipeline-panel-title {
+    font-size: 0.78rem; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--ink-mute, var(--mute));
   }
-  .stat-label {
-    font-size: 0.62rem; font-weight: 600;
-    letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-mute);
-    margin-left: 14px; margin-bottom: 10px; margin-top: -2px; display: block;
+
+  .pipeline-big-number {
+    display: flex; align-items: baseline; gap: 8px;
+    margin-bottom: 16px;
   }
-  .stat-value {
-    font-size: 1.65rem; font-weight: 600; color: var(--ink);
-    letter-spacing: -0.02em; line-height: 1;
+  .pipeline-big-number-value {
+    font-size: 2.6rem; font-weight: 600;
+    letter-spacing: -0.03em; line-height: 1;
+    color: var(--navy, var(--ink));
+    font-variant-numeric: tabular-nums;
   }
-  .stat-sub { font-size: 0.76rem; color: var(--ink-mute); margin-top: 8px; }
+  .pipeline-big-number-label {
+    font-size: 1rem; color: var(--ink-mute, var(--mute));
+    font-weight: 400;
+  }
+
+  /* Segmented bar showing pipeline distribution */
+  .pipeline-segments {
+    margin-bottom: 22px;
+  }
+  .pipeline-segments-bar {
+    display: flex; height: 6px;
+    border-radius: 3px; overflow: hidden;
+    background: var(--paper-warm);
+    margin-bottom: 12px;
+  }
+  .segment {
+    height: 100%;
+    transition: opacity 0.15s var(--ease);
+  }
+  .segment + .segment { margin-left: 2px; }
+  .segment-draft { background: #c89a5e; }
+  .segment-uw { background: var(--blue, #4a7ec0); }
+  .segment-declined { background: #c46b5e; }
+  .segment-other { background: #94a8b8; }
+
+  .pipeline-segments-legend {
+    display: flex; gap: 18px; flex-wrap: wrap;
+    font-size: 0.85rem; color: var(--ink-soft, var(--ink-mute));
+  }
+  .legend-item {
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .legend-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    display: inline-block;
+  }
+  .legend-dot-draft { background: #c89a5e; }
+  .legend-dot-uw { background: var(--blue, #4a7ec0); }
+  .legend-dot-declined { background: #c46b5e; }
+  .legend-dot-other { background: #94a8b8; }
+
+  /* Stat strip — minimal, prose-styled, sits under the segments */
+  .pipeline-stats {
+    display: flex; gap: 28px; flex-wrap: wrap;
+    padding-top: 18px;
+    border-top: 1px solid var(--line-soft, var(--line));
+  }
+  .pipeline-stat {
+    background: none; border: 0; padding: 0;
+    display: inline-flex; align-items: baseline; gap: 8px;
+    cursor: pointer; transition: opacity 0.15s var(--ease);
+    font-family: inherit; color: inherit;
+    text-align: left;
+  }
+  .pipeline-stat:hover { opacity: 0.65; }
+  .pipeline-stat-value {
+    font-size: 1.05rem; font-weight: 600;
+    color: var(--navy, var(--ink));
+    font-variant-numeric: tabular-nums;
+  }
+  .pipeline-stat-label {
+    font-size: 0.88rem; color: var(--ink-mute, var(--mute));
+    font-weight: 400;
+  }
+
+  /* Recent submissions section — primary work surface */
+  .recent-section { margin-top: 8px; }
+  .recent-section-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .recent-section-title {
+    font-size: 1.1rem; font-weight: 600;
+    color: var(--navy, var(--ink));
+    letter-spacing: -0.012em;
+    margin: 0;
+  }
+
+  .recent-list {
+    display: flex; flex-direction: column;
+    background: var(--white);
+    border: 1px solid var(--line-soft, var(--line));
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .recent-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 22px;
+    border-top: 1px solid var(--line-soft, var(--line));
+    cursor: pointer;
+    transition: background-color 0.12s var(--ease);
+  }
+  .recent-row:first-child { border-top: 0; }
+  .recent-row:hover { background: var(--blue-tint, var(--paper-warm)); }
+  .recent-row-main { flex: 1; min-width: 0; }
+  .recent-row-name {
+    font-size: 1rem; font-weight: 500;
+    color: var(--navy, var(--ink));
+    margin-bottom: 4px;
+    letter-spacing: -0.005em;
+  }
+  .recent-row-meta {
+    font-size: 0.85rem; color: var(--ink-mute, var(--mute));
+    display: flex; gap: 7px; flex-wrap: wrap; align-items: center;
+  }
+  .recent-row-meta-item {
+    white-space: nowrap;
+  }
+  .recent-row-meta-sep {
+    color: var(--line); font-weight: 300;
+  }
+  .recent-row-status {
+    margin-left: 16px; flex-shrink: 0;
+  }
+
+  .recent-empty {
+    background: var(--white);
+    border: 1px solid var(--line-soft, var(--line));
+    border-radius: var(--radius-lg);
+    padding: 56px 32px;
+    text-align: center;
+  }
+  .recent-empty-title {
+    font-size: 1.05rem; font-weight: 500;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+  .recent-empty-body {
+    font-size: 0.9rem; color: var(--ink-mute, var(--mute));
+  }
+
+  /* Mobile: stack the dashboard header */
+  @media (max-width: 720px) {
+    .dashboard-greeting { font-size: 1.6rem; }
+    .pipeline-panel { padding: 20px; }
+    .pipeline-big-number-value { font-size: 2rem; }
+    .pipeline-stats { gap: 16px 22px; }
+    .recent-row { padding: 14px 16px; }
+  }
 
   /* ─────────── Filter tabs + search ─────────── */
   .toolbar {
@@ -1874,71 +2006,137 @@ async function loadView() {
 // ═════════════════════════════════════════════════════════════════
 function dashboardView() {
   const subs = state.submissions.items || [];
+  const total = subs.length;
   const drafts = subs.filter(s => s.status === 'Incomplete').length;
-  const submitted = subs.filter(s => s.status === 'Submitted' || s.status === 'Pending').length;
+  const inUw = subs.filter(s => s.status === 'Submitted' || s.status === 'Pending').length;
   const declined = subs.filter(s => s.status === 'Declined').length;
+  // "Quoted" — submissions with a published quote available. Approximate
+  // by counting state.quotes that aren't bound yet, since we don't link
+  // quotes back to submissions on the dashboard payload.
+  const openQuotes = state.quotes.total || 0;
+  const policiesInForce = state.policies.total || 0;
 
-  // Most recent submissions
+  // Most recent submissions — show 8, larger rows
   const recent = [...subs]
     .sort((a, b) => new Date(b.modified_at || b.created_at) - new Date(a.modified_at || a.created_at))
-    .slice(0, 6);
+    .slice(0, 8);
 
-  return el('div', {},
-    el('div', { className: 'page-header' },
-      el('div', {},
-        el('div', { className: 'eyebrow' }, 'Overview'),
-        el('h1', {}, `Good afternoon, ${(state.user.name || state.user.email || 'Broker').split(' ')[0]}`)),
+  // Greeting based on time of day
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning'
+    : hour < 17 ? 'Good afternoon'
+    : 'Good evening';
+  const firstName = (state.user.name || state.user.email || 'Broker').split(' ')[0]
+    .replace(/\d/g, '');  // strip digits in case username is "Jasonbeneducci2"
+
+  return el('div', { className: 'dashboard' },
+    // Header — greeting + new submission CTA
+    el('div', { className: 'dashboard-header' },
+      el('div', { className: 'dashboard-header-left' },
+        el('h1', { className: 'dashboard-greeting' }, `${greeting}, ${firstName}.`),
+        el('div', { className: 'dashboard-subgreeting' },
+          'Here\u2019s what your pipeline looks like today.')),
       el('button', { className: 'btn btn-primary',
-        onClick: () => { state.view = 'new-submission'; render(); } }, 'New submission')),
+        onClick: () => { state.view = 'new-submission'; render(); } },
+        'New submission')),
 
-    // Action cards
-    el('div', { className: 'action-grid' },
-      actionCard('urgent', 'Drafts need info', drafts,
-        drafts === 1 ? 'One submission is incomplete' : `${drafts} submissions are incomplete`,
-        'Finish drafts', () => { state.view = 'submissions'; state.filter.tab = 'drafts'; render(); loadView(); }),
-      actionCard('', 'Awaiting quote', submitted,
-        submitted === 1 ? 'One submission is in underwriting' : `${submitted} in underwriting`,
-        'View submitted', () => { state.view = 'submissions'; state.filter.tab = 'submitted'; render(); loadView(); }),
-      actionCard('ok', 'Recently declined', declined,
-        declined === 1 ? 'One submission declined' : `${declined} submissions declined`,
-        'Review declined', () => { state.view = 'submissions'; state.filter.tab = 'declined'; render(); loadView(); })),
+    // Pipeline overview — consolidated, no tiles
+    el('div', { className: 'pipeline-panel' },
+      el('div', { className: 'pipeline-panel-head' },
+        el('div', { className: 'pipeline-panel-title' }, 'Pipeline'),
+        el('button', { className: 'btn btn-ghost btn-sm',
+          onClick: () => { state.view = 'submissions'; render(); loadView(); } },
+          'View all submissions \u2192')),
 
-    // Supplementary stats row
-    el('div', { className: 'stats-row' },
-      statCard('Total submissions', state.submissions.total, 'Across your agency'),
-      statCard('Open quotes', state.quotes.total, 'Awaiting action'),
-      statCard('Policies in force', state.policies.total, 'Currently bound'),
-      statCard('Documents', state.documents.total, 'Available')),
+      // Big number — total active items
+      el('div', { className: 'pipeline-big-number' },
+        el('div', { className: 'pipeline-big-number-value' }, String(total)),
+        el('div', { className: 'pipeline-big-number-label' },
+          total === 1 ? 'submission' : 'submissions')),
 
-    // Recent activity
-    el('div', { className: 'card' },
-      el('div', { className: 'card-head' },
-        el('div', {},
-          el('div', { className: 'eyebrow' }, 'Recent activity'),
-          el('h2', {}, 'Latest submissions')),
-        el('button', { className: 'btn btn-ghost',
-          onClick: () => { state.view = 'submissions'; render(); loadView(); } }, 'View all →')),
+      // Segmented bar — visual breakdown
+      total > 0 ? renderPipelineSegments(total, { drafts, inUw, declined }) : null,
+
+      // Stat strip — clean, prose-style row instead of stacked cards
+      el('div', { className: 'pipeline-stats' },
+        pipelineStat(drafts, drafts === 1 ? 'draft in progress' : 'drafts in progress',
+          () => { state.view = 'submissions'; state.filter.tab = 'drafts'; render(); loadView(); }),
+        pipelineStat(inUw, inUw === 1 ? 'awaiting quote' : 'awaiting quote',
+          () => { state.view = 'submissions'; state.filter.tab = 'submitted'; render(); loadView(); }),
+        pipelineStat(openQuotes, openQuotes === 1 ? 'open quote' : 'open quotes',
+          () => { state.view = 'quotes'; render(); loadView(); }),
+        pipelineStat(policiesInForce, policiesInForce === 1 ? 'policy in force' : 'policies in force',
+          () => { state.view = 'policies'; render(); loadView(); }))),
+
+    // Recent submissions — primary work surface
+    el('div', { className: 'recent-section' },
+      el('div', { className: 'recent-section-head' },
+        el('h2', { className: 'recent-section-title' }, 'Recent submissions'),
+        el('button', { className: 'btn btn-ghost btn-sm',
+          onClick: () => { state.view = 'submissions'; render(); loadView(); } }, 'View all \u2192')),
       recent.length === 0
-        ? el('div', { className: 'empty' },
-          el('h3', {}, 'Nothing yet'),
-          el('p', {}, 'Click New submission to begin.'))
-        : submissionsTable(recent)));
+        ? el('div', { className: 'recent-empty' },
+            el('div', { className: 'recent-empty-title' }, 'Nothing here yet.'),
+            el('div', { className: 'recent-empty-body' },
+              'Start a new submission to begin building out your pipeline.'))
+        : el('div', { className: 'recent-list' },
+            ...recent.map(s => recentSubmissionRow(s)))));
 }
 
-function actionCard(variant, label, value, desc, cta, onClick) {
-  return el('div', { className: `action-card ${variant}`, onClick },
-    el('div', { className: 'action-card-pipe' }),
-    el('div', { className: 'action-card-label' }, label),
-    el('div', { className: 'action-card-value' }, value.toLocaleString()),
-    el('div', { className: 'action-card-desc' }, desc),
-    el('div', { className: 'action-card-cta' }, cta));
+// Renders a colored segmented bar showing draft/uw/declined breakdown.
+function renderPipelineSegments(total, { drafts, inUw, declined }) {
+  const draftPct = (drafts / total) * 100;
+  const uwPct = (inUw / total) * 100;
+  const declinedPct = (declined / total) * 100;
+  // Anything left = "Other" (bound, etc.)
+  const otherPct = Math.max(0, 100 - draftPct - uwPct - declinedPct);
+
+  return el('div', { className: 'pipeline-segments' },
+    el('div', { className: 'pipeline-segments-bar' },
+      drafts > 0 ? el('div', { className: 'segment segment-draft', style: { width: `${draftPct}%` }, title: `${drafts} drafts` }) : null,
+      inUw > 0 ? el('div', { className: 'segment segment-uw', style: { width: `${uwPct}%` }, title: `${inUw} in underwriting` }) : null,
+      declined > 0 ? el('div', { className: 'segment segment-declined', style: { width: `${declinedPct}%` }, title: `${declined} declined` }) : null,
+      otherPct > 0 ? el('div', { className: 'segment segment-other', style: { width: `${otherPct}%` } }) : null),
+    el('div', { className: 'pipeline-segments-legend' },
+      drafts > 0 ? legendDot('draft', `${drafts} draft${drafts === 1 ? '' : 's'}`) : null,
+      inUw > 0 ? legendDot('uw', `${inUw} awaiting quote`) : null,
+      declined > 0 ? legendDot('declined', `${declined} declined`) : null,
+      otherPct > 0 ? legendDot('other', `${Math.round(otherPct * total / 100)} other`) : null));
 }
 
-function statCard(label, value, sub) {
-  return el('div', { className: 'stat' },
-    el('div', { className: 'stat-label' }, label),
-    el('div', { className: 'stat-value' }, (value || 0).toLocaleString()),
-    el('div', { className: 'stat-sub' }, sub));
+function legendDot(variant, label) {
+  return el('span', { className: 'legend-item' },
+    el('span', { className: `legend-dot legend-dot-${variant}` }),
+    label);
+}
+
+function pipelineStat(value, label, onClick) {
+  return el('button', { className: 'pipeline-stat', onClick },
+    el('span', { className: 'pipeline-stat-value' }, String(value || 0)),
+    el('span', { className: 'pipeline-stat-label' }, label));
+}
+
+// A single row in the recent submissions list — bigger, more readable
+// than the table-view rows.
+function recentSubmissionRow(s) {
+  const insured = extractInsuredName(s) || `Submission #${s.id}`;
+  const flow = friendlyFlow(s.flow);
+  const updatedAt = fmtDate(s.modified_at || s.created_at);
+  const effective = s.effective_at ? fmtDate(s.effective_at) : null;
+
+  return el('div', {
+    className: 'recent-row',
+    onClick: () => { state.view = 'submissions'; state.subView = s.id; loadSubmission(s.id); }
+  },
+    el('div', { className: 'recent-row-main' },
+      el('div', { className: 'recent-row-name' }, insured),
+      el('div', { className: 'recent-row-meta' },
+        el('span', { className: 'recent-row-meta-item' }, flow),
+        effective ? el('span', { className: 'recent-row-meta-sep' }, '\u00b7') : null,
+        effective ? el('span', { className: 'recent-row-meta-item' }, `Effective ${effective}`) : null,
+        el('span', { className: 'recent-row-meta-sep' }, '\u00b7'),
+        el('span', { className: 'recent-row-meta-item' }, `Updated ${updatedAt}`))),
+    el('div', { className: 'recent-row-status' }, statusBadge(s.status)));
 }
 
 // ═════════════════════════════════════════════════════════════════
