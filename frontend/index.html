@@ -42,17 +42,20 @@
     --line-2: #EDEFF4;
     --line-soft: #D8DBE3;
 
-    /* States */
-    --ok: #16A97B;
-    --ok-soft: #D9F2E8;
-    --warn: #B06A00;
-    --warn-soft: #FDF1DC;
-    --err: #C4483F;
-    --err-soft: #F9E2E0;
-    --info: #2F5FB8;
+    /* States — strict 4-color status palette
+       used consistently across dashboard segments, status badges,
+       status banners, and section navigation rail. */
+    --ok: #22C55E;            /* success green — standard "complete/bound" */
+    --ok-soft: #DCFCE7;
+    --ok-deep: #15803D;       /* darker shade for icon backgrounds */
+    --warn: #6B7280;          /* gray — drafts in progress (was brown) */
+    --warn-soft: #F3F4F6;
+    --err: #DC2626;           /* red — declined/error */
+    --err-soft: #FEE2E2;
+    --info: #2F5FB8;          /* brand blue — submitted/awaiting */
     --info-soft: #E3ECFB;
-    --green: #16A97B;         /* marketing alias */
-    --red: #C4483F;           /* marketing alias */
+    --green: #22C55E;         /* marketing alias */
+    --red: #DC2626;           /* marketing alias */
 
     /* Shadows — used sparingly, only for lift on hover */
     --shadow-xs: 0 1px 2px rgba(14, 27, 54, 0.04);
@@ -401,10 +404,10 @@
     transition: opacity 0.15s var(--ease);
   }
   .segment + .segment { margin-left: 2px; }
-  .segment-draft { background: #c89a5e; }
-  .segment-uw { background: var(--blue, #4a7ec0); }
-  .segment-declined { background: #c46b5e; }
-  .segment-other { background: #94a8b8; }
+  .segment-draft { background: var(--warn); }       /* gray — drafts in progress */
+  .segment-uw { background: var(--blue); }           /* brand blue — awaiting quote */
+  .segment-declined { background: var(--err); }      /* red — declined */
+  .segment-other { background: var(--ok); }          /* lime green — bound / other complete */
 
   .pipeline-segments-legend {
     display: flex; gap: 18px; flex-wrap: wrap;
@@ -417,10 +420,10 @@
     width: 8px; height: 8px; border-radius: 50%;
     display: inline-block;
   }
-  .legend-dot-draft { background: #c89a5e; }
-  .legend-dot-uw { background: var(--blue, #4a7ec0); }
-  .legend-dot-declined { background: #c46b5e; }
-  .legend-dot-other { background: #94a8b8; }
+  .legend-dot-draft { background: var(--warn); }
+  .legend-dot-uw { background: var(--blue); }
+  .legend-dot-declined { background: var(--err); }
+  .legend-dot-other { background: var(--ok); }
 
   /* Stat strip — minimal, prose-styled, sits under the segments */
   .pipeline-stats {
@@ -593,6 +596,38 @@
     font-family: inherit; font-size: 0.92rem;
   }
 
+  /* Submissions table — explicit column widths so date columns don't
+     wrap and rows stay vertically consistent regardless of insured-name
+     length. The Insured column flexes to take whatever's left. */
+  .submissions-table {
+    table-layout: fixed;  /* respect colgroup widths */
+  }
+  .submissions-table .col-insured  { width: auto; }
+  .submissions-table .col-id       { width: 96px; }
+  .submissions-table .col-flow     { width: 130px; }
+  .submissions-table .col-effective { width: 130px; }
+  .submissions-table .col-status   { width: 120px; }
+  .submissions-table .col-updated  { width: 180px; }
+
+  .submissions-table .cell-nowrap {
+    white-space: nowrap;
+  }
+  .submissions-table .cell-insured {
+    /* Long names truncate with ellipsis rather than wrap */
+    max-width: 0;  /* trick to make table-layout:fixed truncate properly */
+  }
+  .submissions-table .insured-cell-name {
+    font-weight: 500;
+    color: var(--navy, var(--ink));
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .submissions-table .cell-updated {
+    font-size: 0.85rem;
+    color: var(--ink-mute, var(--mute));
+  }
+
   /* ─────────── Badges ─────────── */
   .badge {
     display: inline-flex; align-items: center; gap: 6px;
@@ -602,15 +637,22 @@
   .badge::before {
     content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor;
   }
-  .badge-incomplete { background: #eceee8; color: #5a6258; }
-  .badge-pending, .badge-quotepending, .badge-binderpending, .badge-coveragepending { background: var(--warn-soft); color: var(--warn); }
+  /* Status badges — strict 4-color palette via design tokens.
+     Mapping rule:
+       gray  (--warn)  → drafts in progress / not yet submitted / closed
+       blue  (--info)  → submitted / awaiting / pending / under review
+       lime  (--ok)    → bound / active / complete / success
+       red   (--err)   → declined / canceled / error
+  */
+  .badge-incomplete { background: var(--warn-soft); color: var(--warn); }
+  .badge-pending, .badge-quotepending, .badge-binderpending, .badge-coveragepending,
+  .badge-processing,
+  .badge-quoteindication, .badge-quotestoreedit { background: var(--info-soft); color: var(--info); }
   .badge-submitted, .badge-quotepublished, .badge-binderpublished { background: var(--info-soft); color: var(--info); }
-  .badge-future, .badge-coverageactive, .badge-active, .badge-ready { background: var(--ok-soft); color: var(--ok); }
-  .badge-issued { background: var(--ok); color: #fff; }
+  .badge-future, .badge-coverageactive, .badge-active, .badge-ready,
+  .badge-issued, .badge-bound { background: var(--ok-soft); color: var(--ok-deep, var(--ok)); }
   .badge-declined, .badge-quotedeclined, .badge-binderdeclined, .badge-canceled, .badge-error { background: var(--err-soft); color: var(--err); }
-  .badge-expired, .badge-quoteclosed, .badge-blocked, .badge-closed { background: #ededeb; color: #6b6b6b; }
-  .badge-quoteindication, .badge-quotestoreedit { background: #efeafc; color: #4a3a91; }
-  .badge-processing { background: var(--warn-soft); color: var(--warn); }
+  .badge-expired, .badge-quoteclosed, .badge-blocked, .badge-closed { background: var(--warn-soft); color: var(--warn); }
 
   /* ─────────── Lifecycle progress ─────────── */
   .lifecycle {
@@ -2210,7 +2252,20 @@ function filterTab(key, label, count) {
 }
 
 function submissionsTable(items) {
-  return el('table', {},
+  return el('table', { className: 'submissions-table' },
+    el('colgroup', {},
+      // Insured column — flex, no fixed width (takes the leftover)
+      el('col', { className: 'col-insured' }),
+      // Submission ID — narrow
+      el('col', { className: 'col-id' }),
+      // Flow — small
+      el('col', { className: 'col-flow' }),
+      // Effective — date, single line
+      el('col', { className: 'col-effective' }),
+      // Status — badge, fits to its content
+      el('col', { className: 'col-status' }),
+      // Updated — date+time, slightly wider than Effective
+      el('col', { className: 'col-updated' })),
     el('thead', {}, el('tr', {},
       el('th', {}, 'Insured'),
       el('th', {}, 'Submission'),
@@ -2222,14 +2277,14 @@ function submissionsTable(items) {
       className: 'clickable',
       onClick: () => { state.subView = s.id; loadSubmission(s.id); }
     },
-      el('td', {},
-        el('div', { style: { fontWeight: 500 } },
+      el('td', { className: 'cell-insured' },
+        el('div', { className: 'insured-cell-name' },
           extractInsuredName(s) || `Submission ${s.id}`)),
-      el('td', { className: 'tabular-id' }, `#${s.id}`),
-      el('td', {}, friendlyFlow(s.flow)),
-      el('td', {}, fmtDate(s.effective_at)),
-      el('td', {}, statusBadge(s.status)),
-      el('td', { style: { fontSize: '0.85rem', color: 'var(--ink-mute)' } },
+      el('td', { className: 'tabular-id cell-nowrap' }, `#${s.id}`),
+      el('td', { className: 'cell-nowrap' }, friendlyFlow(s.flow)),
+      el('td', { className: 'cell-nowrap' }, fmtDate(s.effective_at)),
+      el('td', { className: 'cell-nowrap' }, statusBadge(s.status)),
+      el('td', { className: 'cell-updated cell-nowrap' },
         fmtDateTime(s.modified_at || s.created_at))))));
 }
 
