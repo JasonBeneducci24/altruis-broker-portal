@@ -2336,9 +2336,6 @@ function submissionMainCard(s) {
       // RIGHT rail — asset jump-list (only for multi-asset sections)
       isMultiAsset
         ? el('div', { className: 'form-rail form-rail-right' },
-            el('div', { className: 'asset-rail-head' },
-              el('div', { className: 'eyebrow' }, inferAssetNoun(activeSection, displayedGroups.length)),
-              el('div', { className: 'asset-rail-count' }, `${displayedGroups.length} total`)),
             ...displayedGroups.map(g => assetRailItem(activeSection, g)))
         : null));
 }
