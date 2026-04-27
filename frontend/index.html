@@ -471,7 +471,8 @@
   }
   .recent-row {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 22px;
+    padding: 18px 22px;
+    gap: 24px;
     border-top: 1px solid var(--line-soft, var(--line));
     cursor: pointer;
     transition: background-color 0.12s var(--ease);
@@ -482,22 +483,47 @@
   .recent-row-name {
     font-size: 1rem; font-weight: 500;
     color: var(--navy, var(--ink));
-    margin-bottom: 4px;
+    margin-bottom: 6px;
     letter-spacing: -0.005em;
   }
   .recent-row-meta {
-    font-size: 0.85rem; color: var(--ink-mute, var(--mute));
-    display: flex; gap: 7px; flex-wrap: wrap; align-items: center;
+    display: flex; gap: 9px; flex-wrap: wrap; align-items: baseline;
   }
-  .recent-row-meta-item {
+  /* Flow eyebrow — small, uppercase, slate. Reads as a category tag,
+     not body text. The eye can scan a column of these instantly. */
+  .recent-row-flow {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--slate, var(--ink-mute));
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .recent-row-effective {
+    font-size: 0.85rem;
+    color: var(--ink-mute, var(--mute));
     white-space: nowrap;
   }
   .recent-row-meta-sep {
-    color: var(--line); font-weight: 300;
+    color: var(--line);
+    font-weight: 300;
+    font-size: 0.85rem;
   }
-  .recent-row-status {
-    margin-left: 16px; flex-shrink: 0;
+  /* Right rail — relative time on top (subtle), status pill below.
+     Stacking these gives the time space to breathe without taking
+     a fourth metadata slot in the bottom row. */
+  .recent-row-right {
+    display: flex; flex-direction: column;
+    align-items: flex-end; gap: 6px;
+    flex-shrink: 0;
   }
+  .recent-row-time {
+    font-size: 0.78rem;
+    color: var(--mute);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .recent-row-status { flex-shrink: 0; }
 
   .recent-empty {
     background: var(--white);
@@ -1113,7 +1139,7 @@
     font-variant-numeric: tabular-nums;
   }
   .asset-rail-num-item {
-    width: 44px; height: 36px;
+    min-width: 44px; height: 36px; padding: 0 8px;
     display: flex; align-items: center; justify-content: center;
     background: var(--white); border: 1px solid var(--line);
     border-radius: var(--radius-sm);
@@ -1153,6 +1179,63 @@
     display: flex; flex-direction: column; gap: 8px;
     margin-top: 8px;
   }
+
+  /* Location group wrapper — only used when 2+ buildings share a location.
+     Header sits on the cream page background; nested building cards
+     sit on white inside, connected by a subtle left rail. */
+  .location-group {
+    margin-top: 4px;
+    margin-bottom: 4px;
+  }
+  .location-group-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px;
+    padding: 10px 4px 6px;
+    margin-bottom: 8px;
+  }
+  .location-group-head-text {
+    flex: 1; min-width: 0;
+  }
+  .location-group-eyebrow {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--slate, var(--ink-mute));
+    margin-bottom: 4px;
+  }
+  .location-group-address {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--navy, var(--ink));
+    letter-spacing: -0.005em;
+  }
+  .location-group-pill {
+    background: var(--blue-tint);
+    color: var(--blue-deep);
+    font-size: 0.72rem;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: var(--radius-pill);
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  /* Nested cards inside a location group — connected by a left rail
+     to make the parent-child relationship visible. */
+  .location-group-buildings {
+    display: flex; flex-direction: column; gap: 6px;
+    padding-left: 18px;
+    border-left: 2px solid var(--line);
+    margin-left: 4px;
+  }
+  /* Make nested cards slightly less heavy so the parent header reads
+     as the dominant element. */
+  .location-group-buildings .asset-card {
+    border-color: var(--line-2);
+  }
+  .location-group-buildings .asset-card.open {
+    border-color: var(--blue-100);
+  }
+
   .asset-card {
     background: var(--white); border: 1px solid var(--line);
     border-radius: var(--radius-sm); overflow: hidden;
@@ -1177,7 +1260,8 @@
   .asset-card-summary:hover { background: var(--blue-50); }
   .asset-card-summary.open { background: var(--blue-50); }
   .asset-card-num {
-    width: 28px; height: 28px; border-radius: 50%;
+    min-width: 28px; height: 28px; padding: 0 7px;
+    border-radius: 14px;
     background: var(--blue-100); color: var(--blue);
     display: flex; align-items: center; justify-content: center;
     font-size: 0.82rem; font-weight: 500; flex-shrink: 0;
@@ -2902,15 +2986,19 @@ function recentSubmissionRow(s) {
     className: 'recent-row',
     onClick: () => { state.view = 'submissions'; state.subView = s.id; loadSubmission(s.id); }
   },
+    // LEFT: insured name + flow eyebrow + effective date
     el('div', { className: 'recent-row-main' },
       el('div', { className: 'recent-row-name' }, insured),
       el('div', { className: 'recent-row-meta' },
-        el('span', { className: 'recent-row-meta-item' }, flow),
+        flow ? el('span', { className: 'recent-row-flow' }, flow.toUpperCase()) : null,
         effective ? el('span', { className: 'recent-row-meta-sep' }, '\u00b7') : null,
-        effective ? el('span', { className: 'recent-row-meta-item' }, `Effective ${effective}`) : null,
-        updatedRelative ? el('span', { className: 'recent-row-meta-sep' }, '\u00b7') : null,
-        updatedRelative ? el('span', { className: 'recent-row-meta-item' }, `Updated ${updatedRelative}`) : null)),
-    el('div', { className: 'recent-row-status' }, statusBadge(s.status)));
+        effective ? el('span', { className: 'recent-row-effective' }, `Effective ${effective}`) : null)),
+    // RIGHT: relative time (top) + status pill (bottom)
+    el('div', { className: 'recent-row-right' },
+      updatedRelative
+        ? el('div', { className: 'recent-row-time' }, updatedRelative)
+        : null,
+      el('div', { className: 'recent-row-status' }, statusBadge(s.status))));
 }
 
 // ═════════════════════════════════════════════════════════════════
@@ -3305,7 +3393,7 @@ function submissionMainCard(s) {
               el('p', {}, 'No fields in this section are currently visible.'))
             : isMultiAsset
               ? el('div', { className: 'asset-list' },
-                  ...displayedGroups.map(g => renderAssetCard(activeSection, g, isEditing)))
+                  ...renderLocationGroups(activeSection, displayedGroups, isEditing))
               : isEditing
                 ? (activeSection.label === 'Limits and Coverages'
                     ? renderCoverageLinesBody(activeSection, activeFields, true)
@@ -3330,11 +3418,29 @@ function submissionMainCard(s) {
               s.status === 'Incomplete' ? 'Submit for quote' : 'Save & resubmit'))
           : null),
 
-      // RIGHT rail — asset jump-list (only for multi-asset sections)
+      // RIGHT rail — asset jump-list (only for multi-asset sections).
+      // Walks location groups so multi-building locations get
+      // hierarchical numbering (1.1, 1.2) matching the cards.
       isMultiAsset
         ? el('div', { className: 'form-rail form-rail-right' },
-            ...displayedGroups.map(g => assetRailItem(activeSection, g)))
+            ...renderLocationRailItems(activeSection, displayedGroups))
         : null));
+}
+
+// Render right-rail jump items respecting the location grouping.
+// For a single-building location, one rail item with the location
+// number. For multi-building, one rail item per building using the
+// hierarchical "1.1", "1.2" notation.
+function renderLocationRailItems(section, assetGroups) {
+  const locationGroups = groupAssetsByLocation(assetGroups);
+  const items = [];
+  for (const loc of locationGroups) {
+    loc.assets.forEach((asset, i) => {
+      const displayLabel = buildingDisplayIndex(loc, asset, i);
+      items.push(assetRailItem(section, asset, displayLabel));
+    });
+  }
+  return items;
 }
 
 function sectionNavItem(section, isActive) {
@@ -3416,6 +3522,155 @@ function groupFieldsByAsset(fields) {
       total: fields.length,
     }));
   return groups;
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Location grouping — bucket asset groups by location_number
+//
+// A "location" can have 1 or many buildings. Joshu stores each
+// building as its own asset record (row), so 4 buildings at one
+// physical site come back as 4 separate asset groups. Without
+// grouping, the UI shows 4 sibling cards with the same address —
+// confusing. Grouping makes the parent-child relationship visible.
+//
+// Strategy:
+//   • Group by `location_number` field value (canonical key)
+//   • Single-building locations render flat (no group wrapper) —
+//     keeps the common case clean
+//   • Multi-building locations get a wrapper card with a header
+//     summarizing the location and nested building cards inside
+//   • Buildings with no location_number go into an "Ungrouped"
+//     bucket at the bottom (rare, but defensive)
+// ──────────────────────────────────────────────────────────────────
+function groupAssetsByLocation(assetGroups) {
+  const byLoc = new Map();
+  const ungrouped = [];
+
+  for (const group of assetGroups) {
+    const locField = group.fields.find(f => {
+      const c = (f.code || '').toLowerCase();
+      return c === 'location_number' || c.endsWith('.location_number');
+    });
+    const rawLocNum = locField ? unwrapForInput(locField.value) : null;
+    const locNum = rawLocNum !== null && rawLocNum !== undefined && rawLocNum !== ''
+      ? Number(rawLocNum)
+      : null;
+
+    if (locNum !== null && Number.isFinite(locNum)) {
+      if (!byLoc.has(locNum)) byLoc.set(locNum, []);
+      byLoc.get(locNum).push(group);
+    } else {
+      ungrouped.push(group);
+    }
+  }
+
+  // Build location group objects, sorted by location_number
+  const locationGroups = Array.from(byLoc.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([locNum, assets]) => {
+      // Pull the first non-empty address as the display address
+      let address = null;
+      for (const a of assets) {
+        const addrField = a.fields.find(f => {
+          const c = (f.code || '').toLowerCase();
+          return c === 'location_address' || c.endsWith('.location_address');
+        });
+        if (addrField) {
+          const v = unwrapForInput(addrField.value);
+          if (v && typeof v === 'string' && v.trim()) {
+            address = v;
+            break;
+          }
+          if (v && typeof v === 'object') {
+            // Joshu Location objects may be wrapped; try to extract a label
+            const label = formatByType(addrField, v);
+            if (label && label !== '\u2014') {
+              address = label;
+              break;
+            }
+          }
+        }
+      }
+
+      // Sort buildings within the location by building_number, falling
+      // back to asset_idx for stability when building_number is missing.
+      const sorted = [...assets].sort((a, b) => {
+        const aBldg = readBuildingNumber(a);
+        const bBldg = readBuildingNumber(b);
+        if (aBldg != null && bBldg != null) return aBldg - bBldg;
+        if (aBldg != null) return -1;
+        if (bBldg != null) return 1;
+        return a.idx - b.idx;
+      });
+
+      // Derive blanketed status for the location:
+      // If ANY building in the group has blanketed_status=true, the
+      // whole location is considered blanketed. (In practice all
+      // buildings at a blanketed location should match, but we tolerate
+      // inconsistency here and surface the "is blanketed" answer.)
+      const isBlanketed = sorted.some(a => {
+        const bField = a.fields.find(f => {
+          const c = (f.code || '').toLowerCase();
+          return c === 'blanketed_status' || c.endsWith('.blanketed_status');
+        });
+        return bField && isTruthyBool(unwrapForInput(bField.value));
+      });
+
+      return {
+        locationNumber: locNum,
+        address,
+        assets: sorted,
+        isMultiBuilding: sorted.length >= 2,
+        isBlanketed,
+      };
+    });
+
+  // Ungrouped goes at the bottom — emit as a synthetic group with
+  // locationNumber=null so the renderer handles it gracefully.
+  if (ungrouped.length > 0) {
+    locationGroups.push({
+      locationNumber: null,
+      address: null,
+      assets: ungrouped,
+      isMultiBuilding: ungrouped.length >= 2,
+      isBlanketed: false,
+    });
+  }
+
+  return locationGroups;
+}
+
+// Pull the building_number value (as Number) from an asset group.
+function readBuildingNumber(assetGroup) {
+  const f = assetGroup.fields.find(ff => {
+    const c = (ff.code || '').toLowerCase();
+    return c === 'building_number' || c.endsWith('.building_number');
+  });
+  if (!f) return null;
+  const v = unwrapForInput(f.value);
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+// Compute the display index for a building card, hierarchical when
+// inside a multi-building location. Returns:
+//   "1"     — single-building location (location 1, or any flat case)
+//   "1.2"   — building 2 within location 1 (multi-building)
+// Falls back to the array index + 1 if no location/building info.
+function buildingDisplayIndex(locationGroup, assetGroup, indexInLocation) {
+  if (!locationGroup.isMultiBuilding) {
+    if (locationGroup.locationNumber != null) {
+      return String(locationGroup.locationNumber);
+    }
+    return String((assetGroup.idx ?? 0) + 1);
+  }
+  // Multi-building: hierarchical index
+  const bldgNum = readBuildingNumber(assetGroup) ?? (indexInLocation + 1);
+  if (locationGroup.locationNumber != null) {
+    return `${locationGroup.locationNumber}.${bldgNum}`;
+  }
+  return String(bldgNum);
 }
 
 // Pick a short noun for the asset type based on the section name
@@ -3536,12 +3791,69 @@ function isBrokerLockedField(field) {
   return BROKER_LOCKED_FIELD_TAILS.has(tail);
 }
 
-function renderAssetCard(section, group, isEditing) {
+// Render the asset-list body, grouping multi-building locations into
+// a wrapper card and rendering single-building locations flat.
+//
+// For single-building locations the wrapper would add visual overhead
+// for nothing (the location and the building are the same thing), so
+// we emit the asset card at the top level. For multi-building, we
+// emit a `.location-group` wrapper containing a header + nested cards.
+function renderLocationGroups(section, assetGroups, isEditing) {
+  const locationGroups = groupAssetsByLocation(assetGroups);
+  return locationGroups.flatMap(loc => {
+    if (!loc.isMultiBuilding) {
+      // Single building — render the card directly. Use the location
+      // number itself as the display label (e.g. "1" for Location 1).
+      const onlyAsset = loc.assets[0];
+      const displayLabel = buildingDisplayIndex(loc, onlyAsset, 0);
+      return [renderAssetCard(section, onlyAsset, isEditing, displayLabel)];
+    }
+    // Multi-building location — emit a wrapper with a header summarizing
+    // the location, then nested building cards inside.
+    return [renderLocationGroupWrapper(section, loc, isEditing)];
+  });
+}
+
+// The wrapper card for a multi-building location. Contains:
+//   • Header: "LOCATION 1 — 4 BUILDINGS" eyebrow + address + blanket pill
+//   • Nested asset cards (one per building) using "1.2" hierarchical
+//     numbering so the parent-child relationship is explicit
+function renderLocationGroupWrapper(section, locationGroup, isEditing) {
+  const { locationNumber, address, assets, isBlanketed } = locationGroup;
+  const buildingCount = assets.length;
+
+  const eyebrow = locationNumber != null
+    ? `Location ${locationNumber} \u2014 ${buildingCount} buildings`
+    : `${buildingCount} buildings (no location number)`;
+
+  return el('div', { className: 'location-group' },
+    // Header
+    el('div', { className: 'location-group-head' },
+      el('div', { className: 'location-group-head-text' },
+        el('div', { className: 'location-group-eyebrow' }, eyebrow.toUpperCase()),
+        address
+          ? el('div', { className: 'location-group-address' }, address)
+          : null),
+      isBlanketed
+        ? el('div', { className: 'location-group-pill' }, 'Blanketed')
+        : null),
+    // Nested building cards
+    el('div', { className: 'location-group-buildings' },
+      ...assets.map((asset, i) => {
+        const displayLabel = buildingDisplayIndex(locationGroup, asset, i);
+        return renderAssetCard(section, asset, isEditing, displayLabel);
+      })));
+}
+
+function renderAssetCard(section, group, isEditing, displayLabelOverride) {
   const isOpen = isAssetExpanded(section.code, group.idx);
-  // Display number — prefer the broker-set location_number field (so the
-  // card label matches what the broker sees in Joshu). Fall back to the
-  // array index + 1 if no location_number field exists for this asset.
-  const displayNum = pickAssetDisplayNumber(group);
+  // Display number — prefer the location-group-derived hierarchical
+  // label ("1.2") when provided. Otherwise fall back to the broker-set
+  // location_number (so the card label matches what the broker sees in
+  // Joshu). Final fallback is the array index + 1.
+  const displayNum = displayLabelOverride != null
+    ? displayLabelOverride
+    : pickAssetDisplayNumber(group);
   const title = pickAssetTitle(group) || `${inferAssetNoun(section, 1)} ${displayNum}`;
   const summaryStats = pickAssetSummaryStats(group);
   const pct = group.total > 0 ? Math.round((group.completed / group.total) * 100) : 0;
@@ -4731,15 +5043,19 @@ function renderBoolChip(field) {
     el('span', { className: 'bool-chip-label' }, label));
 }
 
-// Right sidebar: compact asset number list, click to scroll + expand
-function assetRailItem(section, group) {
+// Right sidebar: compact asset number list, click to scroll + expand.
+// `displayLabelOverride` lets the caller provide a hierarchical label
+// like "1.2" for a building inside a multi-building location group.
+function assetRailItem(section, group, displayLabelOverride) {
   const isDone = group.total > 0 && group.completed === group.total;
   const isOpen = isAssetExpanded(section.code, group.idx);
-  const displayNum = pickAssetDisplayNumber(group);
+  const displayLabel = displayLabelOverride != null
+    ? displayLabelOverride
+    : String(pickAssetDisplayNumber(group));
 
   return el('button', {
     className: `asset-rail-num-item ${isOpen ? 'active' : ''} ${isDone ? 'done' : ''}`,
-    title: `${inferAssetNoun(section, 1)} ${displayNum}`,
+    title: `${inferAssetNoun(section, 1)} ${displayLabel}`,
     onClick: () => {
       if (!isAssetExpanded(section.code, group.idx)) {
         toggleAsset(section.code, group.idx);
@@ -4750,7 +5066,7 @@ function assetRailItem(section, group) {
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 60);
     },
-  }, String(displayNum));
+  }, displayLabel);
 }
 
 function renderFormField(field, isEditing) {
