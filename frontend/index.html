@@ -3840,7 +3840,14 @@ function renderAssetReadBody(section, group, fields) {
     'blanketed_status',
     'ex_wind_status',
   ]);
-  const featureBools = bools.filter(f => !HIDDEN_BOOL_CHIPS.has(codeTail(f)));
+  // Show ONLY affirmative features (the building actually has them).
+  // A muted "— No" chip for every absent feature creates noise without
+  // signal — the broker doesn't need to see "No Sprinklered" to know
+  // there are no sprinklers. Only Yes/true values render here.
+  const featureBools = bools.filter(f => {
+    if (HIDDEN_BOOL_CHIPS.has(codeTail(f))) return false;
+    return isTruthyBool(unwrapForInput(f.value));
+  });
   const boolStrip = featureBools.length > 0
     ? el('div', { className: 'asset-bool-strip' },
         ...featureBools.map(f => renderBoolChip(f)))
