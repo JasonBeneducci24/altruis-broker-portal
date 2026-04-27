@@ -932,6 +932,12 @@
     border-bottom: 1px solid var(--line-2);
     margin-bottom: 18px;
   }
+  /* Top row: title block on left, wind/hail tag on right */
+  .asset-hero-top {
+    display: flex; align-items: flex-start;
+    justify-content: space-between; gap: 16px;
+  }
+  .asset-hero-title-block { min-width: 0; flex: 1; }
   .asset-hero-addr {
     font-size: 1.15rem; font-weight: 600;
     color: var(--navy); letter-spacing: -0.01em;
@@ -940,6 +946,25 @@
   .asset-hero-sub {
     font-size: 0.82rem; color: var(--mute);
     margin-top: 4px; font-weight: 400;
+  }
+  /* Wind/Hail tag — pill, sits top-right of hero */
+  .asset-hero-tag {
+    display: inline-flex; align-items: center;
+    gap: 6px;
+    padding: 5px 11px;
+    background: rgba(103, 151, 238, 0.08);
+    border: 1px solid rgba(103, 151, 238, 0.25);
+    border-radius: 999px;
+    font-size: 0.78rem;
+    color: var(--navy);
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    flex-shrink: 0;
+    cursor: default;
+  }
+  .asset-hero-tag-sep {
+    color: var(--line);
+    font-weight: 400;
   }
   .asset-hero-stats {
     display: grid;
@@ -991,6 +1016,34 @@
     font-weight: 400;
   }
 
+  /* List-style category — coverage schedule format
+     Each row: label left, amount right, dotted leader between */
+  .asset-cat-list {
+    display: flex; flex-direction: column;
+    gap: 6px;
+  }
+  .asset-cat-list-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+    align-items: baseline;
+    font-size: 0.92rem;
+    line-height: 1.4;
+  }
+  .asset-cat-list-row + .asset-cat-list-row {
+    border-top: 1px dotted var(--line-2);
+    padding-top: 6px;
+  }
+  .asset-cat-list-label {
+    color: var(--ink);
+    font-weight: 400;
+  }
+  .asset-cat-list-value {
+    color: var(--navy);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
   /* "More details" disclosure at the bottom */
   .asset-more {
     margin-top: 16px;
@@ -1015,6 +1068,7 @@
   @media (max-width: 900px) {
     .asset-hero-stats { grid-template-columns: repeat(2, 1fr); gap: 14px; }
     .asset-cat-row { grid-template-columns: 1fr; gap: 4px; }
+    .asset-hero-top { flex-direction: column; align-items: flex-start; }
   }
 
   /* Locked form-field label — smaller, uppercase eyebrow
@@ -2341,13 +2395,42 @@ function renderAssetReadBody(section, group, fields) {
     subtitleParts.push(`Bldg #${formatByType(bldgNum, unwrapForInput(bldgNum.value))}`);
   }
 
+  // Wind/Hail tag — sits in the hero header rather than as a body row.
+  // It's a risk attribute of the location, not a "data point" you'd browse.
+  const whPctF = findByTail(nonBool, ['windhailpercentage']);
+  const whMinF = findByTail(nonBool, ['wind_hail_dollar_figure']);
+  const whParts = [];
+  if (whPctF && hasValue(whPctF)) {
+    whParts.push(`${formatByType(whPctF, unwrapForInput(whPctF.value))} W/H`);
+    heroClaimed.add(whPctF.code);
+  }
+  if (whMinF && hasValue(whMinF)) {
+    const minVal = formatByType(whMinF, unwrapForInput(whMinF.value));
+    // Compact "$10K min" rather than "$10,000 minimum" — but only when
+    // the dollar amount is a clean multiple of 1000 with no cents.
+    const compact = minVal.replace(/^\$(\d+),000$/, '$$$1K');
+    whParts.push(`${compact} min`);
+    heroClaimed.add(whMinF.code);
+  }
+
+  const heroTopRow = el('div', { className: 'asset-hero-top' },
+    el('div', { className: 'asset-hero-title-block' },
+      addr && hasValue(addr)
+        ? el('div', { className: 'asset-hero-addr' }, formatByType(addr, unwrapForInput(addr.value)))
+        : null,
+      subtitleParts.length
+        ? el('div', { className: 'asset-hero-sub' }, subtitleParts.join(' · '))
+        : null),
+    whParts.length
+      ? el('div', { className: 'asset-hero-tag', title: 'Wind/Hail deductible' },
+          ...whParts.map((p, i) => [
+            el('span', { className: 'asset-hero-tag-part' }, p),
+            i < whParts.length - 1 ? el('span', { className: 'asset-hero-tag-sep' }, '·') : null,
+          ]).flat().filter(Boolean))
+      : null);
+
   const hero = el('div', { className: 'asset-hero' },
-    addr && hasValue(addr)
-      ? el('div', { className: 'asset-hero-addr' }, formatByType(addr, unwrapForInput(addr.value)))
-      : null,
-    subtitleParts.length
-      ? el('div', { className: 'asset-hero-sub' }, subtitleParts.join(' · '))
-      : null,
+    heroTopRow,
     heroFields.length
       ? el('div', { className: 'asset-hero-stats' },
           ...heroFields.map(f => el('div', { className: 'asset-hero-stat' },
@@ -2360,6 +2443,8 @@ function renderAssetReadBody(section, group, fields) {
   // inline "label value · label value · label value" row.
   // Fields claimed by a category get removed from the "more details" pool.
   const claimed = new Set(heroClaimed);
+  // Build a category row with INLINE values: "VAL · VAL · VAL"
+  // For tight, scannable groups like Construction.
   const buildRow = (categoryLabel, tails, formatters = {}) => {
     const picked = [];
     for (const tail of tails) {
@@ -2388,35 +2473,58 @@ function renderAssetReadBody(section, group, fields) {
         })));
   };
 
-  // Category: Construction — physical building info
+  // Build a category row with LIST values: each item on its own line,
+  // "Label" on the left, "Amount" right-aligned. Reads like a coverage schedule.
+  // For groups like Coverage where each line is a distinct policy item.
+  const buildList = (categoryLabel, tails, formatters = {}) => {
+    const picked = [];
+    for (const tail of tails) {
+      const f = findByTail(nonBool, [tail]);
+      if (f && hasValue(f)) {
+        picked.push(f);
+        claimed.add(f.code);
+      }
+    }
+    if (!picked.length) return null;
+    return el('div', { className: 'asset-cat-row' },
+      el('div', { className: 'asset-cat-label' }, categoryLabel),
+      el('div', { className: 'asset-cat-list' },
+        ...picked.map(f => {
+          const formatter = formatters[codeTail(f)];
+          const v = unwrapForInput(f.value);
+          // Each formatter returns {label, value} for list rendering
+          const item = formatter
+            ? formatter(f, v)
+            : { label: f.label.replace(/\s*(status|limit)\s*$/i, '').trim(), value: formatByType(f, v) };
+          return el('div', { className: 'asset-cat-list-row' },
+            el('div', { className: 'asset-cat-list-label' }, item.label),
+            el('div', { className: 'asset-cat-list-value' }, item.value));
+        })));
+  };
+
+  // Category: Construction — physical building info (inline)
   const construction = buildRow('Construction', [
     'construction_type', 'roof_type', 'roof_geometry',
     'valuation_method', 'coinsurance_percentage',
   ], {
-    construction_type: (f, v) => v,  // just the value, no label
+    construction_type: (f, v) => v,
     roof_type: (f, v) => `${v} roof`,
-    roof_geometry: (f, v) => v,  // just value
+    roof_geometry: (f, v) => v,
     valuation_method: (f, v) => v,
     coinsurance_percentage: (f, v) => `${formatByType(f, v)} coinsurance`,
   });
 
-  // Category: Coverage — limits
-  const coverage = buildRow('Coverage', [
+  // Category: Coverage — limits as a list, label/amount per row
+  const coverage = buildList('Coverage', [
     'bpp_limit', 'ol_2and3_limit', 'annual_sales', 'building_count',
   ], {
-    bpp_limit: (f, v) => `BPP ${formatByType(f, v)}`,
-    ol_2and3_limit: (f, v) => `OL 2&3 ${formatByType(f, v)}`,
-    annual_sales: (f, v) => `${formatByType(f, v)} annual sales`,
-    building_count: (f, v) => `${v} buildings`,
+    bpp_limit: (f, v) => ({ label: 'Business Personal Property', value: formatByType(f, v) }),
+    ol_2and3_limit: (f, v) => ({ label: 'Other Liability 2 & 3', value: formatByType(f, v) }),
+    annual_sales: (f, v) => ({ label: 'Annual Sales', value: formatByType(f, v) }),
+    building_count: (f, v) => ({ label: 'Buildings', value: String(v) }),
   });
 
-  // Category: Wind/Hail — deductible and exposure
-  const windhail = buildRow('Wind / Hail', [
-    'windhailpercentage', 'wind_hail_dollar_figure',
-  ], {
-    windhailpercentage: (f, v) => `${formatByType(f, v)} deductible`,
-    wind_hail_dollar_figure: (f, v) => `${formatByType(f, v)} minimum`,
-  });
+  // Wind/Hail moved to hero tag — no body row.
 
   // Category: Occupancy — what's there
   const occupancy = buildRow('Occupancy', [
@@ -2457,7 +2565,7 @@ function renderAssetReadBody(section, group, fields) {
           : null)
     : null;
 
-  return el('div', { className: 'asset-card-body' }, hero, construction, coverage, windhail, occupancy, boolStrip, more);
+  return el('div', { className: 'asset-card-body' }, hero, construction, coverage, occupancy, boolStrip, more);
 }
 
 // Decide which fields go in the main grid vs. the compact bool strip.
