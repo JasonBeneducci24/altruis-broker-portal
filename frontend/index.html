@@ -4360,6 +4360,62 @@ function toggleCoverageLine(line, turnOn) {
 // Read-mode list — quote-document style with dotted leader between
 // each label and its value. Mirrors the look of the LIMITS page in
 // the Altruis quote PDF.
+// Field-level display overrides for the Limits and Coverages section.
+// Lets us tweak the label or value formatting without touching how the
+// underlying data is stored or sent to Joshu. Each entry is keyed by
+// the lowercased final segment of the field code (e.g. "cgll_limit"
+// matches "app.CGLL_limit"). Both label and formatter are optional.
+//
+// Why this exists: Joshu stores label text auto-generated from code
+// (e.g. "Cgll Limit"), and value strings in compact slash format
+// ("$1,000,000 / $2,000,000 / $2,000,000"). The quote document uses
+// readable labels and prose-form values. This map bridges the two.
+const COVERAGE_FIELD_OVERRIDES = {
+  'cgll_limit': {
+    label: 'CGLL Limit',
+    formatter: formatPerOccurrenceFixedMillionAggregate,
+  },
+  'sdll_limit': {
+    label: 'SDLL Limit',
+    formatter: formatPerOccurrenceFixedMillionAggregate,
+  },
+  'gl_limits': {
+    label: 'GL Limits',
+    formatter: formatGLLimits,
+  },
+};
+
+// SDLL / CGLL — broker chooses an occurrence limit; aggregate is
+// always $1,000,000 in Altruis's product. So a stored value of
+// "$100,000" displays as "$100,000 per occurrence / $1,000,000 aggregate".
+function formatPerOccurrenceFixedMillionAggregate(rawValue) {
+  if (rawValue === null || rawValue === undefined || rawValue === '') return '\u2014';
+  const occ = String(rawValue).trim();
+  return `${occ} per occurrence / $1,000,000 aggregate`;
+}
+
+// GL Limits — Joshu stores three slash-separated numbers:
+//   "$1,000,000 / $2,000,000 / $2,000,000"
+// representing Each Occurrence / Annual Aggregate / Products & Completed.
+// We display only the first two as prose, dropping the third (which is
+// derived from the package the broker picks, not chosen separately).
+function formatGLLimits(rawValue) {
+  if (rawValue === null || rawValue === undefined || rawValue === '') return '\u2014';
+  const parts = String(rawValue).split('/').map(s => s.trim()).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0]} per occurrence / ${parts[1]} aggregate`;
+  }
+  // If the value isn't in the expected slash format, fall back to raw.
+  return String(rawValue);
+}
+
+// Get the override entry for a field, if any.
+function coverageFieldOverride(field) {
+  if (!field || !field.code) return null;
+  const tail = field.code.split('.').pop().toLowerCase();
+  return COVERAGE_FIELD_OVERRIDES[tail] || null;
+}
+
 function renderCoverageReadList(fields) {
   const populated = fields.filter(f => hasValue(f));
   if (populated.length === 0) {
@@ -4367,12 +4423,18 @@ function renderCoverageReadList(fields) {
       'No values configured for this coverage.');
   }
   return el('div', { className: 'coverage-readlist' },
-    ...populated.map(f =>
-      el('div', { className: 'coverage-readlist-row' },
-        el('div', { className: 'coverage-readlist-label' }, f.label),
+    ...populated.map(f => {
+      const override = coverageFieldOverride(f);
+      const label = override?.label || f.label;
+      const rawValue = unwrapForInput(f.value);
+      const value = override?.formatter
+        ? override.formatter(rawValue)
+        : formatByType(f, rawValue);
+      return el('div', { className: 'coverage-readlist-row' },
+        el('div', { className: 'coverage-readlist-label' }, label),
         el('div', { className: 'coverage-readlist-leader' }),
-        el('div', { className: 'coverage-readlist-value' },
-          formatByType(f, unwrapForInput(f.value))))));
+        el('div', { className: 'coverage-readlist-value' }, value));
+    }));
 }
 
 // Same as partitionAssetFields, but pre-filtered to populated fields only.
