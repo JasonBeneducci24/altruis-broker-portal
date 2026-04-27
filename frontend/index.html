@@ -1071,6 +1071,42 @@
     .asset-hero-top { flex-direction: column; align-items: flex-start; }
   }
 
+  /* Flat-section read body — same patterns as asset card body but no
+     containing card frame. Sits directly on the form pane background. */
+  .flat-section-body {
+    display: flex; flex-direction: column;
+  }
+  .flat-section-body .asset-hero {
+    border-bottom: 1px solid var(--line-2);
+    padding-top: 8px;
+    margin-bottom: 24px;
+  }
+
+  /* Required-but-empty callout — small, muted, sits at the bottom */
+  .asset-missing {
+    margin-top: 22px;
+    padding: 14px 16px;
+    background: rgba(217, 165, 90, 0.06);
+    border: 1px solid rgba(217, 165, 90, 0.18);
+    border-radius: var(--radius-sm);
+  }
+  .asset-missing-label {
+    font-size: 0.78rem; letter-spacing: 0.04em;
+    text-transform: uppercase; font-weight: 600;
+    color: var(--warn, #B07736);
+    margin-bottom: 8px;
+  }
+  .asset-missing-list {
+    display: flex; flex-wrap: wrap; gap: 6px 10px;
+  }
+  .asset-missing-item {
+    font-size: 0.85rem; color: var(--ink);
+    padding: 3px 8px;
+    background: var(--white);
+    border: 1px solid var(--line-2);
+    border-radius: 4px;
+  }
+
   /* Locked form-field label — smaller, uppercase eyebrow
      In edit mode, label reverts to normal. */
   .form-field.is-locked { gap: 2px; }
@@ -2114,8 +2150,10 @@ function submissionMainCard(s) {
             : isMultiAsset
               ? el('div', { className: 'asset-list' },
                   ...displayedGroups.map(g => renderAssetCard(activeSection, g, isEditing)))
-              : el('div', { className: 'form-grid' },
-                  ...activeFields.map(f => renderFormField(f, isEditing))),
+              : isEditing
+                ? el('div', { className: 'form-grid' },
+                    ...activeFields.map(f => renderFormField(f, isEditing)))
+                : renderSectionReadBody(activeSection, activeFields),
 
         // Section navigation footer (prev/next)
         sections.length > 1
@@ -2566,6 +2604,186 @@ function renderAssetReadBody(section, group, fields) {
     : null;
 
   return el('div', { className: 'asset-card-body' }, hero, construction, coverage, occupancy, boolStrip, more);
+}
+
+// ──────────────────────────────────────────────────────────────
+// Property-listing-style read body for non-asset sections
+// (Insured, Application, Application 2, etc.)
+//
+// Mirrors renderAssetReadBody's approach but is fully generic — categories
+// are inferred from field codes/labels rather than hardcoded by domain.
+// ──────────────────────────────────────────────────────────────
+function renderSectionReadBody(section, fields) {
+  const visible = fields.filter(f => f.visible !== false);
+
+  // Drop fully-empty fields entirely. The schema may report 30 fields for
+  // a section but only 7 are populated — we don't want 23 dashes filling
+  // the screen. Required-but-empty fields stay so the broker sees what's
+  // missing.
+  const populated = visible.filter(f => hasValue(f));
+  const requiredEmpty = visible.filter(f => !hasValue(f) && f.required);
+
+  // Partition booleans out
+  const { bools, main: nonBoolPopulated } = partitionPopulatedFromBools(populated);
+
+  // Categorize the populated non-bool fields by inferring their "kind"
+  const categorized = categorizeFlatFields(nonBoolPopulated);
+
+  // Hero stats: pick up to 4 strong numerics — money / count / percentage
+  const heroPicks = pickHeroStats(nonBoolPopulated, 4);
+  const heroCodes = new Set(heroPicks.map(f => f.code));
+
+  // Filter heroPicks out of categorized rows so they don't double-display
+  for (const cat of categorized) {
+    cat.fields = cat.fields.filter(f => !heroCodes.has(f.code));
+  }
+  // Drop empty categories after the hero filter
+  const visibleCategories = categorized.filter(c => c.fields.length > 0);
+
+  // ── Render hero ────────────────────────────────────
+  const hero = heroPicks.length > 0
+    ? el('div', { className: 'asset-hero' },
+        el('div', { className: 'asset-hero-stats' },
+          ...heroPicks.map(f => el('div', { className: 'asset-hero-stat' },
+            el('div', { className: 'asset-hero-stat-value' }, formatByType(f, unwrapForInput(f.value))),
+            el('div', { className: 'asset-hero-stat-label' }, f.label)))))
+    : null;
+
+  // ── Render category rows ───────────────────────────
+  const categoryRows = visibleCategories.map(cat =>
+    el('div', { className: 'asset-cat-row' },
+      el('div', { className: 'asset-cat-label' }, cat.label),
+      cat.style === 'list'
+        ? el('div', { className: 'asset-cat-list' },
+            ...cat.fields.map(f =>
+              el('div', { className: 'asset-cat-list-row' },
+                el('div', { className: 'asset-cat-list-label' }, f.label),
+                el('div', { className: 'asset-cat-list-value' },
+                  formatByType(f, unwrapForInput(f.value))))))
+        : el('div', { className: 'asset-cat-values' },
+            ...cat.fields.flatMap((f, i) => {
+              const text = `${f.label}: ${formatByType(f, unwrapForInput(f.value))}`;
+              const els = [el('span', { className: 'asset-cat-value' }, text)];
+              if (i < cat.fields.length - 1) {
+                els.push(el('span', { className: 'asset-cat-sep' }, '·'));
+              }
+              return els;
+            }))));
+
+  // ── Render bool strip ──────────────────────────────
+  const boolStrip = bools.length > 0
+    ? el('div', { className: 'asset-bool-strip' },
+        ...bools.map(f => renderBoolChip(f)))
+    : null;
+
+  // ── Required-but-empty callout ─────────────────────
+  // Don't show empty fields as huge gray boxes — instead, list the field
+  // labels in a compact "needs attention" callout at the bottom.
+  const missing = requiredEmpty.length > 0
+    ? el('div', { className: 'asset-missing' },
+        el('div', { className: 'asset-missing-label' },
+          `${requiredEmpty.length} required field${requiredEmpty.length === 1 ? '' : 's'} not yet filled`),
+        el('div', { className: 'asset-missing-list' },
+          ...requiredEmpty.map(f => el('span', { className: 'asset-missing-item' }, f.label))))
+    : null;
+
+  return el('div', { className: 'flat-section-body' }, hero, ...categoryRows, boolStrip, missing);
+}
+
+// Same as partitionAssetFields, but pre-filtered to populated fields only.
+// Returns { bools: [populated booleans], main: [populated non-booleans] }.
+function partitionPopulatedFromBools(populated) {
+  const main = [];
+  const bools = [];
+  for (const f of populated) {
+    const v = unwrapForInput(f.value);
+    if (isBooleanField(f, v)) bools.push(f);
+    else main.push(f);
+  }
+  return { bools, main };
+}
+
+// Pick up to N "hero" stats from a field list — prefer monetary values,
+// then numeric counts/percentages, then any meaningful number.
+function pickHeroStats(fields, max = 4) {
+  const scored = fields
+    .map(f => ({ f, score: heroScore(f) }))
+    .filter(x => x.score > 0)
+    .sort((a, b) => b.score - a.score);
+  return scored.slice(0, max).map(x => x.f);
+}
+function heroScore(field) {
+  const v = unwrapForInput(field.value);
+  if (v === '' || v === null || v === undefined) return 0;
+  const code = (field.code || '').toLowerCase();
+  const label = (field.label || '').toLowerCase();
+
+  // Highest priority: explicit dollar limits and premiums (the "headline" numbers)
+  if (field.type === 'monetary') return 100;
+  if (/^\$/.test(String(v))) return 100;  // string starts with $
+  if (/limit|premium|sublimit|deductible/i.test(code)) return 95;
+
+  // Counts / percentages
+  if (/_count$|count$/i.test(code)) return 70;
+  if (/percentage|_percent/i.test(code)) return 60;
+
+  // Plain numerics — only if they're "interesting" (not version numbers, dates, IDs)
+  if (typeof v === 'number' || /^-?\d+(\.\d+)?$/.test(String(v).replace(/,/g, ''))) {
+    if (/year/i.test(code)) return 30;  // year is mildly interesting
+    return 40;
+  }
+  return 0;  // text fields don't go in hero
+}
+
+// Categorize a list of flat (non-asset, non-bool) fields by inferring
+// their domain from code patterns. Falls back to "Details" for anything
+// that doesn't match. Returns an ordered list of categories with their fields.
+function categorizeFlatFields(fields) {
+  const cats = {
+    identity:    { label: 'Identity',    fields: [], style: 'inline' },
+    coverage:    { label: 'Coverage',    fields: [], style: 'list' },
+    deductibles: { label: 'Deductibles', fields: [], style: 'list' },
+    addons:      { label: 'Add-ons',     fields: [], style: 'list' },
+    dates:       { label: 'Dates',       fields: [], style: 'inline' },
+    other:       { label: 'Other',       fields: [], style: 'inline' },
+  };
+  for (const f of fields) {
+    const code = (f.code || '').toLowerCase();
+    const label = (f.label || '').toLowerCase();
+
+    // Identity-ish: insured name, business structure, NAICS, SIC, FEIN, address
+    if (/insured|named_insured|naics|sic|fein|business|address|name$|email|phone|website/i.test(code)) {
+      cats.identity.fields.push(f);
+    }
+    // Coverage limits / sublimits / aggregate / per-occurrence
+    else if (/limit|sublimit|aggregate|premium|sales|loss/i.test(code) && f.type !== 'date') {
+      cats.coverage.fields.push(f);
+    }
+    // Deductibles
+    else if (/deductible|retention/i.test(code)) {
+      cats.deductibles.fields.push(f);
+    }
+    // Add-ons / coverage extensions
+    else if (/cyber|epli|tria|equipment|backup|pollution|backup|stop_loss/i.test(code)) {
+      cats.addons.fields.push(f);
+    }
+    // Dates
+    else if (f.type === 'date' || /date|effective|expir/i.test(code)) {
+      cats.dates.fields.push(f);
+    }
+    else {
+      cats.other.fields.push(f);
+    }
+  }
+  // Return categories in display order, only those with fields
+  return [
+    cats.identity,
+    cats.dates,
+    cats.coverage,
+    cats.deductibles,
+    cats.addons,
+    cats.other,
+  ].filter(c => c.fields.length > 0);
 }
 
 // Decide which fields go in the main grid vs. the compact bool strip.
