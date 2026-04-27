@@ -856,9 +856,22 @@ def _is_underwriter_section(section_code: str, datapoints: list) -> bool:
 # remain in Joshu's schema and may be set there directly; we just don't
 # render them in either the locked view or the edit form on the broker side.
 _BROKER_HIDDEN_FIELD_CODES = {
+    # Underwriter-managed fields originally in the small Application 1 set —
+    # the broker doesn't supply these; they're decisions the UW makes.
     "renewal_status",
     "exclusions_status",
     "claims_history_flag",
+    # Former "Application 4" section — entirely underwriter/internal-managed.
+    # Removing these fields collapses Application 4 to zero broker-facing
+    # fields, which means the section won't render at all (POST-PASS 2 will
+    # see populated_count==0 + visible_count==0 and drop it).
+    "different_valuation_status",
+    "competitor_premium",
+    "stop_loss_status",
+    "sltaxstate",                  # codes are case-insensitive in _is_broker_hidden_field
+    "sltaxmunicipality_total",
+    "ag_enhancement_status",
+    "roofacvstatus",
 }
 
 
@@ -1242,6 +1255,52 @@ def normalize_submission_status(raw: Any, data_values: dict[str, Any] | None = N
 
         kept_sections.append(sec)
     section_summaries = kept_sections
+
+    # POST-PASS 2.5 — drop empty non-asset sections, then apply friendly
+    # broker-facing names to the remaining sections.
+    #
+    # When all fields in a section have been filtered out (e.g. former
+    # Application 4 — every field is in _BROKER_HIDDEN_FIELD_CODES), the
+    # section ends up with 0 fields but POST-PASS 2 above only drops it
+    # when condition_met is False. So we drop here on `field_count == 0`
+    # for non-asset sections.
+    section_summaries = [
+        s for s in section_summaries
+        if s.get("is_asset") or s.get("field_count", 0) > 0
+    ]
+
+    # Rename the surviving non-asset sections to broker-friendly labels.
+    # The order of non-asset sections (after the Insured+Application merge
+    # collapsed the first two) is now stable: Basic Information,
+    # Limits and Coverages, Deductibles. Asset sections (Structures) keep
+    # whatever label they already have.
+    NON_ASSET_FRIENDLY_LABELS = [
+        "Basic Information",
+        "Limits and Coverages",
+        "Deductibles",
+    ]
+    non_asset_idx = 0
+    for sec in section_summaries:
+        if sec.get("is_asset"):
+            continue
+        if non_asset_idx < len(NON_ASSET_FRIENDLY_LABELS):
+            new_label = NON_ASSET_FRIENDLY_LABELS[non_asset_idx]
+            sec["label"] = new_label
+            # Propagate to fields' section_label too — left rail and
+            # any per-field display reads from this.
+            for f in fields:
+                if f.get("section") == sec["code"]:
+                    f["section_label"] = new_label
+            non_asset_idx += 1
+        # If there are MORE non-asset sections than friendly labels (e.g.
+        # Joshu adds a 5th section we didn't anticipate), we leave its
+        # existing auto-numbered label alone rather than running off the
+        # end of NON_ASSET_FRIENDLY_LABELS.
+
+    # Re-assign section order numbers so the rail/progress shows them
+    # correctly post-rename and post-drop.
+    for new_order, sec in enumerate(section_summaries):
+        sec["order"] = new_order
 
     counters = raw.get("counters") or {}
 

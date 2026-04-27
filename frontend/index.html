@@ -6,7 +6,7 @@
 <title>Altruis Group · Broker Portal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
 <style>
   :root {
     /* Blue scale — matches altruisgroup.com */
@@ -90,7 +90,21 @@
   h2 { font-size: 1.5rem; letter-spacing: -0.025em; }
   h3 { font-size: 1.05rem; font-weight: 500; letter-spacing: -0.015em; }
   h1 em, h2 em, h3 em { font-style: normal; font-weight: 500; color: var(--blue); }
-  .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 0.85em; }
+  /* ID and tabular-numeric data — same font as body, but with
+     tabular numerals so digits align nicely in lists/tables.
+     The .mono class name is preserved for backwards compatibility but
+     now produces tabular text in the same font, NOT a monospace switch. */
+  .mono, .tabular-id {
+    font-family: inherit;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.92rem;
+    color: var(--ink);
+    font-weight: 400;
+  }
+  .tabular-id {
+    color: var(--ink-mute, var(--mute));
+    letter-spacing: 0;
+  }
   button { font-family: inherit; font-size: inherit; cursor: pointer; border: none; background: none; color: inherit; }
   input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; }
   a { color: var(--blue); text-decoration: none; transition: color 0.2s var(--ease); }
@@ -200,7 +214,7 @@
     font-size: 0.8rem; color: var(--ink-mute); line-height: 1.6;
   }
   .login-hint code {
-    font-family: 'JetBrains Mono', monospace; background: var(--paper-warm);
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; background: var(--paper-warm);
     padding: 2px 7px; border-radius: 4px; font-size: 0.85em; color: var(--ink);
   }
   @media (max-width: 900px) {
@@ -444,7 +458,7 @@
   tr.clickable { cursor: pointer; }
   .num {
     text-align: right; font-variant-numeric: tabular-nums;
-    font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;
+    font-family: inherit; font-size: 0.92rem;
   }
 
   /* ─────────── Badges ─────────── */
@@ -753,8 +767,9 @@
     letter-spacing: -0.005em;
   }
   .form-field label .code {
-    font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;
+    font-family: inherit; font-size: 0.78rem;
     color: var(--mute); font-weight: 400; margin-left: 4px;
+    font-variant-numeric: tabular-nums;
   }
   .form-field label .req { color: var(--err); font-weight: 500; }
   .form-field input[type=text],
@@ -1167,7 +1182,7 @@
   }
   .kv-list dt:first-child { margin-top: 0; }
   .kv-list dd { font-size: 0.95rem; color: var(--ink); margin-top: 4px; font-weight: 500; }
-  .kv-list dd.mono { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; word-break: break-all; font-weight: 400; }
+  .kv-list dd.mono { font-family: inherit; font-size: 0.88rem; word-break: break-all; font-weight: 400; font-variant-numeric: tabular-nums; }
 
   /* Status banner at top of detail */
   .status-banner {
@@ -2011,15 +2026,49 @@ function submissionsTable(items) {
     },
       el('td', {},
         el('div', { style: { fontWeight: 500 } },
-          (s.data?.['insured.name'] && formatDatapointValue(s.data['insured.name'])) ||
-          s.insured_name || `Submission ${s.id}`),
-        lifecycleIndicator(s.status)),
-      el('td', { className: 'mono' }, `#${s.id}`),
-      el('td', {}, s.flow || 'New'),
+          extractInsuredName(s) || `Submission ${s.id}`)),
+      el('td', { className: 'tabular-id' }, `#${s.id}`),
+      el('td', {}, friendlyFlow(s.flow)),
       el('td', {}, fmtDate(s.effective_at)),
       el('td', {}, statusBadge(s.status)),
       el('td', { style: { fontSize: '0.85rem', color: 'var(--ink-mute)' } },
         fmtDateTime(s.modified_at || s.created_at))))));
+}
+
+// Pull the named insured out of a submission row from the list endpoint.
+// Joshu doesn't return a flat `insured_name` field — the named insured
+// lives nested in `data` under various paths depending on whether
+// /submissions returned datapoint values or a structured snapshot.
+// Try the most likely paths in order.
+function extractInsuredName(s) {
+  if (!s) return null;
+
+  // Top-level shortcut some routes set
+  if (s.insured_name) return String(s.insured_name);
+
+  // Try data.insured (object form: {name: "..."})
+  const data = s.data;
+  if (data && typeof data === 'object') {
+    if (data.insured && typeof data.insured === 'object' && data.insured.name) {
+      return String(data.insured.name);
+    }
+    // Try flat key "insured.name" (datapoint flatten form)
+    if (data['insured.name']) {
+      const v = data['insured.name'];
+      // Handle wrapped values from datapoint flatten
+      if (typeof v === 'string') return v;
+      if (typeof v === 'object') {
+        // {Plain:{Text:"..."}} or already-unwrapped
+        const unwrapped = unwrapForInput(v);
+        if (typeof unwrapped === 'string' && unwrapped) return unwrapped;
+      }
+    }
+    // Try data.named_insured / data.business_name as last-ditch fallbacks
+    if (data.named_insured) return String(data.named_insured);
+    if (data.business_name) return String(data.business_name);
+  }
+
+  return null;
 }
 
 function lifecycleIndicator(status) {
@@ -3694,7 +3743,7 @@ function submissionQuotesCard(s) {
         el('div', {
           style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' }
         },
-          el('div', { style: { fontFamily: 'JetBrains Mono, monospace', fontSize: '0.82rem' } },
+          el('div', { style: { fontVariantNumeric: 'tabular-nums', fontSize: '0.92rem', fontWeight: '500' } },
             `Quote #${q.id}`),
           statusBadge(q.status)),
         el('div', { style: { fontSize: '0.78rem', color: 'var(--slate)', marginTop: '4px' } },

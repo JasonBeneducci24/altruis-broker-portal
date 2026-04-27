@@ -63,7 +63,99 @@ async def list_submissions(
     if mine_only:
         kwargs["user_id"] = session["uid"]
     result = await client.list_submissions(session["t"], **kwargs)
-    return result.model_dump(mode="json")
+    payload = result.model_dump(mode="json")
+
+    # Enrich each row with `insured_name` if Joshu provided one anywhere
+    # in the row's data. Joshu's list endpoint may or may not include the
+    # named insured — when it does, it can appear in any of these places:
+    #   - row.data.insured.name        (nested object form)
+    #   - row.data["insured.name"]     (flat datapoint key form)
+    #   - row.insured.name             (top-level — rare)
+    # Frontend reads `row.insured_name` first, falls through to data lookups
+    # if missing. We do the lookup once on the server so all clients
+    # benefit from a consistent flat key.
+    items = payload.get("items") or []
+    for row in items:
+        if not isinstance(row, dict):
+            continue
+        if row.get("insured_name"):
+            continue  # already populated
+        name = _extract_insured_name(row)
+        if name:
+            row["insured_name"] = name
+
+    return payload
+
+
+def _extract_insured_name(row: dict) -> str | None:
+    """Best-effort lookup of the named insured from a Joshu list row.
+
+    Tries the most likely paths and returns the first non-empty match,
+    or None if nothing usable is found.
+    """
+    # Top-level shortcut
+    name = row.get("insured_name")
+    if isinstance(name, str) and name.strip():
+        return name.strip()
+
+    data = row.get("data")
+    if isinstance(data, dict):
+        # Nested object form: {insured: {name: "..."}}
+        ins = data.get("insured")
+        if isinstance(ins, dict):
+            n = ins.get("name")
+            if isinstance(n, str) and n.strip():
+                return n.strip()
+
+        # Flat datapoint form: {"insured.name": "..."}
+        # Value may be a wrapped Joshu type — strip wrapper layers.
+        flat = data.get("insured.name")
+        if flat is not None:
+            extracted = _unwrap_simple(flat)
+            if isinstance(extracted, str) and extracted.strip():
+                return extracted.strip()
+
+        # Last-resort fallbacks
+        for k in ("named_insured", "business_name", "company_name"):
+            v = data.get(k)
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+
+    # Top-level nested
+    ins = row.get("insured")
+    if isinstance(ins, dict) and isinstance(ins.get("name"), str):
+        return ins["name"].strip() or None
+
+    return None
+
+
+def _unwrap_simple(wrapped) -> str | None:
+    """Unwrap a Joshu wrapped value to its scalar — text-only.
+
+    Walks {Plain|V1|V0: {Text|Number|Date|Boolean: ...}} until a primitive
+    is found. Returns None for non-text or unrecognized shapes.
+    """
+    if isinstance(wrapped, str):
+        return wrapped
+    if not isinstance(wrapped, dict):
+        return None
+    for outer in ("Plain", "V1", "V0"):
+        inner = wrapped.get(outer)
+        if isinstance(inner, dict):
+            for type_key in ("Text", "Number", "Date", "DateTime"):
+                if type_key in inner:
+                    v = inner[type_key]
+                    if v is None:
+                        return None
+                    return str(v)
+            if "Null" in inner:
+                return None
+    # Already-unwrapped fallback
+    for type_key in ("Text", "Number"):
+        if type_key in wrapped:
+            return str(wrapped[type_key])
+    return None
+
 
 
 @router.get("/{submission_id}")
