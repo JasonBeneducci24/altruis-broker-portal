@@ -3240,17 +3240,23 @@ function submissionMainCard(s) {
   const pct = totals.total > 0 ? Math.round((totals.completed / totals.total) * 100) : 0;
 
   return el('div', { className: 'form-wrap' },
-    // Progress bar across the top
-    el('div', { className: 'form-progress' },
-      el('div', { className: 'form-progress-labels' },
-        el('div', { className: 'form-progress-title' },
-          isEditing ? 'Complete the submission' : 'Application'),
-        el('div', { className: 'form-progress-count' },
-          pct === 100
-            ? el('span', { className: 'form-progress-pct done' }, 'Ready to submit')
-            : el('span', { className: 'form-progress-pct' }, `${pct}%`))),
-      el('div', { className: 'form-progress-bar' },
-        el('div', { className: 'form-progress-fill', style: { width: `${pct}%` } }))),
+    // Progress bar across the top — only shown while editing. Locked
+    // submissions don't need it: completion is binary (the broker has
+    // submitted), and the form's field-count percentage can be
+    // misleading because some fields are populated by underwriting
+    // after submission. The status banner above already conveys the
+    // submission's lifecycle state.
+    isEditing
+      ? el('div', { className: 'form-progress' },
+          el('div', { className: 'form-progress-labels' },
+            el('div', { className: 'form-progress-title' }, 'Complete the submission'),
+            el('div', { className: 'form-progress-count' },
+              pct === 100
+                ? el('span', { className: 'form-progress-pct done' }, 'Ready to submit')
+                : el('span', { className: 'form-progress-pct' }, `${pct}%`))),
+          el('div', { className: 'form-progress-bar' },
+            el('div', { className: 'form-progress-fill', style: { width: `${pct}%` } })))
+      : null,
 
     // Layout: 2-column normally, 3-column when active section has multiple assets
     el('div', { className: `form-layout ${isMultiAsset ? 'three-col' : ''}` },
@@ -3269,8 +3275,12 @@ function submissionMainCard(s) {
                 activeSection.is_empty_asset_shell
                   ? `0 ${inferAssetNoun(activeSection, 2).toLowerCase()}`
                   : isMultiAsset
-                    ? `${displayedGroups.length} ${inferAssetNoun(activeSection, displayedGroups.length)} · ${activeSection.completed} of ${activeSection.visible_count} fields complete`
-                    : `${activeSection.completed} of ${activeSection.visible_count} fields complete`),
+                    ? (isEditing
+                        ? `${displayedGroups.length} ${inferAssetNoun(activeSection, displayedGroups.length)} \u00b7 ${activeSection.completed} of ${activeSection.visible_count} fields complete`
+                        : `${displayedGroups.length} ${inferAssetNoun(activeSection, displayedGroups.length)}`)
+                    : (isEditing
+                        ? `${activeSection.completed} of ${activeSection.visible_count} fields complete`
+                        : '')),
           // Expand/Collapse-all row for asset sections
           isMultiAsset
             ? el('div', { className: 'asset-controls' },
@@ -3334,13 +3344,22 @@ function sectionNavItem(section, isActive) {
   const isComplete = section.visible_count > 0 && section.completed === section.visible_count;
   const isEmptyShell = !!section.is_empty_asset_shell;
   const hasErrors = section.has_errors;
+  const isEditing = state.submissionFormState === 'edit';
 
   // Empty asset shells (e.g. Structures with no data yet) don't have a
   // sensible fields-complete ratio. Show a simple "empty" indicator so the
   // rail doesn't imply progress that isn't there.
-  const countLabel = isEmptyShell
-    ? 'Empty'
-    : `${section.completed}/${section.visible_count} · ${pct}%`;
+  // When the submission is LOCKED (not editing), drop the count line
+  // entirely — locked submissions are by definition complete or in
+  // underwriter review, so per-section counters add noise without signal.
+  let countLabel = null;
+  if (isEditing) {
+    countLabel = isEmptyShell ? 'Empty' : `${section.completed}/${section.visible_count} \u00b7 ${pct}%`;
+  } else if (isEmptyShell) {
+    // Even when locked, an empty asset shell deserves a hint that there's
+    // nothing inside (rare case for a quoted submission, but possible).
+    countLabel = 'Empty';
+  }
 
   return el('button', {
     className: `section-nav-item ${isActive ? 'active' : ''} ${isComplete ? 'complete' : ''} ${hasErrors ? 'has-errors' : ''} ${isEmptyShell ? 'is-empty' : ''}`,
@@ -3350,10 +3369,10 @@ function sectionNavItem(section, isActive) {
     },
   },
     el('div', { className: 'section-nav-indicator' },
-      hasErrors ? '!' : isComplete ? '✓' : isEmptyShell ? '○' : (section.order + 1)),
+      hasErrors ? '!' : isComplete ? '\u2713' : isEmptyShell ? '\u25cb' : (section.order + 1)),
     el('div', { className: 'section-nav-body' },
       el('div', { className: 'section-nav-label' }, section.label),
-      el('div', { className: 'section-nav-count' }, countLabel)));
+      countLabel ? el('div', { className: 'section-nav-count' }, countLabel) : null));
 }
 
 function sectionPrevButton(sections, active) {
@@ -3527,7 +3546,9 @@ function renderAssetCard(section, group, isEditing) {
   const summaryStats = pickAssetSummaryStats(group);
   const pct = group.total > 0 ? Math.round((group.completed / group.total) * 100) : 0;
 
-  // Collapsed summary row
+  // Collapsed summary row.
+  // The completion-count chip ("33/33") only renders while editing —
+  // on locked submissions the chip is noise (everything's complete).
   const summary = el('button', {
     className: `asset-card-summary ${isOpen ? 'open' : ''}`,
     id: `asset-${section.code}-${group.idx}`,
@@ -3539,10 +3560,12 @@ function renderAssetCard(section, group, isEditing) {
       ...summaryStats.map(f => el('div', { className: 'asset-card-stat' },
         el('div', { className: 'asset-card-stat-label' }, f.label),
         el('div', { className: 'asset-card-stat-value' }, formatDatapointValue(f.value))))),
-    el('div', { className: 'asset-card-meta' },
-      el('span', { className: `asset-card-chip ${pct === 100 ? 'done' : ''}` },
-        `${group.completed}/${group.total}`)),
-    el('div', { className: 'asset-card-chevron' }, isOpen ? '⌃' : '⌄'));
+    isEditing
+      ? el('div', { className: 'asset-card-meta' },
+          el('span', { className: `asset-card-chip ${pct === 100 ? 'done' : ''}` },
+            `${group.completed}/${group.total}`))
+      : null,
+    el('div', { className: 'asset-card-chevron' }, isOpen ? '\u2303' : '\u2304'));
 
   // Expanded body — property-listing style:
   //   1. Hero block — title (address), subtitle (loc/bldg #), 4 stat tiles
