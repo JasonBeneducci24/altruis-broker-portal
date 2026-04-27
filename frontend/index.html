@@ -3308,18 +3308,24 @@ function submissionMainCard(s) {
   // brand-new submission would render as "7 empty Asset cards" which is
   // confusing and wrong.
   //
-  // Real rule: only render as multi-asset cards when at least 2 distinct
-  // assets have actual data. Everything else is a flat form or an empty
-  // section that will later gain an "Add item" action.
+  // Two distinct flags govern the layout:
+  //   • hasAssetCards — render as asset cards (any count >= 1). This
+  //     ensures a single-structure submission gets the same card layout
+  //     as a multi-structure one — no flat-row fallback that loses the
+  //     hero, chips, and grouping logic.
+  //   • isMultiAsset — show "multi-asset chrome" like the right-rail
+  //     jump column and Expand/Collapse-all controls (count >= 2). For
+  //     a one-structure submission those would be UI noise.
   const isAssetSection = activeSection.is_asset;
   const assetGroups = isAssetSection ? groupFieldsByAsset(activeFields) : null;
   const populatedGroups = assetGroups
     ? assetGroups.filter(g => g.fields.some(f => f.value != null && f.value !== ''))
     : null;
+  const hasAssetCards = !!(populatedGroups && populatedGroups.length >= 1);
   const isMultiAsset = !!(populatedGroups && populatedGroups.length >= 2);
-  // When we treat as multi-asset, we only render the populated groups.
+  // When we treat as having asset cards, render only the populated groups.
   // (Empty asset slots are hidden until there's a proper "Add" workflow.)
-  const displayedGroups = isMultiAsset ? populatedGroups : null;
+  const displayedGroups = hasAssetCards ? populatedGroups : null;
 
   // Overall completion for the progress bar
   const totals = sections.reduce(
@@ -3362,7 +3368,7 @@ function submissionMainCard(s) {
             : el('div', { className: 'form-pane-sub' },
                 activeSection.is_empty_asset_shell
                   ? `0 ${inferAssetNoun(activeSection, 2).toLowerCase()}`
-                  : isMultiAsset
+                  : hasAssetCards
                     ? (isEditing
                         ? `${displayedGroups.length} ${inferAssetNoun(activeSection, displayedGroups.length)} \u00b7 ${activeSection.completed} of ${activeSection.visible_count} fields complete`
                         : `${displayedGroups.length} ${inferAssetNoun(activeSection, displayedGroups.length)}`)
@@ -3391,7 +3397,7 @@ function submissionMainCard(s) {
           : activeFields.length === 0
             ? el('div', { className: 'empty', style: { marginTop: '20px' } },
               el('p', {}, 'No fields in this section are currently visible.'))
-            : isMultiAsset
+            : hasAssetCards
               ? el('div', { className: 'asset-list' },
                   ...renderLocationGroups(activeSection, displayedGroups, isEditing))
               : isEditing
@@ -3653,19 +3659,12 @@ function readBuildingNumber(assetGroup) {
   return Number.isFinite(n) ? n : null;
 }
 
-// Compute the display index for a building card, hierarchical when
-// inside a multi-building location. Returns:
-//   "1"     — single-building location (location 1, or any flat case)
-//   "1.2"   — building 2 within location 1 (multi-building)
+// Compute the display index for a building card. Hierarchical for
+// every location (single-building or multi-building):
+//   "1.1" — first building in location 1
+//   "2.3" — third building in location 2
 // Falls back to the array index + 1 if no location/building info.
 function buildingDisplayIndex(locationGroup, assetGroup, indexInLocation) {
-  if (!locationGroup.isMultiBuilding) {
-    if (locationGroup.locationNumber != null) {
-      return String(locationGroup.locationNumber);
-    }
-    return String((assetGroup.idx ?? 0) + 1);
-  }
-  // Multi-building: hierarchical index
   const bldgNum = readBuildingNumber(assetGroup) ?? (indexInLocation + 1);
   if (locationGroup.locationNumber != null) {
     return `${locationGroup.locationNumber}.${bldgNum}`;
@@ -3720,6 +3719,11 @@ function pickAssetSummaryStats(group) {
   for (const f of group.fields) {
     if (f.type !== 'monetary' && f.type !== 'number') continue;
     if (f.value == null || f.value === '') continue;
+    // Treat literal 0 as "missing data" for stats (a building with
+    // 0 value / 0 sq ft / etc. is missing, not legitimate state).
+    const v = unwrapForInput(f.value);
+    const n = Number(v);
+    if (Number.isFinite(n) && n === 0) continue;
     const codeLow = (f.code || '').toLowerCase();
     const shortCode = codeLow.split('.').pop();
     const score = preferred.indexOf(shortCode);
@@ -3800,35 +3804,28 @@ function isBrokerLockedField(field) {
 // emit a `.location-group` wrapper containing a header + nested cards.
 function renderLocationGroups(section, assetGroups, isEditing) {
   const locationGroups = groupAssetsByLocation(assetGroups);
-  return locationGroups.flatMap(loc => {
-    if (!loc.isMultiBuilding) {
-      // Single building — render the card directly. Use the location
-      // number itself as the display label (e.g. "1" for Location 1).
-      const onlyAsset = loc.assets[0];
-      const displayLabel = buildingDisplayIndex(loc, onlyAsset, 0);
-      return [renderAssetCard(section, onlyAsset, isEditing, displayLabel)];
-    }
-    // Multi-building location — emit a wrapper with a header summarizing
-    // the location, then nested building cards inside.
-    return [renderLocationGroupWrapper(section, loc, isEditing)];
-  });
+  // Every location wraps in a group header — even single-building ones —
+  // for visual consistency with hierarchical numbering. A "1.1" label
+  // implies a parent group exists; rendering one with no header would
+  // create a silent ambiguity ("1.1 of what?").
+  return locationGroups.map(loc => renderLocationGroupWrapper(section, loc, isEditing));
 }
 
-// The wrapper card for a multi-building location. Contains:
-//   • Header: "LOCATION 1 — 4 BUILDINGS" eyebrow + address + blanket pill
-//   • Nested asset cards (one per building) using "1.2" hierarchical
-//     numbering so the parent-child relationship is explicit.
+// The wrapper card for a location. Contains:
+//   • Header: "LOCATION 1 — 1 BUILDING" or "LOCATION 2 — 6 BUILDINGS"
+//     eyebrow + address + blanket pill
+//   • Nested asset cards using "1.1" / "2.3" hierarchical numbering
 //
 // Building cards inside the wrapper get a simplified title ("Building N")
-// because the address is already present in the wrapper header — no
-// need to repeat it 4× down the column.
+// because the address is already present in the wrapper header.
 function renderLocationGroupWrapper(section, locationGroup, isEditing) {
   const { locationNumber, address, assets, isBlanketed } = locationGroup;
   const buildingCount = assets.length;
 
+  const buildingNoun = buildingCount === 1 ? 'building' : 'buildings';
   const eyebrow = locationNumber != null
-    ? `Location ${locationNumber} \u2014 ${buildingCount} buildings`
-    : `${buildingCount} buildings (no location number)`;
+    ? `Location ${locationNumber} \u2014 ${buildingCount} ${buildingNoun}`
+    : `${buildingCount} ${buildingNoun} (no location number)`;
 
   return el('div', { className: 'location-group' },
     // Header
@@ -3952,10 +3949,20 @@ function renderAssetReadBody(section, group, fields) {
   // ── 1. Hero stats — 4 tiles ────────────────────────
   // Priority: Building Value, Square Footage, Stories, Year Built
   // Fall back to any other populated Monetary/Number if those are missing.
+  // For these specific fields a literal 0 is treated as "missing" rather
+  // than a valid value — a building with $0 value or 0 sq ft or year 0
+  // is missing data, not legitimate state.
   const heroClaimed = new Set();
+  const isMeaningfullyPopulated = (f) => {
+    if (!hasValue(f)) return false;
+    const v = unwrapForInput(f.value);
+    const n = Number(v);
+    if (Number.isFinite(n) && n === 0) return false;
+    return true;
+  };
   const pickHero = (tails) => {
     const f = findByTail(nonBool, tails);
-    if (f && hasValue(f)) { heroClaimed.add(f.code); return f; }
+    if (f && isMeaningfullyPopulated(f)) { heroClaimed.add(f.code); return f; }
     return null;
   };
   const heroFields = [
