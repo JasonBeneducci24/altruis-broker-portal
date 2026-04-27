@@ -3817,7 +3817,11 @@ function renderLocationGroups(section, assetGroups, isEditing) {
 // The wrapper card for a multi-building location. Contains:
 //   • Header: "LOCATION 1 — 4 BUILDINGS" eyebrow + address + blanket pill
 //   • Nested asset cards (one per building) using "1.2" hierarchical
-//     numbering so the parent-child relationship is explicit
+//     numbering so the parent-child relationship is explicit.
+//
+// Building cards inside the wrapper get a simplified title ("Building N")
+// because the address is already present in the wrapper header — no
+// need to repeat it 4× down the column.
 function renderLocationGroupWrapper(section, locationGroup, isEditing) {
   const { locationNumber, address, assets, isBlanketed } = locationGroup;
   const buildingCount = assets.length;
@@ -3837,15 +3841,18 @@ function renderLocationGroupWrapper(section, locationGroup, isEditing) {
       isBlanketed
         ? el('div', { className: 'location-group-pill' }, 'Blanketed')
         : null),
-    // Nested building cards
+    // Nested building cards — title is "Building N" since the location
+    // address is already shown above, no need to repeat.
     el('div', { className: 'location-group-buildings' },
       ...assets.map((asset, i) => {
         const displayLabel = buildingDisplayIndex(locationGroup, asset, i);
-        return renderAssetCard(section, asset, isEditing, displayLabel);
+        const bldgNum = readBuildingNumber(asset) ?? (i + 1);
+        const titleOverride = `Building ${bldgNum}`;
+        return renderAssetCard(section, asset, isEditing, displayLabel, titleOverride);
       })));
 }
 
-function renderAssetCard(section, group, isEditing, displayLabelOverride) {
+function renderAssetCard(section, group, isEditing, displayLabelOverride, titleOverride) {
   const isOpen = isAssetExpanded(section.code, group.idx);
   // Display number — prefer the location-group-derived hierarchical
   // label ("1.2") when provided. Otherwise fall back to the broker-set
@@ -3854,7 +3861,12 @@ function renderAssetCard(section, group, isEditing, displayLabelOverride) {
   const displayNum = displayLabelOverride != null
     ? displayLabelOverride
     : pickAssetDisplayNumber(group);
-  const title = pickAssetTitle(group) || `${inferAssetNoun(section, 1)} ${displayNum}`;
+  // Title — caller can override (e.g. "Building 2" for a card inside a
+  // multi-building group). Otherwise pick the asset's own title field
+  // (typically the address) or fall back to the noun + number.
+  const title = titleOverride != null
+    ? titleOverride
+    : (pickAssetTitle(group) || `${inferAssetNoun(section, 1)} ${displayNum}`);
   const summaryStats = pickAssetSummaryStats(group);
   const pct = group.total > 0 ? Math.round((group.completed / group.total) * 100) : 0;
 
