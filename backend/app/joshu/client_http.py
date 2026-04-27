@@ -850,6 +850,26 @@ def _is_underwriter_section(section_code: str, datapoints: list) -> bool:
     return False
 
 
+# Field codes (final segment, case-insensitive) the broker should never
+# see in the portal — these are decisions the underwriter makes after
+# reviewing the application, not data the broker provides. The fields
+# remain in Joshu's schema and may be set there directly; we just don't
+# render them in either the locked view or the edit form on the broker side.
+_BROKER_HIDDEN_FIELD_CODES = {
+    "renewal_status",
+    "exclusions_status",
+    "claims_history_flag",
+}
+
+
+def _is_broker_hidden_field(code: str) -> bool:
+    """Return True for individual datapoint codes hidden from the broker."""
+    if not code:
+        return False
+    tail = code.rsplit(".", 1)[-1].lower()
+    return tail in _BROKER_HIDDEN_FIELD_CODES
+
+
 def normalize_submission_status(raw: Any, data_values: dict[str, Any] | None = None) -> dict[str, Any]:
     """Transform Joshu's /submission-status response into a UI-friendly schema.
 
@@ -953,6 +973,12 @@ def normalize_submission_status(raw: Any, data_values: dict[str, Any] | None = N
                 continue
             code = dp.get("code", "")
             if not code:
+                continue
+
+            # Skip underwriter-only fields (renewal_status, exclusions_status,
+            # claims_history_flag) — these are decisions the underwriter makes,
+            # not broker inputs. The fields remain in Joshu but never render here.
+            if _is_broker_hidden_field(code):
                 continue
 
             ve = _validation_error_from(dp.get("validation_issue"))
@@ -1133,7 +1159,55 @@ def normalize_submission_status(raw: Any, data_values: dict[str, Any] | None = N
                     if f.get("section") == sec["code"]:
                         f["section_label"] = new_label
 
-    # POST-PASS 2 — hide sections that will produce no useful UI.
+    # POST-PASS 1.5 — merge "Insured" + first non-asset Application section.
+    #
+    # The broker views these as one logical step ("application"), so showing
+    # them as separate left-rail items adds friction. We merge:
+    #   - Insured section (named insured, address, business structure)
+    #   - The FIRST non-asset section after Insured (typically the small
+    #     opening Application section with effective date + status flags)
+    # into a single section labeled "Application" that owns the union of
+    # both fields. The other Application 2/3/4 sections stay separate.
+    #
+    # The merged section keeps the Insured section's `code` so backend
+    # save flows continue to work — Insured's code is the more "anchored"
+    # of the two (the Application section codes are random IDs like
+    # `app.qV1fzIWW`).
+    if len(section_summaries) >= 2:
+        first = section_summaries[0]
+        second = section_summaries[1]
+        # Only merge if BOTH are non-asset and non-empty-shell.
+        # We don't want to merge into a Structures section by accident.
+        if (not first.get("is_asset") and not second.get("is_asset")
+                and first.get("label") == "Insured"):
+            # Re-tag every field that belonged to `second` so it now reports
+            # under `first`'s code/label. The fields keep their original
+            # `code` (e.g. "app.effective_date") — only the section pointer
+            # changes.
+            insured_code = first["code"]
+            absorbed_code = second["code"]
+            for f in fields:
+                if f.get("section") == absorbed_code:
+                    f["section"] = insured_code
+                    f["section_label"] = "Application"
+
+            # Update the merged section summary
+            first["label"] = "Application"
+            first["field_count"] = first["field_count"] + second["field_count"]
+            first["completed"] = first["completed"] + second["completed"]
+            first["visible_count"] = first["visible_count"] + second["visible_count"]
+            first["has_errors"] = first["has_errors"] or second["has_errors"]
+            # Section error: prefer the absorbed one's error text if first didn't have any
+            if not first.get("section_error") and second.get("section_error"):
+                first["section_error"] = second["section_error"]
+
+            # Drop the second section summary (its fields are now under `first`)
+            section_summaries = [first] + section_summaries[2:]
+            # Re-number sections for the rail (keeps consistent ordering)
+            for new_order, sec in enumerate(section_summaries):
+                sec["order"] = new_order
+
+
     # Rules:
     #  - `condition_met: false` + 0 visible fields → hide (the section
     #    is gated by a condition that isn't satisfied, so there's nothing

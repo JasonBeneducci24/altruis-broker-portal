@@ -1107,6 +1107,35 @@
     border-radius: 4px;
   }
 
+  /* ──────────────────────────────────────────────────────────────
+   * Insured identity hero — used for the merged Application section
+   * Big named insured + entity type + clean address block
+   * ────────────────────────────────────────────────────────────── */
+  .insured-identity {
+    padding: 12px 0 22px;
+    margin-bottom: 26px;
+    border-bottom: 1px solid var(--line-2);
+  }
+  .insured-name {
+    font-size: 1.45rem; font-weight: 600;
+    color: var(--navy); letter-spacing: -0.012em;
+    line-height: 1.18;
+  }
+  .insured-entity {
+    font-size: 0.85rem; color: var(--mute);
+    margin-top: 2px; font-weight: 400;
+    letter-spacing: -0.005em;
+  }
+  .insured-address {
+    margin-top: 14px;
+    color: var(--ink);
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+  .insured-address-line {
+    /* address lines stack without extra spacing — one block */
+  }
+
   /* Locked form-field label — smaller, uppercase eyebrow
      In edit mode, label reverts to normal. */
   .form-field.is-locked { gap: 2px; }
@@ -2616,6 +2645,203 @@ function renderAssetReadBody(section, group, fields) {
 function renderSectionReadBody(section, fields) {
   const visible = fields.filter(f => f.visible !== false);
 
+  // ── Special-case: Insured-anchored merged section ────────────────
+  // When the section contains `insured.name`, render the named insured
+  // as the visual anchor with the mailing address as a clean address
+  // block underneath. The rest of the fields (effective date, etc.)
+  // follow as compact category rows.
+  const insuredName = fields.find(f => f.code === 'insured.name');
+  if (insuredName && hasValue(insuredName)) {
+    return renderInsuredAnchoredBody(section, fields);
+  }
+
+  return renderGenericReadBody(section, visible);
+}
+
+// Insured-anchored body — used for the merged "Application" section that
+// owns insured details + the small Application 1 field set.
+function renderInsuredAnchoredBody(section, fields) {
+  const visible = fields.filter(f => f.visible !== false);
+
+  // ── 1. Identity block: named insured + entity + address ───────────
+  const nameF      = fields.find(f => f.code === 'insured.name');
+  const structureF = fields.find(f => f.code === 'app.named_insured_structure');
+
+  // Address — there are two possible shapes from Joshu:
+  //   (a) Single `insured.location` field — a Location object containing
+  //       address_components and formatted_address. THIS IS THE COMMON CASE.
+  //   (b) Split sub-fields like insured.location.street1, .city, .state, etc.
+  //   (c) Fallback: insured.address as a single formatted string.
+  // We try (a) first since that's what /submission-status returns.
+  const locationF      = fields.find(f => f.code === 'insured.location');
+  const fallbackAddrF  = fields.find(f => f.code === 'insured.address');
+  const subFieldStreet = fields.find(f => /^insured\.(location|split_address)\.street1$/.test(f.code || ''));
+  const subFieldCity   = fields.find(f => /^insured\.(location|split_address)\.city$/.test(f.code || ''));
+
+  let addrLines = [];
+
+  // (a) Location object with address_components
+  if (locationF && locationF.value) {
+    addrLines = extractAddressLinesFromLocation(locationF.value);
+  }
+
+  // (b) Sub-fields fallback
+  if (!addrLines.length && (subFieldStreet || subFieldCity)) {
+    const get = (codePart) => {
+      const f = fields.find(ff => new RegExp(`^insured\\.(location|split_address)\\.${codePart}$`).test(ff.code || ''));
+      return f ? unwrapForInput(f.value) : '';
+    };
+    const s1 = get('street1');
+    const s2 = get('street2');
+    const c  = get('city');
+    const st = get('state');
+    const z  = get('zipcode');
+    const co = get('country');
+    if (s1) addrLines.push(s1);
+    if (s2) addrLines.push(s2);
+    if (c || st || z) {
+      const cityLine = [c, [st, z].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+      if (cityLine) addrLines.push(cityLine);
+    }
+    if (co && co !== 'US' && co !== 'USA') addrLines.push(co);
+  }
+
+  // (c) String fallback
+  if (!addrLines.length && fallbackAddrF && hasValue(fallbackAddrF)) {
+    addrLines.push(unwrapForInput(fallbackAddrF.value));
+  }
+
+  const identityBlock = el('div', { className: 'insured-identity' },
+    el('div', { className: 'insured-name' }, unwrapForInput(nameF.value)),
+    structureF && hasValue(structureF)
+      ? el('div', { className: 'insured-entity' }, unwrapForInput(structureF.value))
+      : null,
+    addrLines.length
+      ? el('div', { className: 'insured-address' },
+          ...addrLines.map(line => el('div', { className: 'insured-address-line' }, line)))
+      : null);
+
+  // Mark the insured fields as claimed so they don't re-render below
+  const claimed = new Set();
+  if (nameF) claimed.add(nameF.code);
+  if (structureF) claimed.add(structureF.code);
+  if (locationF) claimed.add(locationF.code);
+  if (fallbackAddrF) claimed.add(fallbackAddrF.code);
+  // Sub-address fields and internal IDs — never display
+  for (const f of fields) {
+    const c = f.code || '';
+    if (/^insured\.(location|split_address)\./.test(c)) claimed.add(c);
+    if (c === 'insured.id') claimed.add(c);
+  }
+
+  // ── 2. Remaining fields, categorized — Effective Date, etc. ───────
+  const remaining = visible.filter(f => !claimed.has(f.code));
+  const populated = remaining.filter(f => hasValue(f));
+  const requiredEmpty = remaining.filter(f => !hasValue(f) && f.required);
+  const { bools, main: nonBoolPopulated } = partitionPopulatedFromBools(populated);
+
+  // For the insured section we don't need a hero stat block — the named
+  // insured IS the hero. Just render simple category rows.
+  const categorized = categorizeFlatFields(nonBoolPopulated);
+  const visibleCategories = categorized.filter(c => c.fields.length > 0);
+
+  const categoryRows = visibleCategories.map(cat =>
+    el('div', { className: 'asset-cat-row' },
+      el('div', { className: 'asset-cat-label' }, cat.label),
+      cat.style === 'list'
+        ? el('div', { className: 'asset-cat-list' },
+            ...cat.fields.map(f =>
+              el('div', { className: 'asset-cat-list-row' },
+                el('div', { className: 'asset-cat-list-label' }, f.label),
+                el('div', { className: 'asset-cat-list-value' },
+                  formatByType(f, unwrapForInput(f.value))))))
+        : el('div', { className: 'asset-cat-values' },
+            ...cat.fields.flatMap((f, i) => {
+              const text = `${f.label}: ${formatByType(f, unwrapForInput(f.value))}`;
+              const els = [el('span', { className: 'asset-cat-value' }, text)];
+              if (i < cat.fields.length - 1) {
+                els.push(el('span', { className: 'asset-cat-sep' }, '·'));
+              }
+              return els;
+            }))));
+
+  const boolStrip = bools.length > 0
+    ? el('div', { className: 'asset-bool-strip' },
+        ...bools.map(f => renderBoolChip(f)))
+    : null;
+
+  const missing = requiredEmpty.length > 0
+    ? el('div', { className: 'asset-missing' },
+        el('div', { className: 'asset-missing-label' },
+          `${requiredEmpty.length} required field${requiredEmpty.length === 1 ? '' : 's'} not yet filled`),
+        el('div', { className: 'asset-missing-list' },
+          ...requiredEmpty.map(f => el('span', { className: 'asset-missing-item' }, f.label))))
+    : null;
+
+  return el('div', { className: 'flat-section-body insured-section' },
+    identityBlock, ...categoryRows, boolStrip, missing);
+}
+
+// Extract clean address lines from a Joshu Location-typed value.
+// Joshu Location values look like:
+//   { Plain: { Location: { address_components: [...], formatted_address: "...", geometry: {...} } } }
+// or already unwrapped to:
+//   { address_components: [...], formatted_address: "..." }
+// We pull the address_components and rebuild structured lines:
+//   "383 North Front Street"
+//   "Columbus, OH 43215"
+function extractAddressLinesFromLocation(value) {
+  if (!value || typeof value !== 'object') return [];
+  // Walk through Plain/V1/Location wrappers if present
+  let loc = value;
+  if (loc.Plain) loc = loc.Plain;
+  if (loc.V1) loc = loc.V1;
+  if (loc.Location) loc = loc.Location;
+  if (!loc || typeof loc !== 'object') return [];
+
+  const components = loc.address_components;
+  if (!Array.isArray(components) || !components.length) {
+    // Fall back to formatted_address as a single line
+    if (loc.formatted_address) return [String(loc.formatted_address)];
+    return [];
+  }
+
+  // Helper to find an address component by type
+  const find = (type) => {
+    const c = components.find(c => Array.isArray(c.types) && c.types.includes(type));
+    return c ? (c.long_name || c.short_name || '') : '';
+  };
+
+  const streetNumber = find('street_number');
+  const route        = find('route');
+  const subpremise   = find('subpremise');  // unit/apt #
+  const city         = find('locality') || find('postal_town') || find('sublocality');
+  const state        = components.find(c => Array.isArray(c.types) && c.types.includes('administrative_area_level_1'));
+  const stateShort   = state ? (state.short_name || state.long_name || '') : '';
+  const zipcode      = find('postal_code');
+  const country      = components.find(c => Array.isArray(c.types) && c.types.includes('country'));
+  const countryShort = country ? (country.short_name || '') : '';
+
+  const lines = [];
+  // Line 1: "383 North Front Street" (with optional unit suffix)
+  let street = [streetNumber, route].filter(Boolean).join(' ');
+  if (subpremise && street) street = `${street} #${subpremise}`;
+  if (street) lines.push(street);
+
+  // Line 2: "Columbus, OH 43215"
+  const cityLine = [city, [stateShort, zipcode].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  if (cityLine) lines.push(cityLine);
+
+  // Line 3: country (only if not US)
+  if (countryShort && countryShort !== 'US' && countryShort !== 'USA') lines.push(countryShort);
+
+  return lines;
+}
+
+
+// Generic property-listing body — used for sections that aren't insured-anchored.
+function renderGenericReadBody(section, visible) {
+
   // Drop fully-empty fields entirely. The schema may report 30 fields for
   // a section but only 7 are populated — we don't want 23 dashes filling
   // the screen. Required-but-empty fields stay so the broker sees what's
@@ -3052,6 +3278,17 @@ function formatByType(field, value) {
   const label = (field.label || '').toLowerCase();
   const fmt = (field.format || '').toLowerCase();
 
+  // Date: ISO format "2026-05-15" → "May 15, 2026"
+  // Only when the field type is explicitly date OR the value matches an
+  // ISO date pattern. This avoids accidentally reformatting things like
+  // version strings.
+  if (field.type === 'date' || /^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    return formatFriendlyDate(str);
+  }
+  if (field.type === 'datetime' || /^\d{4}-\d{2}-\d{2}T\d{2}:/.test(str)) {
+    return formatFriendlyDate(str.split('T')[0]);
+  }
+
   // Percentage: codes/labels mentioning percent, windhail%, or format=Percentage
   if (fmt === 'percentage' || code.includes('percentage') || code.includes('_percent') ||
       code === 'windhailpercentage' || label.endsWith('%') || label.includes('percentage')) {
@@ -3136,6 +3373,24 @@ function formatNumber(raw) {
     minimumFractionDigits: hasDecimal ? 2 : 0,
     maximumFractionDigits: hasDecimal ? 2 : 0,
   });
+}
+
+// Format an ISO date "2026-05-15" as "May 15, 2026".
+// Doesn't use the Date constructor's local-tz parsing — it splits the
+// string explicitly so 2026-05-15 always reads as May 15 regardless of
+// the user's timezone.
+function formatFriendlyDate(raw) {
+  if (raw === null || raw === undefined || raw === '') return '—';
+  const m = String(raw).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return String(raw);
+  const [, y, mo, d] = m;
+  const months = ['January','February','March','April','May','June',
+                  'July','August','September','October','November','December'];
+  const monthName = months[parseInt(mo, 10) - 1];
+  if (!monthName) return String(raw);
+  // Strip leading zero from day for natural reading
+  const day = parseInt(d, 10);
+  return `${monthName} ${day}, ${y}`;
 }
 
 // ─────────────────────────────────────────────────────────────
