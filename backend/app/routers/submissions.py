@@ -1,6 +1,7 @@
 """Submission endpoints — thin proxy over Joshu."""
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 from typing import Any
 
@@ -49,6 +50,95 @@ async def start_submission(
     }
 
 
+@router.get("/_debug/insured-lookup")
+async def debug_insured_lookup(
+    session=Depends(require_session),
+    client: JoshuClientBase = Depends(get_joshu_client),
+):
+    """Diagnostic endpoint — figure out why insured names aren't appearing.
+
+    Returns a structured report:
+    - submissions_sample: first 3 submission rows from /submissions
+    - policies_sample: first 3 policies from /policies (or error)
+    - policy_count: how many policies were returned overall
+    - policy_id_overlap: do submission policy_ids appear in the policies list?
+    - sample_submission_data: try /submission-data on the first submission
+    """
+    report: dict[str, Any] = {}
+
+    # 1. Get submissions
+    try:
+        subs_result = await client.list_submissions(session["t"], page=1, per_page=10)
+        sub_items = subs_result.items or []
+        report["submissions_count"] = len(sub_items)
+        report["submissions_sample"] = [
+            {
+                "id": (r.get("id") if isinstance(r, dict) else getattr(r, "id", None)),
+                "policy_id": (r.get("policy_id") if isinstance(r, dict) else getattr(r, "policy_id", None)),
+                "status": (r.get("status") if isinstance(r, dict) else getattr(r, "status", None)),
+                "insured_name_in_row": (r.get("insured_name") if isinstance(r, dict) else getattr(r, "insured_name", None)),
+                "all_keys": list(r.keys()) if isinstance(r, dict) else None,
+            }
+            for r in sub_items[:3]
+        ]
+    except Exception as e:
+        report["submissions_error"] = f"{type(e).__name__}: {e}"
+        return report
+
+    # 2. Get policies
+    try:
+        pols_result = await client.list_policies(session["t"], page=1, per_page=50)
+        pol_items = pols_result.items or []
+        report["policies_count"] = len(pol_items)
+        report["policies_sample"] = [
+            {
+                "id": (r.get("id") if isinstance(r, dict) else getattr(r, "id", None)),
+                "insured_name": (r.get("insured_name") if isinstance(r, dict) else getattr(r, "insured_name", None)),
+                "insured_id": (r.get("insured_id") if isinstance(r, dict) else getattr(r, "insured_id", None)),
+                "status": (r.get("status") if isinstance(r, dict) else getattr(r, "status", None)),
+            }
+            for r in pol_items[:3]
+        ]
+
+        # 3. Check overlap between submission policy_ids and policy ids
+        sub_policy_ids = set()
+        for r in sub_items:
+            pid = r.get("policy_id") if isinstance(r, dict) else getattr(r, "policy_id", None)
+            if pid:
+                sub_policy_ids.add(str(pid))
+        pol_ids = set()
+        for r in pol_items:
+            pid = r.get("id") if isinstance(r, dict) else getattr(r, "id", None)
+            if pid:
+                pol_ids.add(str(pid))
+        report["sub_policy_id_count"] = len(sub_policy_ids)
+        report["pol_id_count"] = len(pol_ids)
+        report["overlap_count"] = len(sub_policy_ids & pol_ids)
+        report["sub_policy_id_sample"] = list(sub_policy_ids)[:3]
+        report["pol_id_sample"] = list(pol_ids)[:3]
+    except Exception as e:
+        report["policies_error"] = f"{type(e).__name__}: {e}"
+
+    # 4. Try /submission-data on the first submission
+    try:
+        if sub_items:
+            first = sub_items[0]
+            first_id = first.get("id") if isinstance(first, dict) else getattr(first, "id", None)
+            if first_id:
+                data = await client.get_submission_data(session["t"], first_id)
+                # Just report what 'insured.name' looks like
+                report["sample_submission_id"] = first_id
+                report["sample_data_has_insured_name"] = "insured.name" in (data or {})
+                report["sample_insured_name_value"] = (data or {}).get("insured.name")
+                report["sample_data_keys_count"] = len(data or {})
+                # Sample 5 keys to see the shape
+                report["sample_data_keys"] = list((data or {}).keys())[:10]
+    except Exception as e:
+        report["submission_data_error"] = f"{type(e).__name__}: {e}"
+
+    return report
+
+
 @router.get("")
 async def list_submissions(
     status: str | None = None, flow: str | None = None,
@@ -90,6 +180,7 @@ async def list_submissions(
     # headroom; if more are needed, the user will see "Submission #ID"
     # for the unmapped rows, which is the same behaviour as before.
     policy_name_map: dict[str, str] = {}
+    policies_error: str | None = None
     try:
         policies_result = await client.list_policies(session["t"], page=1, per_page=50)
         for prow in (policies_result.items or []):
@@ -104,13 +195,14 @@ async def list_submissions(
                 pname = prow.get("insured_name")
             if pid and pname and isinstance(pname, str) and pname.strip():
                 policy_name_map[str(pid)] = pname.strip()
-    except Exception:
-        # If the policies fetch fails, we just don't enrich. Worst case
-        # the rows show "Submission #ID" — same as before.
-        pass
+    except Exception as e:
+        # Capture for diagnostics. The frontend ignores this field; it's
+        # there for the /_debug/insured-lookup endpoint.
+        policies_error = f"{type(e).__name__}: {e}"
 
-    # Step 3: assign names from the policy map
-    incomplete_rows: list[dict] = []
+    # Step 3: assign names from the policy map.
+    # Track which rows still need names via the per-row fallback.
+    needs_fallback: list[dict] = []
     for row in items:
         if not isinstance(row, dict):
             continue
@@ -120,26 +212,43 @@ async def list_submissions(
         if pid and pid in policy_name_map:
             row["insured_name"] = policy_name_map[pid]
             continue
-        # Couldn't find a name via policy — queue for the per-row fallback
-        # if the row is Incomplete (i.e. the broker is still working on it).
-        if row.get("status") == "Incomplete":
-            incomplete_rows.append(row)
+        # Couldn't find a name via policy. Queue for per-row fallback.
+        # Apply this to ALL statuses, not just Incomplete — in practice
+        # Joshu's /policies endpoint may not include every submission's
+        # policy (depends on workflow state), so we shouldn't assume the
+        # policy lookup will cover Submitted/Declined/Bound rows.
+        needs_fallback.append(row)
 
-    # Step 4: per-row fallback for Incomplete submissions.
-    # This is N extra API calls but only for incomplete drafts, which is
-    # a small slice in practice. Cap at 10 rows so a page full of drafts
-    # doesn't hammer Joshu.
-    for row in incomplete_rows[:10]:
-        sub_id = row.get("id")
-        if not sub_id:
-            continue
-        try:
-            data = await client.get_submission_data(session["t"], sub_id)
-        except Exception:
-            continue
-        name = _extract_name_from_data_dict(data)
-        if name:
-            row["insured_name"] = name
+    # Step 4: per-row fallback via /submission-data, in parallel.
+    # This is N extra API calls but caps at the page size (25 typical),
+    # and asyncio.gather lets them all run concurrently. Joshu's
+    # /submission-data is a fast endpoint (~200ms each); 25 in parallel
+    # finishes in ~250ms total rather than 5s sequentially.
+    target_rows = needs_fallback[:per_page]
+    if target_rows:
+        async def _fetch_name(row):
+            sub_id = row.get("id")
+            if not sub_id:
+                return (row, None)
+            try:
+                data = await client.get_submission_data(session["t"], sub_id)
+            except Exception:
+                return (row, None)
+            return (row, _extract_name_from_data_dict(data))
+
+        results = await asyncio.gather(*(_fetch_name(r) for r in target_rows))
+        for row, name in results:
+            if name:
+                row["insured_name"] = name
+
+    # Surface a debug header so the browser dev-tools network panel can
+    # show whether the policy lookup succeeded — useful when names still
+    # don't appear and we want to know why without adding visible UI.
+    payload["_meta"] = {
+        "policy_lookup_count": len(policy_name_map),
+        "policy_lookup_error": policies_error,
+        "fallback_attempted": len(needs_fallback[:per_page]),
+    }
 
     return payload
 
