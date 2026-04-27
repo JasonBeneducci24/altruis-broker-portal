@@ -1527,6 +1527,15 @@
     flex-shrink: 0;
     cursor: default;
   }
+  /* Ex Wind variant — same shape, gray tint to read as an exclusion
+     rather than a coverage detail. Mutually exclusive with the standard
+     wind/hail tag (a structure either has W/H coverage with a deductible,
+     OR is ex-wind, never both). */
+  .asset-hero-tag-exwind {
+    background: var(--warn-soft);
+    border-color: var(--line);
+    color: var(--ink-mute);
+  }
   .asset-hero-tag-sep {
     color: var(--line);
     font-weight: 400;
@@ -3462,9 +3471,59 @@ function isAssetExpanded(sectionCode, idx) {
 }
 
 // Render a single collapsible asset card
+// ──────────────────────────────────────────────────────────────
+// Asset numbering and broker-lock helpers
+// ──────────────────────────────────────────────────────────────
+
+// Pick the display number for a structure card. The broker-set
+// `location_number` field value is preferred (so the card matches what
+// the broker entered in Joshu / sees in the list). If the field is
+// missing or empty, fall back to the array index + 1.
+//
+// Why this matters: with 7 storage locations, Joshu may return the
+// assets in any order, so asset_idx=0 might correspond to location_number=2
+// in the broker's data. Using idx+1 produced a confusing off-by-one
+// where a broker's "Location 1" would render as "Structure 2" (etc.).
+function pickAssetDisplayNumber(group) {
+  if (!group?.fields) return (group?.idx ?? 0) + 1;
+  const locField = group.fields.find(f => {
+    const c = (f.code || '').toLowerCase();
+    return c === 'location_number' || c.endsWith('.location_number');
+  });
+  if (locField) {
+    const v = unwrapForInput(locField.value);
+    if (v !== null && v !== undefined && v !== '') {
+      // Number values come through as strings sometimes; normalize.
+      const n = Number(v);
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+  }
+  return (group.idx ?? 0) + 1;
+}
+
+// Field codes that are populated by underwriting AFTER the broker
+// submits, and which the broker should never edit. These render as
+// locked inputs even when the broker is in edit mode on the rest of
+// the asset card.
+const BROKER_LOCKED_FIELD_TAILS = new Set([
+  'ex_wind_status',
+  'windhailpercentage',
+  'wind_hail_dollar_figure',
+]);
+
+function isBrokerLockedField(field) {
+  if (!field?.code) return false;
+  const tail = field.code.toLowerCase().split('.').pop();
+  return BROKER_LOCKED_FIELD_TAILS.has(tail);
+}
+
 function renderAssetCard(section, group, isEditing) {
   const isOpen = isAssetExpanded(section.code, group.idx);
-  const title = pickAssetTitle(group) || `${inferAssetNoun(section, 1)} ${group.idx + 1}`;
+  // Display number — prefer the broker-set location_number field (so the
+  // card label matches what the broker sees in Joshu). Fall back to the
+  // array index + 1 if no location_number field exists for this asset.
+  const displayNum = pickAssetDisplayNumber(group);
+  const title = pickAssetTitle(group) || `${inferAssetNoun(section, 1)} ${displayNum}`;
   const summaryStats = pickAssetSummaryStats(group);
   const pct = group.total > 0 ? Math.round((group.completed / group.total) * 100) : 0;
 
@@ -3474,7 +3533,7 @@ function renderAssetCard(section, group, isEditing) {
     id: `asset-${section.code}-${group.idx}`,
     onClick: () => { toggleAsset(section.code, group.idx); render(); },
   },
-    el('div', { className: 'asset-card-num' }, String(group.idx + 1)),
+    el('div', { className: 'asset-card-num' }, String(displayNum)),
     el('div', { className: 'asset-card-title' }, title),
     el('div', { className: 'asset-card-stats' },
       ...summaryStats.map(f => el('div', { className: 'asset-card-stat' },
@@ -3490,13 +3549,19 @@ function renderAssetCard(section, group, isEditing) {
   //   2. Category rows — CONSTRUCTION, COVERAGE, WIND/HAIL, OCCUPANCY (dense inline)
   //   3. Status chip strip — booleans as ✓/— pills
   //   4. More details — disclosure for anything left over
-  // Edit mode falls back to the full grid so the broker can edit every field.
+  // Edit mode falls back to the full grid so the broker can edit every field —
+  // EXCEPT for underwriter-only risk classification fields (ex_wind_status,
+  // wind/hail deductible) which are populated by underwriting and should
+  // render as locked even when the broker is editing.
   const body = isOpen ? (() => {
     const visible = group.fields.filter(f => f.visible !== false);
     if (isEditing) {
       return el('div', { className: 'asset-card-body is-editing' },
         el('div', { className: 'form-grid' },
-          ...visible.map(f => renderFormField(f, true))));
+          ...visible.map(f => {
+            const locked = isBrokerLockedField(f);
+            return renderFormField(f, isEditing && !locked);
+          })));
     }
     return renderAssetReadBody(section, group, visible);
   })() : null;
@@ -3557,35 +3622,91 @@ function renderAssetReadBody(section, group, fields) {
   const addr = findByTail(nonBool, ['location_address', 'address']);
   const locNum = findByTail(nonBool, ['location_number']);
   const bldgNum = findByTail(nonBool, ['building_number']);
+  // We also peek at blanketed_status (a boolean) and buildings (count) to
+  // format the subtitle correctly. blanketed_status is in `bools`, not
+  // `nonBool`, so look it up in the original fields list.
+  const blanketedStatus = fields.find(f => codeTail(f) === 'blanketed_status');
+  const buildingsCount = findByTail(nonBool, ['buildings', 'building_count']);
   if (addr) heroClaimed.add(addr.code);
   if (locNum) heroClaimed.add(locNum.code);
   if (bldgNum) heroClaimed.add(bldgNum.code);
+  if (buildingsCount) heroClaimed.add(buildingsCount.code);
 
+  // Subtitle format depends on blanket status:
+  //   blanketed = true  →  "Location 1 - Buildings 1-8"
+  //   blanketed = false →  "Location 1 - Building 1"
+  // If blanketed_status field is absent or empty, default to the
+  // not-blanketed format (single building).
   const subtitleParts = [];
   if (locNum && hasValue(locNum)) {
-    subtitleParts.push(`Loc #${formatByType(locNum, unwrapForInput(locNum.value))}`);
-  }
-  if (bldgNum && hasValue(bldgNum)) {
-    subtitleParts.push(`Bldg #${formatByType(bldgNum, unwrapForInput(bldgNum.value))}`);
+    const locVal = unwrapForInput(locNum.value);
+    let subtitle = `Location ${locVal}`;
+    const isBlanketed = blanketedStatus && isTruthyBool(unwrapForInput(blanketedStatus.value));
+    if (isBlanketed) {
+      const count = buildingsCount && hasValue(buildingsCount)
+        ? unwrapForInput(buildingsCount.value)
+        : null;
+      if (count && Number(count) > 1) {
+        subtitle += ` \u2014 Buildings 1-${count}`;
+      } else {
+        subtitle += ' \u2014 Buildings (blanketed)';
+      }
+    } else if (bldgNum && hasValue(bldgNum)) {
+      subtitle += ` \u2014 Building ${unwrapForInput(bldgNum.value)}`;
+    }
+    subtitleParts.push(subtitle);
+  } else if (bldgNum && hasValue(bldgNum)) {
+    // Fallback: no location number, just show building number
+    subtitleParts.push(`Building ${unwrapForInput(bldgNum.value)}`);
   }
 
-  // Wind/Hail tag — sits in the hero header rather than as a body row.
-  // It's a risk attribute of the location, not a "data point" you'd browse.
+  // Risk classification tag — sits in the hero header rather than as a body row.
+  // Shows EITHER:
+  //   • Wind/Hail deductible info (e.g. "5% W/H · $10K min") when the
+  //     building has standard wind/hail coverage, OR
+  //   • "Ex Wind" pill when ex_wind_status is true (no W/H coverage)
+  // These are mutually exclusive and populated by underwriting AFTER the
+  // initial submission is processed — so on a fresh broker submission,
+  // neither will render. They're informational only and not editable
+  // by the broker (locked even in edit mode below).
+  const exWindField = fields.find(f => codeTail(f) === 'ex_wind_status');
+  const isExWind = exWindField && isTruthyBool(unwrapForInput(exWindField.value));
+  if (exWindField) heroClaimed.add(exWindField.code);
+
   const whPctF = findByTail(nonBool, ['windhailpercentage']);
   const whMinF = findByTail(nonBool, ['wind_hail_dollar_figure']);
   const whParts = [];
-  if (whPctF && hasValue(whPctF)) {
-    whParts.push(`${formatByType(whPctF, unwrapForInput(whPctF.value))} W/H`);
-    heroClaimed.add(whPctF.code);
+  if (!isExWind) {
+    if (whPctF && hasValue(whPctF)) {
+      whParts.push(`${formatByType(whPctF, unwrapForInput(whPctF.value))} W/H`);
+      heroClaimed.add(whPctF.code);
+    }
+    if (whMinF && hasValue(whMinF)) {
+      const minVal = formatByType(whMinF, unwrapForInput(whMinF.value));
+      // Compact "$10K min" rather than "$10,000 minimum" — but only when
+      // the dollar amount is a clean multiple of 1000 with no cents.
+      const compact = minVal.replace(/^\$(\d+),000$/, '$$$1K');
+      whParts.push(`${compact} min`);
+      heroClaimed.add(whMinF.code);
+    }
+  } else {
+    // Even if W/H fields exist alongside ex_wind, mark them claimed so
+    // they don't double-render in the "more details" pool.
+    if (whPctF) heroClaimed.add(whPctF.code);
+    if (whMinF) heroClaimed.add(whMinF.code);
   }
-  if (whMinF && hasValue(whMinF)) {
-    const minVal = formatByType(whMinF, unwrapForInput(whMinF.value));
-    // Compact "$10K min" rather than "$10,000 minimum" — but only when
-    // the dollar amount is a clean multiple of 1000 with no cents.
-    const compact = minVal.replace(/^\$(\d+),000$/, '$$$1K');
-    whParts.push(`${compact} min`);
-    heroClaimed.add(whMinF.code);
-  }
+
+  // Build the risk-classification tag(s) for the top right of the card
+  const riskTag = isExWind
+    ? el('div', { className: 'asset-hero-tag asset-hero-tag-exwind', title: 'Ex Wind — no wind/hail coverage' },
+        el('span', { className: 'asset-hero-tag-part' }, 'Ex Wind'))
+    : whParts.length
+      ? el('div', { className: 'asset-hero-tag', title: 'Wind/Hail deductible' },
+          ...whParts.map((p, i) => [
+            el('span', { className: 'asset-hero-tag-part' }, p),
+            i < whParts.length - 1 ? el('span', { className: 'asset-hero-tag-sep' }, '·') : null,
+          ]).flat().filter(Boolean))
+      : null;
 
   const heroTopRow = el('div', { className: 'asset-hero-top' },
     el('div', { className: 'asset-hero-title-block' },
@@ -3593,15 +3714,9 @@ function renderAssetReadBody(section, group, fields) {
         ? el('div', { className: 'asset-hero-addr' }, formatByType(addr, unwrapForInput(addr.value)))
         : null,
       subtitleParts.length
-        ? el('div', { className: 'asset-hero-sub' }, subtitleParts.join(' · '))
+        ? el('div', { className: 'asset-hero-sub' }, subtitleParts.join(' \u00b7 '))
         : null),
-    whParts.length
-      ? el('div', { className: 'asset-hero-tag', title: 'Wind/Hail deductible' },
-          ...whParts.map((p, i) => [
-            el('span', { className: 'asset-hero-tag-part' }, p),
-            i < whParts.length - 1 ? el('span', { className: 'asset-hero-tag-sep' }, '·') : null,
-          ]).flat().filter(Boolean))
-      : null);
+    riskTag);
 
   const hero = el('div', { className: 'asset-hero' },
     heroTopRow,
@@ -3688,14 +3803,16 @@ function renderAssetReadBody(section, group, fields) {
     coinsurance_percentage: (f, v) => `${formatByType(f, v)} coinsurance`,
   });
 
-  // Category: Coverage — limits as a list, label/amount per row
+  // Category: Coverage — limits as a list, label/amount per row.
+  // Quote-document naming and money-only fields. The integer "Buildings"
+  // count is no longer rendered here — it's encoded in the subtitle
+  // (e.g. "Buildings 1-8" when blanketed) instead.
   const coverage = buildList('Coverage', [
-    'bpp_limit', 'ol_2and3_limit', 'annual_sales', 'building_count',
+    'bpp_limit', 'ol_2and3_limit', 'annual_sales',
   ], {
     bpp_limit: (f, v) => ({ label: 'Business Personal Property', value: formatByType(f, v) }),
-    ol_2and3_limit: (f, v) => ({ label: 'Other Liability 2 & 3', value: formatByType(f, v) }),
-    annual_sales: (f, v) => ({ label: 'Annual Sales', value: formatByType(f, v) }),
-    building_count: (f, v) => ({ label: 'Buildings', value: String(v) }),
+    ol_2and3_limit: (f, v) => ({ label: 'Ordinance & Law 2 & 3', value: formatByType(f, v) }),
+    annual_sales: (f, v) => ({ label: 'BI & EE Limit', value: formatByType(f, v) }),
   });
 
   // Wind/Hail moved to hero tag — no body row.
@@ -3709,9 +3826,24 @@ function renderAssetReadBody(section, group, fields) {
   });
 
   // ── 4. Bool strip ──────────────────────────────────
-  const boolStrip = bools.length > 0
+  // Show ONLY building features here (Sprinklered, Surveillance, Fenced,
+  // Automated Gate, Open Sided). Three categories of booleans are excluded:
+  //   • Coverage configuration (gl_only_status, blanketed_status) — these
+  //     either shouldn't render at all (gl_only) or are encoded in the
+  //     subtitle (blanketed → "Buildings 1-8")
+  //   • Underwriter-only risk classification (ex_wind_status) — already
+  //     surfaced as the hero risk tag, doesn't belong as a chip too
+  // The chips remain locked in edit mode for the underwriter-only ones,
+  // but those are already filtered out here so the question is moot for them.
+  const HIDDEN_BOOL_CHIPS = new Set([
+    'gl_only_status',
+    'blanketed_status',
+    'ex_wind_status',
+  ]);
+  const featureBools = bools.filter(f => !HIDDEN_BOOL_CHIPS.has(codeTail(f)));
+  const boolStrip = featureBools.length > 0
     ? el('div', { className: 'asset-bool-strip' },
-        ...bools.map(f => renderBoolChip(f)))
+        ...featureBools.map(f => renderBoolChip(f)))
     : null;
 
   // ── 5. More details — anything not claimed above ──
@@ -4573,10 +4705,11 @@ function renderBoolChip(field) {
 function assetRailItem(section, group) {
   const isDone = group.total > 0 && group.completed === group.total;
   const isOpen = isAssetExpanded(section.code, group.idx);
+  const displayNum = pickAssetDisplayNumber(group);
 
   return el('button', {
     className: `asset-rail-num-item ${isOpen ? 'active' : ''} ${isDone ? 'done' : ''}`,
-    title: `${inferAssetNoun(section, 1)} ${group.idx + 1}`,
+    title: `${inferAssetNoun(section, 1)} ${displayNum}`,
     onClick: () => {
       if (!isAssetExpanded(section.code, group.idx)) {
         toggleAsset(section.code, group.idx);
@@ -4587,7 +4720,7 @@ function assetRailItem(section, group) {
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 60);
     },
-  }, String(group.idx + 1));
+  }, String(displayNum));
 }
 
 function renderFormField(field, isEditing) {
