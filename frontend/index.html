@@ -718,6 +718,175 @@
     box-shadow: 0 0 0 3px rgba(103, 151, 238, 0.15);
   }
 
+  /* ─── Coverage lines (Limits and Coverages section) ──────────── */
+  .coverage-lines-body {
+    display: flex; flex-direction: column;
+    gap: 26px;
+  }
+  .coverage-section { }
+  .coverage-section-head {
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line-2);
+  }
+  .coverage-section-title {
+    font-size: 0.78rem; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 2px;
+  }
+  .coverage-section-subtitle {
+    font-size: 0.85rem; color: var(--ink-mute);
+    font-weight: 400;
+  }
+
+  .coverage-card {
+    background: var(--white);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--radius-md);
+    padding: 18px 20px;
+    margin-bottom: 10px;
+    transition: border-color 0.12s var(--ease);
+  }
+  .coverage-card:last-child { margin-bottom: 0; }
+  .coverage-card-standard {
+    background: var(--white);
+  }
+  .coverage-card-addon.is-included {
+    background: var(--white);
+    border-color: rgba(34, 197, 94, 0.25);  /* subtle green tint when on */
+  }
+  .coverage-card-addon.is-excluded {
+    background: var(--paper, var(--white));
+    border-color: var(--line-2);
+  }
+
+  .coverage-card-head {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 14px;
+  }
+  .coverage-card-title-block {
+    flex: 1; min-width: 0;
+  }
+  .coverage-card-title-row {
+    display: flex; align-items: center; gap: 9px;
+  }
+  .coverage-card-bullet {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .coverage-card-bullet.is-included { background: var(--ok); }
+  .coverage-card-bullet.is-excluded {
+    background: transparent;
+    border: 1px solid var(--line);
+  }
+  .coverage-card-title {
+    font-size: 1rem; font-weight: 600;
+    color: var(--navy, var(--ink));
+    letter-spacing: -0.01em;
+  }
+  .coverage-card-subtitle {
+    font-size: 0.85rem; color: var(--ink-mute);
+    margin-top: 3px;
+    margin-left: 17px;  /* aligns under title (8px bullet + 9px gap) */
+  }
+  .coverage-card-standard .coverage-card-subtitle { margin-left: 0; }
+
+  .coverage-card-pill {
+    font-size: 0.72rem; font-weight: 500;
+    letter-spacing: 0.02em;
+    padding: 3px 9px;
+    border-radius: var(--radius-pill);
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .coverage-card-pill-standard {
+    background: var(--blue-tint);
+    color: var(--blue-deep);
+  }
+  .coverage-card-pill-included {
+    background: var(--ok-soft);
+    color: var(--ok-deep, var(--ok));
+  }
+  .coverage-card-pill-excluded {
+    background: var(--warn-soft);
+    color: var(--warn);
+  }
+
+  .btn-coverage-add, .btn-coverage-remove {
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-family: inherit; font-size: 0.85rem; font-weight: 500;
+    cursor: pointer;
+    transition: all 0.12s var(--ease);
+    flex-shrink: 0;
+  }
+  .btn-coverage-add {
+    color: var(--blue-deep);
+    border-color: var(--blue);
+    background: var(--white);
+  }
+  .btn-coverage-add:hover {
+    background: var(--blue-tint);
+  }
+  .btn-coverage-remove {
+    color: var(--ink-mute);
+  }
+  .btn-coverage-remove:hover {
+    color: var(--err);
+    border-color: var(--err);
+    background: var(--err-soft);
+  }
+
+  /* The fields inside an expanded card use the existing form-grid */
+  .coverage-card-fields {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line-2);
+  }
+
+  .coverage-card-empty,
+  .coverage-card-empty-detail {
+    margin-top: 10px;
+    font-size: 0.88rem;
+    color: var(--ink-mute);
+    font-style: italic;
+  }
+
+  /* Read-mode list — dotted leader between label and value, like the
+     quote document's LIMITS page. */
+  .coverage-readlist {
+    margin-top: 14px;
+    display: flex; flex-direction: column;
+    gap: 8px;
+  }
+  .coverage-readlist-row {
+    display: flex; align-items: baseline;
+    gap: 8px;
+    font-size: 0.92rem;
+  }
+  .coverage-readlist-label {
+    color: var(--ink);
+    flex-shrink: 0;
+    max-width: 60%;
+  }
+  .coverage-readlist-leader {
+    flex: 1;
+    border-bottom: 1px dotted var(--line);
+    margin-bottom: 4px;
+    min-width: 20px;
+  }
+  .coverage-readlist-value {
+    color: var(--navy, var(--ink));
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+    text-align: right;
+  }
+
   /* Mobile: stack the dashboard header */
   @media (max-width: 720px) {
     .dashboard-greeting { font-size: 1.6rem; }
@@ -3119,8 +3288,10 @@ function submissionMainCard(s) {
               ? el('div', { className: 'asset-list' },
                   ...displayedGroups.map(g => renderAssetCard(activeSection, g, isEditing)))
               : isEditing
-                ? el('div', { className: 'form-grid' },
-                    ...activeFields.map(f => renderFormField(f, isEditing)))
+                ? (activeSection.label === 'Limits and Coverages'
+                    ? renderCoverageLinesBody(activeSection, activeFields, true)
+                    : el('div', { className: 'form-grid' },
+                        ...activeFields.map(f => renderFormField(f, isEditing))))
                 : renderSectionReadBody(activeSection, activeFields),
 
         // Section navigation footer (prev/next)
@@ -3591,6 +3762,15 @@ function renderSectionReadBody(section, fields) {
     return renderInsuredAnchoredBody(section, fields);
   }
 
+  // ── Special-case: Limits and Coverages section ───────────────────
+  // Render as 5+ coverage lines (Property, GL = standard always-on;
+  // Equipment Breakdown, Cyber, TRIA, EPLI, Excess, Commercial Auto =
+  // optional add-ons that broker chooses). This mirrors how the
+  // Altruis quote document organizes the same data.
+  if (section.label === 'Limits and Coverages') {
+    return renderCoverageLinesBody(section, fields, false);
+  }
+
   return renderGenericReadBody(section, visible);
 }
 
@@ -3850,6 +4030,349 @@ function renderGenericReadBody(section, visible) {
     : null;
 
   return el('div', { className: 'flat-section-body' }, hero, ...categoryRows, boolStrip, missing);
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Coverage lines body — special rendering for "Limits and Coverages"
+//
+// Mirrors the structure of the Altruis quote document:
+//   STANDARD COVERAGES (always present): Property, General Liability
+//   OPTIONAL ADD-ONS (broker chooses): Equipment Breakdown, Cyber,
+//     TRIA, EPLI, Excess, Commercial Auto
+//
+// Each line bucket is hardcoded below — Joshu's schema doesn't tell us
+// which field belongs to which coverage, so the mapping lives here in
+// business logic. When new fields are added in Joshu, update this.
+// ─────────────────────────────────────────────────────────────────────
+
+const COVERAGE_LINES = [
+  {
+    id: 'property',
+    label: 'Property',
+    standard: true,
+    description: 'Sublimits applied to all locations',
+    // Field codes (final segment) that belong to this line.
+    // We match by field.code.endsWith('.<seg>') for robustness against
+    // namespacing (`app.x` vs `application.x`, etc.).
+    fieldCodes: [
+      'pollutantcleanuplim',
+      'waterbackuplimit',
+      'PapersandRecords',
+      'BI_days_limit',
+      'Extended_BI_days_limit',
+      'increased_signs',
+      'increased_gatesandfences',
+      'increased_treesandshrubs',
+    ],
+  },
+  {
+    id: 'general_liability',
+    label: 'General Liability',
+    standard: true,
+    description: 'Limits apply per location',
+    fieldCodes: [
+      'GL_limits',
+      'SDLL_limit',
+      'CGLL_limit',
+      'med_pay_limit',
+    ],
+  },
+  {
+    id: 'equipment_breakdown',
+    label: 'Equipment Breakdown',
+    standard: false,
+    description: 'Coverage for mechanical/electrical equipment failure',
+    statusCode: 'equipment_breakdown_status',
+    detailCodes: ['EB_sublimit'],
+    defaultOnAdd: { 'EB_sublimit': '$25,000' },
+  },
+  {
+    id: 'cyber',
+    label: 'Cyber Liability',
+    standard: false,
+    description: 'Data breach and cyber incident coverage',
+    statusCode: 'cyber_status',
+    detailCodes: ['cyber_limit'],
+    defaultOnAdd: { 'cyber_limit': '$50,000' },
+  },
+  {
+    id: 'tria',
+    label: 'Terrorism (TRIA)',
+    standard: false,
+    description: 'Federal Terrorism Risk Insurance Act coverage',
+    statusCode: 'tria_status',
+    detailCodes: [],
+    defaultOnAdd: {},
+  },
+  {
+    id: 'epli',
+    label: 'EPLI',
+    standard: false,
+    description: 'Employment Practices Liability',
+    statusCode: 'EPLIstatus',
+    detailCodes: ['EPLIagg', 'EPLIserp', 'fulltimeemployees', 'parttimeemployees'],
+    defaultOnAdd: {},
+  },
+  {
+    id: 'excess',
+    label: 'Excess',
+    standard: false,
+    description: 'Excess umbrella liability',
+    statusCode: 'excess_status',
+    detailCodes: [],
+    defaultOnAdd: {},
+  },
+  {
+    id: 'commercial_auto',
+    label: 'Commercial Auto',
+    standard: false,
+    description: 'Hired and non-owned auto coverage',
+    statusCode: 'commercial_auto_status',
+    detailCodes: ['PPT_count', 'light_truck_count', 'medium_truck_count', 'heavy_truck_count'],
+    defaultOnAdd: {},
+  },
+];
+
+// Match a field to a line.fieldCodes / line.statusCode / line.detailCodes
+// entry, accounting for the namespace prefix Joshu uses (e.g. `app.cyber_status`
+// matches `cyber_status`). Case-insensitive.
+function fieldMatchesCode(field, candidateCode) {
+  if (!field || !field.code || !candidateCode) return false;
+  const tail = field.code.split('.').pop().toLowerCase();
+  return tail === candidateCode.toLowerCase();
+}
+
+// Find a field in a fields array by its tail code.
+function findFieldByTail(fields, tailCode) {
+  return fields.find(f => fieldMatchesCode(f, tailCode));
+}
+
+// Get the current "live" boolean value of a status field, considering
+// any pending dirty edit. Returns true/false.
+function liveBoolValue(field) {
+  if (!field) return false;
+  const dirty = state.submissionDirty[field.code];
+  const raw = dirty !== undefined ? dirty : unwrapForInput(field.value);
+  if (typeof raw === 'boolean') return raw;
+  if (raw === 1 || raw === '1' || raw === 'true' || raw === 'Yes') return true;
+  return false;
+}
+
+function renderCoverageLinesBody(section, fields, isEditing) {
+  // Bucket every field into a line (or "uncategorized"). Track which
+  // fields haven't been claimed by any line so we can surface them at
+  // the bottom in case Joshu adds new fields we didn't anticipate.
+  const claimed = new Set();
+  const linesWithFields = COVERAGE_LINES.map(line => {
+    const lineFields = [];
+    const codesToCheck = [
+      ...(line.fieldCodes || []),
+      ...(line.statusCode ? [line.statusCode] : []),
+      ...(line.detailCodes || []),
+    ];
+    for (const code of codesToCheck) {
+      const f = findFieldByTail(fields, code);
+      if (f && !claimed.has(f.code)) {
+        lineFields.push(f);
+        claimed.add(f.code);
+      }
+    }
+    return { ...line, fields: lineFields };
+  });
+
+  // Anything left over (visible but unclaimed) — render as a fallback
+  // section so we don't silently lose fields.
+  const orphans = fields.filter(f =>
+    f.visible !== false &&
+    !claimed.has(f.code)
+  );
+
+  // Render
+  return el('div', { className: 'coverage-lines-body' },
+    // Standard coverages section
+    el('div', { className: 'coverage-section coverage-section-standard' },
+      el('div', { className: 'coverage-section-head' },
+        el('div', { className: 'coverage-section-title' }, 'Standard Coverages'),
+        el('div', { className: 'coverage-section-subtitle' },
+          'Always part of your policy')),
+      ...linesWithFields
+        .filter(l => l.standard)
+        .map(l => renderCoverageLineCard(l, isEditing))),
+
+    // Optional add-ons section
+    el('div', { className: 'coverage-section coverage-section-optional' },
+      el('div', { className: 'coverage-section-head' },
+        el('div', { className: 'coverage-section-title' }, 'Optional Add-ons'),
+        el('div', { className: 'coverage-section-subtitle' },
+          isEditing
+            ? 'Choose which additional coverages to include'
+            : 'Additional coverages on this submission')),
+      ...linesWithFields
+        .filter(l => !l.standard)
+        .map(l => renderCoverageLineCard(l, isEditing))),
+
+    // Orphan fields (defensive — shows up if Joshu adds fields we don't map)
+    orphans.length > 0
+      ? el('div', { className: 'coverage-section coverage-section-other' },
+          el('div', { className: 'coverage-section-head' },
+            el('div', { className: 'coverage-section-title' }, 'Other Coverage Fields'),
+            el('div', { className: 'coverage-section-subtitle' },
+              'These fields aren\u2019t yet grouped into a coverage line.')),
+          el('div', { className: 'form-grid coverage-orphan-grid' },
+            ...orphans.map(f => renderFormField(f, isEditing))))
+      : null);
+}
+
+function renderCoverageLineCard(line, isEditing) {
+  if (line.standard) {
+    return renderStandardCoverageCard(line, isEditing);
+  }
+  return renderAddOnCoverageCard(line, isEditing);
+}
+
+// Standard coverage card — always expanded, shows all sublimits.
+// Property and General Liability use this.
+function renderStandardCoverageCard(line, isEditing) {
+  if (!line.fields.length) {
+    // No fields mapped from Joshu — render an informational placeholder
+    return el('div', { className: 'coverage-card coverage-card-standard' },
+      el('div', { className: 'coverage-card-head' },
+        el('div', { className: 'coverage-card-title' }, line.label),
+        el('div', { className: 'coverage-card-pill coverage-card-pill-standard' }, 'Standard')),
+      el('div', { className: 'coverage-card-empty' },
+        line.description || 'No fields configured.'));
+  }
+
+  return el('div', { className: 'coverage-card coverage-card-standard' },
+    el('div', { className: 'coverage-card-head' },
+      el('div', { className: 'coverage-card-title-block' },
+        el('div', { className: 'coverage-card-title' }, line.label),
+        line.description
+          ? el('div', { className: 'coverage-card-subtitle' }, line.description)
+          : null),
+      el('div', { className: 'coverage-card-pill coverage-card-pill-standard' }, 'Standard')),
+    isEditing
+      ? el('div', { className: 'form-grid coverage-card-fields' },
+          ...line.fields.map(f => renderFormField(f, true)))
+      : renderCoverageReadList(line.fields));
+}
+
+// Add-on coverage card — collapses when status=false, expands when true.
+// Includes the status toggle and any detail fields.
+function renderAddOnCoverageCard(line, isEditing) {
+  // Find the status field (e.g. cyber_status)
+  const statusField = line.statusCode
+    ? line.fields.find(f => fieldMatchesCode(f, line.statusCode))
+    : null;
+  const isIncluded = statusField ? liveBoolValue(statusField) : false;
+
+  // Detail fields (anything in the line that isn't the status field)
+  const detailFields = line.fields.filter(f => f !== statusField);
+
+  // ── READ MODE ────────────────────────────────────────
+  if (!isEditing) {
+    return el('div', {
+      className: `coverage-card coverage-card-addon ${isIncluded ? 'is-included' : 'is-excluded'}`
+    },
+      el('div', { className: 'coverage-card-head' },
+        el('div', { className: 'coverage-card-title-block' },
+          el('div', { className: 'coverage-card-title-row' },
+            el('span', { className: `coverage-card-bullet ${isIncluded ? 'is-included' : 'is-excluded'}` }),
+            el('div', { className: 'coverage-card-title' }, line.label)),
+          line.description
+            ? el('div', { className: 'coverage-card-subtitle' }, line.description)
+            : null),
+        el('div', {
+          className: `coverage-card-pill ${isIncluded ? 'coverage-card-pill-included' : 'coverage-card-pill-excluded'}`
+        }, isIncluded ? 'Included' : 'Not added')),
+      isIncluded && detailFields.length > 0
+        ? renderCoverageReadList(detailFields)
+        : null);
+  }
+
+  // ── EDIT MODE ────────────────────────────────────────
+  return el('div', {
+    className: `coverage-card coverage-card-addon ${isIncluded ? 'is-included' : 'is-excluded'}`
+  },
+    el('div', { className: 'coverage-card-head' },
+      el('div', { className: 'coverage-card-title-block' },
+        el('div', { className: 'coverage-card-title-row' },
+          el('span', { className: `coverage-card-bullet ${isIncluded ? 'is-included' : 'is-excluded'}` }),
+          el('div', { className: 'coverage-card-title' }, line.label)),
+        line.description
+          ? el('div', { className: 'coverage-card-subtitle' }, line.description)
+          : null),
+      // Add / Remove button
+      statusField
+        ? el('button', {
+            className: isIncluded ? 'btn-coverage-remove' : 'btn-coverage-add',
+            onClick: () => toggleCoverageLine(line, !isIncluded),
+          }, isIncluded ? 'Remove' : '+ Add')
+        : null),
+    // Detail fields appear only when included
+    isIncluded && detailFields.length > 0
+      ? el('div', { className: 'form-grid coverage-card-fields' },
+          ...detailFields.map(f => renderFormField(f, true)))
+      : null);
+}
+
+// Toggle a coverage line on/off. Sets the status field's dirty value
+// and (when adding) populates default values for the detail fields.
+function toggleCoverageLine(line, turnOn) {
+  if (!line.statusCode) return;
+  // Find the status field's full code (e.g. "app.cyber_status")
+  const allFields = state.submissionForm?.fields || [];
+  const statusField = allFields.find(f => fieldMatchesCode(f, line.statusCode));
+  if (!statusField) return;
+
+  state.submissionDirty[statusField.code] = turnOn;
+
+  if (turnOn && line.defaultOnAdd) {
+    // Populate any default sub-field values, BUT only if they're not
+    // already set (avoid clobbering an existing value).
+    for (const [tail, defaultVal] of Object.entries(line.defaultOnAdd)) {
+      const detailField = allFields.find(f => fieldMatchesCode(f, tail));
+      if (!detailField) continue;
+      const currentlySet = unwrapForInput(detailField.value);
+      const dirtySet = state.submissionDirty[detailField.code];
+      // Only set the default if neither the current value nor a dirty
+      // value is already populated. This prevents overwriting prior data
+      // when the broker toggles off then on again.
+      if (!currentlySet && dirtySet === undefined) {
+        state.submissionDirty[detailField.code] = defaultVal;
+      }
+    }
+  } else if (!turnOn) {
+    // When removing a coverage, ALSO clear its detail fields so they
+    // don't show up on the resulting quote with stale values. Setting
+    // them to '' / null tells Joshu to clear the data point.
+    for (const tail of (line.detailCodes || [])) {
+      const detailField = allFields.find(f => fieldMatchesCode(f, tail));
+      if (!detailField) continue;
+      state.submissionDirty[detailField.code] = null;
+    }
+  }
+
+  scheduleAutoSave();
+  render();
+}
+
+// Read-mode list — quote-document style with dotted leader between
+// each label and its value. Mirrors the look of the LIMITS page in
+// the Altruis quote PDF.
+function renderCoverageReadList(fields) {
+  const populated = fields.filter(f => hasValue(f));
+  if (populated.length === 0) {
+    return el('div', { className: 'coverage-card-empty-detail' },
+      'No values configured for this coverage.');
+  }
+  return el('div', { className: 'coverage-readlist' },
+    ...populated.map(f =>
+      el('div', { className: 'coverage-readlist-row' },
+        el('div', { className: 'coverage-readlist-label' }, f.label),
+        el('div', { className: 'coverage-readlist-leader' }),
+        el('div', { className: 'coverage-readlist-value' },
+          formatByType(f, unwrapForInput(f.value))))));
 }
 
 // Same as partitionAssetFields, but pre-filtered to populated fields only.
