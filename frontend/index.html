@@ -515,6 +515,209 @@
     font-size: 0.9rem; color: var(--ink-mute, var(--mute));
   }
 
+  /* ─── Header search bar ─────────────────────────────────────────── */
+  .dashboard-header-actions {
+    display: flex; align-items: stretch; gap: 12px;
+    flex-shrink: 0;
+  }
+  .header-search { position: relative; }
+  .header-search-input-wrap {
+    position: relative;
+    display: flex; align-items: center;
+  }
+  .header-search-icon {
+    position: absolute; left: 12px;
+    color: var(--mute);
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+  }
+  .header-search-icon svg { width: 16px; height: 16px; }
+  .header-search-input {
+    width: 280px;
+    padding: 10px 14px 10px 36px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--white);
+    font-size: 0.92rem;
+    color: var(--ink);
+    font-family: inherit;
+    transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+  }
+  .header-search-input:focus {
+    outline: none;
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(103, 151, 238, 0.15);
+  }
+  .header-search-input::placeholder { color: var(--mute); }
+  .header-search-results {
+    position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+    background: var(--white);
+    border: 1px solid var(--line-soft);
+    border-radius: 8px;
+    box-shadow: var(--shadow-md);
+    max-height: 360px; overflow-y: auto;
+    z-index: 50;
+  }
+  .header-search-result {
+    display: block; width: 100%;
+    padding: 10px 14px;
+    text-align: left; cursor: pointer;
+    background: transparent; border: 0;
+    border-bottom: 1px solid var(--line-2);
+    font-family: inherit;
+    transition: background-color 0.1s var(--ease);
+  }
+  .header-search-result:last-child { border-bottom: 0; }
+  .header-search-result:hover { background: var(--blue-tint); }
+  .header-search-result-name {
+    font-size: 0.92rem; font-weight: 500;
+    color: var(--navy, var(--ink));
+    margin-bottom: 2px;
+  }
+  .header-search-result-meta {
+    font-size: 0.78rem; color: var(--mute);
+    font-variant-numeric: tabular-nums;
+  }
+  .header-search-empty {
+    padding: 14px 16px;
+    font-size: 0.85rem; color: var(--mute);
+  }
+
+  /* ─── Attention panel ──────────────────────────────────────────── */
+  .attention-panel {
+    background: var(--white);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--radius-lg);
+    margin-bottom: 28px;
+    overflow: hidden;
+  }
+  .attention-panel-head {
+    padding: 18px 28px 14px;
+    border-bottom: 1px solid var(--line-2);
+  }
+  .attention-panel-title {
+    font-size: 0.78rem; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+  .attention-panel-body {
+    display: flex; flex-direction: column;
+  }
+  .attention-lane {
+    display: flex; align-items: flex-start;
+    gap: 14px;
+    padding: 16px 28px;
+    border: 0; background: transparent;
+    border-top: 1px solid var(--line-2);
+    cursor: pointer; text-align: left;
+    font-family: inherit;
+    width: 100%;
+    transition: background-color 0.12s var(--ease);
+  }
+  .attention-lane:first-child { border-top: 0; }
+  .attention-lane:hover { background: var(--blue-tint); }
+  .attention-lane-bullet {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--mute);
+    margin-top: 8px;
+    flex-shrink: 0;
+  }
+  .attention-lane-priority .attention-lane-bullet {
+    background: var(--blue);
+    box-shadow: 0 0 0 4px rgba(103, 151, 238, 0.18);
+  }
+  .attention-lane-text {
+    flex: 1; min-width: 0;
+  }
+  .attention-lane-title {
+    font-size: 1rem; font-weight: 500;
+    color: var(--navy, var(--ink));
+    margin-bottom: 3px;
+    letter-spacing: -0.005em;
+  }
+  .attention-lane-priority .attention-lane-title { font-weight: 600; }
+  .attention-lane-detail {
+    font-size: 0.85rem; color: var(--ink-mute);
+  }
+  .attention-lane-cta {
+    font-size: 0.88rem; font-weight: 500;
+    color: var(--blue);
+    flex-shrink: 0;
+    margin-top: 2px;
+    transition: color 0.12s var(--ease);
+  }
+  .attention-lane:hover .attention-lane-cta { color: var(--blue-hover); }
+  .attention-panel-empty {
+    padding: 28px 32px;
+    background: var(--white);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--radius-lg);
+    margin-bottom: 28px;
+  }
+  .attention-panel-empty-title {
+    font-size: 1.05rem; font-weight: 500;
+    color: var(--navy, var(--ink));
+    margin-bottom: 4px;
+  }
+  .attention-panel-empty-body {
+    font-size: 0.9rem; color: var(--ink-mute);
+  }
+
+  /* ─── Scope toggle (My book / Agency) ──────────────────────────── */
+  .pipeline-panel-actions {
+    display: flex; align-items: center; gap: 14px;
+  }
+  .scope-toggle {
+    display: inline-flex;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--white);
+  }
+  .scope-toggle-btn {
+    padding: 6px 12px;
+    background: transparent;
+    border: 0; border-right: 1px solid var(--line);
+    font-family: inherit; font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--ink-mute);
+    cursor: pointer;
+    transition: all 0.12s var(--ease);
+  }
+  .scope-toggle-btn:last-child { border-right: 0; }
+  .scope-toggle-btn:hover { color: var(--ink); }
+  .scope-toggle-btn.active {
+    background: var(--blue-tint);
+    color: var(--blue-deep);
+  }
+
+  /* ─── Recent filters ────────────────────────────────────────────── */
+  .recent-section-actions {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .recent-filter-select {
+    padding: 6px 28px 6px 12px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--white);
+    font-family: inherit; font-size: 0.82rem;
+    color: var(--ink);
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238892a6' stroke-width='2.5' stroke-linecap='round'%3e%3cpolyline points='6 9 12 15 18 9'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    transition: border-color 0.12s var(--ease);
+  }
+  .recent-filter-select:hover { border-color: var(--mute); }
+  .recent-filter-select:focus {
+    outline: none;
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(103, 151, 238, 0.15);
+  }
+
   /* Mobile: stack the dashboard header */
   @media (max-width: 720px) {
     .dashboard-greeting { font-size: 1.6rem; }
@@ -522,6 +725,10 @@
     .pipeline-big-number-value { font-size: 2rem; }
     .pipeline-stats { gap: 16px 22px; }
     .recent-row { padding: 14px 16px; }
+    .header-search-input { width: 100%; }
+    .dashboard-header-actions { width: 100%; }
+    .recent-section-head { flex-wrap: wrap; gap: 10px; }
+    .recent-section-actions { flex-wrap: wrap; }
   }
 
   /* ─────────── Filter tabs + search ─────────── */
@@ -1821,6 +2028,13 @@ const state = {
   selectedPolicy: null,
   // Dashboard filter
   filter: { tab: 'all', search: '' },
+  // Dashboard local UI state
+  dashboard: {
+    search: '',                  // search query in the page header
+    scope: 'mine',               // 'mine' | 'agency' — pipeline panel toggle
+    recentStatus: 'all',         // 'all' | 'incomplete' | 'submitted' | 'declined' | 'bound'
+    recentFlow: 'all',           // 'all' | 'New' | 'Renewal' | 'Endorsement' | 'Cancellation'
+  },
 };
 
 function render() {
@@ -2048,81 +2262,421 @@ async function loadView() {
 // ═════════════════════════════════════════════════════════════════
 function dashboardView() {
   const subs = state.submissions.items || [];
+  const quotes = state.quotes.items || [];
+  const policies = state.policies.items || [];
+
+  // ── Pipeline counts (always over the full set, not filtered) ───────
   const total = subs.length;
   const drafts = subs.filter(s => s.status === 'Incomplete').length;
   const inUw = subs.filter(s => s.status === 'Submitted' || s.status === 'Pending').length;
   const declined = subs.filter(s => s.status === 'Declined').length;
-  // "Quoted" — submissions with a published quote available. Approximate
-  // by counting state.quotes that aren't bound yet, since we don't link
-  // quotes back to submissions on the dashboard payload.
-  const openQuotes = state.quotes.total || 0;
-  const policiesInForce = state.policies.total || 0;
 
-  // Most recent submissions — show 8, larger rows
-  const recent = [...subs]
-    .sort((a, b) => new Date(b.modified_at || b.created_at) - new Date(a.modified_at || a.created_at))
-    .slice(0, 8);
-
-  // Greeting based on time of day
+  // ── Greeting ───────────────────────────────────────────────────────
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning'
-    : hour < 17 ? 'Good afternoon'
-    : 'Good evening';
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const firstName = (state.user.name || state.user.email || 'Broker').split(' ')[0]
-    .replace(/\d/g, '');  // strip digits in case username is "Jasonbeneducci2"
+    .replace(/\d+$/, '');  // strip trailing digits ("Jasonbeneducci2" → "Jasonbeneducci")
+
+  // ── Compute the four attention lanes ──────────────────────────────
+  const attentionLanes = computeAttentionLanes(subs, quotes, policies);
 
   return el('div', { className: 'dashboard' },
-    // Header — greeting + new submission CTA
+    // Page header — greeting on left, search + new submission on right
     el('div', { className: 'dashboard-header' },
       el('div', { className: 'dashboard-header-left' },
         el('h1', { className: 'dashboard-greeting' }, `${greeting}, ${firstName}.`),
         el('div', { className: 'dashboard-subgreeting' },
           'Here\u2019s what your pipeline looks like today.')),
-      el('button', { className: 'btn btn-primary',
-        onClick: () => { state.view = 'new-submission'; render(); } },
-        'New submission')),
+      el('div', { className: 'dashboard-header-actions' },
+        renderHeaderSearch(subs),
+        el('button', { className: 'btn btn-primary',
+          onClick: () => { state.view = 'new-submission'; render(); } },
+          'New submission'))),
 
-    // Pipeline overview — consolidated, no tiles
+    // ── Attention panel ─────────────────────────────────────────────
+    renderAttentionPanel(attentionLanes),
+
+    // ── Pipeline panel — with My book / Agency toggle ───────────────
     el('div', { className: 'pipeline-panel' },
       el('div', { className: 'pipeline-panel-head' },
         el('div', { className: 'pipeline-panel-title' }, 'Pipeline'),
-        el('button', { className: 'btn btn-ghost btn-sm',
-          onClick: () => { state.view = 'submissions'; render(); loadView(); } },
-          'View all submissions \u2192')),
+        el('div', { className: 'pipeline-panel-actions' },
+          renderScopeToggle(),
+          el('button', { className: 'btn btn-ghost btn-sm',
+            onClick: () => { state.view = 'submissions'; render(); loadView(); } },
+            'View all submissions \u2192'))),
 
-      // Big number — total active items
       el('div', { className: 'pipeline-big-number' },
         el('div', { className: 'pipeline-big-number-value' }, String(total)),
         el('div', { className: 'pipeline-big-number-label' },
           total === 1 ? 'submission' : 'submissions')),
 
-      // Segmented bar — visual breakdown
-      total > 0 ? renderPipelineSegments(total, { drafts, inUw, declined }) : null,
+      total > 0 ? renderPipelineSegments(total, { drafts, inUw, declined }) : null),
 
-      // Stat strip — clean, prose-style row instead of stacked cards
-      el('div', { className: 'pipeline-stats' },
-        pipelineStat(drafts, drafts === 1 ? 'draft in progress' : 'drafts in progress',
-          () => { state.view = 'submissions'; state.filter.tab = 'drafts'; render(); loadView(); }),
-        pipelineStat(inUw, inUw === 1 ? 'awaiting quote' : 'awaiting quote',
-          () => { state.view = 'submissions'; state.filter.tab = 'submitted'; render(); loadView(); }),
-        pipelineStat(openQuotes, openQuotes === 1 ? 'open quote' : 'open quotes',
-          () => { state.view = 'quotes'; render(); loadView(); }),
-        pipelineStat(policiesInForce, policiesInForce === 1 ? 'policy in force' : 'policies in force',
-          () => { state.view = 'policies'; render(); loadView(); }))),
+    // ── Recent activity — with status + flow filters, relative time ─
+    renderRecentActivity(subs)
+  );
+}
 
-    // Recent submissions — primary work surface
-    el('div', { className: 'recent-section' },
-      el('div', { className: 'recent-section-head' },
-        el('h2', { className: 'recent-section-title' }, 'Recent submissions'),
+// ─── Header search bar ───────────────────────────────────────────────
+// Free-text filter on insured name OR submission #. Inline result list
+// appears beneath when there's input. Click result → jumps to that
+// submission's detail view.
+function renderHeaderSearch(subs) {
+  const query = state.dashboard.search.trim().toLowerCase();
+  const showResults = query.length >= 2;
+
+  let matches = [];
+  if (showResults) {
+    matches = subs.filter(s => {
+      const name = (extractInsuredName(s) || '').toLowerCase();
+      const id = String(s.id || '');
+      return name.includes(query) || id.includes(query);
+    }).slice(0, 6);
+  }
+
+  return el('div', { className: 'header-search' },
+    el('div', { className: 'header-search-input-wrap' },
+      el('span', { className: 'header-search-icon' }, searchIconSvg()),
+      el('input', {
+        type: 'search',
+        className: 'header-search-input',
+        placeholder: 'Search insured or submission #',
+        value: state.dashboard.search,
+        onInput: (e) => {
+          state.dashboard.search = e.target.value;
+          // Re-render only the search dropdown — full re-render is cheap
+          // here because the dashboard is light, so just call render().
+          render();
+        },
+      })),
+    showResults && matches.length > 0
+      ? el('div', { className: 'header-search-results' },
+          ...matches.map(s => el('button', {
+            className: 'header-search-result',
+            onClick: () => {
+              state.view = 'submissions';
+              state.subView = s.id;
+              state.dashboard.search = '';
+              loadSubmission(s.id);
+            }
+          },
+            el('div', { className: 'header-search-result-name' },
+              extractInsuredName(s) || `Submission #${s.id}`),
+            el('div', { className: 'header-search-result-meta' },
+              `#${s.id} \u00b7 ${friendlyFlow(s.flow)} \u00b7 ${s.status}`))))
+      : showResults
+      ? el('div', { className: 'header-search-results' },
+          el('div', { className: 'header-search-empty' }, 'No matches'))
+      : null);
+}
+
+function searchIconSvg() {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '1.7');
+  svg.setAttribute('stroke-linecap', 'round');
+  const c = document.createElementNS(ns, 'circle');
+  c.setAttribute('cx', '11'); c.setAttribute('cy', '11'); c.setAttribute('r', '7');
+  const l = document.createElementNS(ns, 'line');
+  l.setAttribute('x1', '20'); l.setAttribute('y1', '20');
+  l.setAttribute('x2', '16'); l.setAttribute('y2', '16');
+  svg.appendChild(c); svg.appendChild(l);
+  return svg;
+}
+
+// ─── Scope toggle (My book / Agency) ─────────────────────────────────
+function renderScopeToggle() {
+  return el('div', { className: 'scope-toggle' },
+    el('button', {
+      className: `scope-toggle-btn ${state.dashboard.scope === 'mine' ? 'active' : ''}`,
+      onClick: () => { state.dashboard.scope = 'mine'; render(); }
+    }, 'My book'),
+    el('button', {
+      className: `scope-toggle-btn ${state.dashboard.scope === 'agency' ? 'active' : ''}`,
+      onClick: () => { state.dashboard.scope = 'agency'; render(); }
+    }, 'Agency'));
+}
+
+// ─── Compute the 4 attention lanes ───────────────────────────────────
+// Returns an object describing what's actionable in each lane.
+function computeAttentionLanes(subs, quotes, policies) {
+  // Lane 1: Quotes ready for review
+  // A "ready quote" = a quote whose status indicates the underwriter
+  // has finished and the broker needs to act. QuotePublished and
+  // BinderPublished are the two main "broker-actionable" states.
+  const readyQuotes = (quotes || []).filter(q =>
+    q.status === 'QuotePublished' ||
+    q.status === 'BinderPublished' ||
+    q.status === 'QuoteIndication'
+  );
+  // Break down ready quotes by the flow of the underlying submission
+  // (so we can say "1 new policy, 1 endorsement, 1 renewal").
+  // We need to look up each quote's submission_id in the subs list.
+  const flowsForReady = readyQuotes.reduce((acc, q) => {
+    const sub = subs.find(s => s.id === q.submission_id || s.unique_id === q.submission_id);
+    const flow = sub?.flow || 'New';
+    acc[flow] = (acc[flow] || 0) + 1;
+    return acc;
+  }, {});
+  const earliestReadyQuote = readyQuotes
+    .map(q => ({ q, sub: subs.find(s => s.id === q.submission_id) }))
+    .filter(x => x.sub)
+    .sort((a, b) => new Date(a.q.created_at || 0) - new Date(b.q.created_at || 0))[0];
+
+  // Lane 2: Drafts in progress
+  const draftSubs = subs
+    .filter(s => s.status === 'Incomplete')
+    .sort((a, b) => new Date(b.modified_at || b.created_at) - new Date(a.modified_at || a.created_at));
+  const oldestDraft = draftSubs[draftSubs.length - 1];
+
+  // Lane 3: Renewals coming up (next 60 days)
+  // We need policies with renews_at within the window.
+  const now = new Date();
+  const sixtyDaysOut = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);
+  const renewals = (policies || []).filter(p => {
+    if (!p.renews_at) return false;
+    const r = new Date(p.renews_at);
+    return r >= now && r <= sixtyDaysOut;
+  }).sort((a, b) => new Date(a.renews_at) - new Date(b.renews_at));
+  const earliestRenewal = renewals[0];
+
+  // Lane 4: Recently declined
+  const declinedSubs = subs
+    .filter(s => s.status === 'Declined')
+    .sort((a, b) => new Date(b.declined_at || b.modified_at || 0) - new Date(a.declined_at || a.modified_at || 0));
+
+  return {
+    readyQuotes: {
+      count: readyQuotes.length,
+      flows: flowsForReady,
+      earliestQuote: earliestReadyQuote?.q,
+      earliestSub: earliestReadyQuote?.sub,
+    },
+    drafts: {
+      count: draftSubs.length,
+      latest: draftSubs[0],
+      oldest: oldestDraft,
+    },
+    renewals: {
+      count: renewals.length,
+      earliest: earliestRenewal,
+    },
+    declined: {
+      count: declinedSubs.length,
+      mostRecent: declinedSubs[0],
+    },
+  };
+}
+
+// ─── Attention panel (4 lanes) ──────────────────────────────────────
+function renderAttentionPanel(lanes) {
+  // Suppress the panel entirely if there's nothing actionable.
+  const anyLane = lanes.readyQuotes.count + lanes.drafts.count
+    + lanes.renewals.count + lanes.declined.count;
+  if (anyLane === 0) {
+    return el('div', { className: 'attention-panel attention-panel-empty' },
+      el('div', { className: 'attention-panel-empty-title' }, 'You\u2019re all caught up.'),
+      el('div', { className: 'attention-panel-empty-body' },
+        'No quotes to review, drafts to finish, or renewals coming up.'));
+  }
+
+  const items = [];
+
+  // Lane 1: Quotes ready for review
+  if (lanes.readyQuotes.count > 0) {
+    const q = lanes.readyQuotes;
+    const flowParts = Object.entries(q.flows).map(([flow, n]) => {
+      const label = flow === 'Endorsement' ? 'endorsement'
+        : flow === 'Renewal' ? 'renewal'
+        : flow === 'Cancellation' ? 'cancellation'
+        : 'new policy';
+      return n === 1 ? `1 ${label}` : `${n} ${label}s`;
+    });
+    let detail = flowParts.join(' \u00b7 ');
+    if (q.earliestSub) {
+      const earliestName = extractInsuredName(q.earliestSub) || `Submission #${q.earliestSub.id}`;
+      const ago = formatRelativeTime(q.earliestQuote?.created_at);
+      detail += detail ? ` \u00b7 Earliest: ${earliestName}` : `Earliest: ${earliestName}`;
+      if (ago) detail += ` (${ago})`;
+    }
+    items.push(attentionLaneRow({
+      kind: 'priority',
+      title: q.count === 1 ? '1 quote ready for review' : `${q.count} quotes ready for review`,
+      detail,
+      ctaLabel: 'Review',
+      onClick: () => { state.view = 'quotes'; render(); loadView(); },
+    }));
+  }
+
+  // Lane 2: Drafts in progress
+  if (lanes.drafts.count > 0) {
+    const d = lanes.drafts;
+    let detail = '';
+    if (d.latest) {
+      const name = extractInsuredName(d.latest) || `Submission #${d.latest.id}`;
+      const ago = formatRelativeTime(d.latest.modified_at || d.latest.created_at);
+      detail = name + (ago ? ` \u00b7 last touched ${ago}` : '');
+    }
+    items.push(attentionLaneRow({
+      kind: 'normal',
+      title: d.count === 1 ? '1 draft in progress' : `${d.count} drafts in progress`,
+      detail,
+      ctaLabel: 'Finish',
+      onClick: () => {
+        state.view = 'submissions';
+        state.filter.tab = 'drafts';
+        render();
+        loadView();
+      },
+    }));
+  }
+
+  // Lane 3: Renewals
+  if (lanes.renewals.count > 0) {
+    const r = lanes.renewals;
+    let detail = '';
+    if (r.earliest) {
+      const name = r.earliest.insured_name || 'Policy';
+      detail = `Earliest: ${name} \u00b7 renews ${fmtDate(r.earliest.renews_at)}`;
+    }
+    items.push(attentionLaneRow({
+      kind: 'normal',
+      title: r.count === 1
+        ? '1 renewal in the next 60 days'
+        : `${r.count} renewals in the next 60 days`,
+      detail,
+      ctaLabel: 'View',
+      onClick: () => { state.view = 'policies'; render(); loadView(); },
+    }));
+  }
+
+  // Lane 4: Recently declined
+  if (lanes.declined.count > 0) {
+    const dc = lanes.declined;
+    let detail = '';
+    if (dc.mostRecent) {
+      const name = extractInsuredName(dc.mostRecent) || `Submission #${dc.mostRecent.id}`;
+      const ago = formatRelativeTime(dc.mostRecent.declined_at || dc.mostRecent.modified_at);
+      detail = `Most recent: ${name}` + (ago ? ` (${ago})` : '');
+    }
+    items.push(attentionLaneRow({
+      kind: 'normal',
+      title: dc.count === 1 ? '1 recently declined' : `${dc.count} recently declined`,
+      detail,
+      ctaLabel: 'Review',
+      onClick: () => {
+        state.view = 'submissions';
+        state.filter.tab = 'declined';
+        render();
+        loadView();
+      },
+    }));
+  }
+
+  return el('div', { className: 'attention-panel' },
+    el('div', { className: 'attention-panel-head' },
+      el('div', { className: 'attention-panel-title' }, 'Needs your attention')),
+    el('div', { className: 'attention-panel-body' }, ...items));
+}
+
+function attentionLaneRow({ kind, title, detail, ctaLabel, onClick }) {
+  return el('button', { className: `attention-lane attention-lane-${kind}`, onClick },
+    el('div', { className: 'attention-lane-bullet' }),
+    el('div', { className: 'attention-lane-text' },
+      el('div', { className: 'attention-lane-title' }, title),
+      detail ? el('div', { className: 'attention-lane-detail' }, detail) : null),
+    el('div', { className: 'attention-lane-cta' }, `${ctaLabel} \u2192`));
+}
+
+// ─── Recent activity with filters ────────────────────────────────────
+function renderRecentActivity(allSubs) {
+  // Apply dashboard filters
+  let recent = [...allSubs];
+  const sf = state.dashboard.recentStatus;
+  if (sf !== 'all') {
+    if (sf === 'incomplete') recent = recent.filter(s => s.status === 'Incomplete');
+    else if (sf === 'submitted') recent = recent.filter(s => s.status === 'Submitted' || s.status === 'Pending');
+    else if (sf === 'declined') recent = recent.filter(s => s.status === 'Declined');
+    else if (sf === 'bound') recent = recent.filter(s => s.bound_at);
+  }
+  const ff = state.dashboard.recentFlow;
+  if (ff !== 'all') {
+    recent = recent.filter(s => s.flow === ff);
+  }
+
+  recent = recent
+    .sort((a, b) => new Date(b.modified_at || b.created_at) - new Date(a.modified_at || a.created_at))
+    .slice(0, 8);
+
+  return el('div', { className: 'recent-section' },
+    el('div', { className: 'recent-section-head' },
+      el('h2', { className: 'recent-section-title' }, 'Recent activity'),
+      el('div', { className: 'recent-section-actions' },
+        renderRecentFilter('recentStatus', [
+          { value: 'all',         label: 'All statuses' },
+          { value: 'incomplete',  label: 'Incomplete' },
+          { value: 'submitted',   label: 'Submitted' },
+          { value: 'declined',    label: 'Declined' },
+          { value: 'bound',       label: 'Bound' },
+        ]),
+        renderRecentFilter('recentFlow', [
+          { value: 'all',          label: 'All types' },
+          { value: 'New',          label: 'New' },
+          { value: 'Renewal',      label: 'Renewal' },
+          { value: 'Endorsement',  label: 'Endorsement' },
+          { value: 'Cancellation', label: 'Cancellation' },
+        ]),
         el('button', { className: 'btn btn-ghost btn-sm',
-          onClick: () => { state.view = 'submissions'; render(); loadView(); } }, 'View all \u2192')),
-      recent.length === 0
-        ? el('div', { className: 'recent-empty' },
-            el('div', { className: 'recent-empty-title' }, 'Nothing here yet.'),
-            el('div', { className: 'recent-empty-body' },
-              'Start a new submission to begin building out your pipeline.'))
-        : el('div', { className: 'recent-list' },
-            ...recent.map(s => recentSubmissionRow(s)))));
+          onClick: () => { state.view = 'submissions'; render(); loadView(); } },
+          'View all \u2192'))),
+
+    recent.length === 0
+      ? el('div', { className: 'recent-empty' },
+          el('div', { className: 'recent-empty-title' }, 'No matching activity.'),
+          el('div', { className: 'recent-empty-body' },
+            'Try a different filter or start a new submission.'))
+      : el('div', { className: 'recent-list' },
+          ...recent.map(s => recentSubmissionRow(s))));
+}
+
+function renderRecentFilter(stateKey, options) {
+  const current = state.dashboard[stateKey];
+  const currentLabel = options.find(o => o.value === current)?.label || options[0].label;
+  return el('select', {
+    className: 'recent-filter-select',
+    value: current,
+    onChange: (e) => {
+      state.dashboard[stateKey] = e.target.value;
+      render();
+    },
+  }, ...options.map(o => {
+    const opt = el('option', { value: o.value }, o.label);
+    if (o.value === current) opt.setAttribute('selected', '');
+    return opt;
+  }));
+}
+
+// Format a timestamp as relative time: "12 min ago", "2 hr ago", "3 days ago"
+function formatRelativeTime(ts) {
+  if (!ts) return '';
+  const then = new Date(ts);
+  if (isNaN(then.getTime())) return '';
+  const seconds = Math.floor((Date.now() - then.getTime()) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hr ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days} day${days === 1 ? '' : 's'} ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months} mo ago`;
+  const years = Math.floor(days / 365);
+  return `${years} yr ago`;
 }
 
 // Renders a colored segmented bar showing draft/uw/declined breakdown.
@@ -2163,7 +2717,7 @@ function pipelineStat(value, label, onClick) {
 function recentSubmissionRow(s) {
   const insured = extractInsuredName(s) || `Submission #${s.id}`;
   const flow = friendlyFlow(s.flow);
-  const updatedAt = fmtDate(s.modified_at || s.created_at);
+  const updatedRelative = formatRelativeTime(s.modified_at || s.created_at);
   const effective = s.effective_at ? fmtDate(s.effective_at) : null;
 
   return el('div', {
@@ -2176,8 +2730,8 @@ function recentSubmissionRow(s) {
         el('span', { className: 'recent-row-meta-item' }, flow),
         effective ? el('span', { className: 'recent-row-meta-sep' }, '\u00b7') : null,
         effective ? el('span', { className: 'recent-row-meta-item' }, `Effective ${effective}`) : null,
-        el('span', { className: 'recent-row-meta-sep' }, '\u00b7'),
-        el('span', { className: 'recent-row-meta-item' }, `Updated ${updatedAt}`))),
+        updatedRelative ? el('span', { className: 'recent-row-meta-sep' }, '\u00b7') : null,
+        updatedRelative ? el('span', { className: 'recent-row-meta-item' }, `Updated ${updatedRelative}`) : null)),
     el('div', { className: 'recent-row-status' }, statusBadge(s.status)));
 }
 
