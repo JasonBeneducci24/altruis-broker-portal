@@ -57,6 +57,25 @@ class JoshuClientBase(ABC):
     ) -> Paginated:
         ...
 
+    async def discover_test_submissions(
+        self,
+        token: str,
+        *,
+        page: int = 1,
+        per_page: int = 25,
+        status_filter: str | None = None,
+        flow_filter: str | None = None,
+    ) -> dict[str, Any]:
+        """Default: fall back to list_submissions for clients that don't
+        override this. The HTTP client overrides with the policy-driven
+        discovery flow that actually filters by container.
+        """
+        result = await self.list_submissions(
+            token, status=status_filter, flow=flow_filter,
+            page=page, per_page=per_page,
+        )
+        return result.model_dump(mode="json")
+
     @abstractmethod
     async def get_submission(self, token: str, submission_id: str | int) -> Submission:
         ...

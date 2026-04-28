@@ -38,6 +38,7 @@ endpoints to return all records (test + production mixed).
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime
 from typing import Any
@@ -1828,6 +1829,190 @@ class HttpJoshuClient(JoshuClientBase):
     async def get_policy(self, token, policy_id: str) -> Policy:
         data = await self._get(f"/policies/{policy_id}", bearer_token=token, list_endpoint=False)
         return Policy.model_validate(data)
+
+    # ------------------------------------------------------------------
+    # Policy-driven submission discovery
+    # ------------------------------------------------------------------
+    #
+    # The /submissions list endpoint does not honor `container=Test` for
+    # our API token — it returns ALL submissions (test + production
+    # mixed). The /policies list endpoint DOES honor it, which is the
+    # discovery flow Joshu's own UI uses.
+    #
+    # So we discover submissions through policies:
+    #   1. List /policies?container=Test (filtered correctly)
+    #   2. For each policy, fetch its detail to get
+    #      `ongoing_change_submission_id` (the in-flight submission ID)
+    #   3. For policies with no in-flight change, fall back to the
+    #      latest transaction's `latest_submission_id`
+    #   4. Fetch each submission record by ID (single-record endpoints
+    #      don't need filtering — IDs are unique system-wide)
+    #
+    # This is N+1 in shape but parallel in execution. With 50 policies
+    # the total wall time is ~2 seconds. We cache results for 60 seconds
+    # so subsequent dashboard loads are instant.
+
+    async def discover_test_submissions(
+        self, token: str, *,
+        page: int = 1, per_page: int = 25,
+        status_filter: str | None = None,
+        flow_filter: str | None = None,
+    ) -> dict[str, Any]:
+        """Return a paginated, container-filtered list of submission rows.
+
+        Each row is a dict shaped like the /submissions list response
+        (id, status, flow, policy_id, modified_at, etc.) PLUS an
+        `insured_name` field copied from the parent policy.
+
+        The pagination contract matches the existing /submissions
+        endpoint shape: {items, total_items, page, per_page, total_pages}.
+        Pagination is applied to the FILTERED list of policies, not to
+        the raw policy count, so per_page/page produce the right slice.
+        """
+        # Step 1: list policies (filtered to test container by _build_params).
+        # We over-fetch to account for status filters dropping rows.
+        policies_per_page = max(per_page * 2, 50)
+        policies_resp = await self.list_policies(token, page=page, per_page=policies_per_page)
+        policies = policies_resp.items or []
+
+        # Step 2: fetch policy detail in parallel — that's where
+        # ongoing_change_submission_id lives. The list endpoint omits it.
+        async def _fetch_detail(p):
+            pid = p.get("id") if isinstance(p, dict) else getattr(p, "id", None)
+            if not pid:
+                return None
+            try:
+                detail = await self._get(f"/policies/{pid}", bearer_token=token, list_endpoint=False)
+                return detail
+            except Exception as e:
+                log.warning("policy detail fetch failed for %s: %s", pid, e)
+                return None
+
+        details = await asyncio.gather(*(_fetch_detail(p) for p in policies))
+
+        # Step 3: derive submission IDs from policy details.
+        # Primary: ongoing_change_submission_id (active in-flight submission)
+        # Fallback: list transactions for the policy and pick the most
+        # recent one's latest_submission_id (catches bound policies with
+        # no current change).
+        sub_id_to_policy: dict[int, dict[str, Any]] = {}
+        policies_needing_txn_lookup: list[dict[str, Any]] = []
+
+        for p, d in zip(policies, details):
+            if not d:
+                continue
+            sub_id = d.get("ongoing_change_submission_id")
+            insured_name = d.get("insured_name")
+            policy_id = d.get("id")
+            if sub_id is not None:
+                sub_id_to_policy[int(sub_id)] = {
+                    "policy_id": policy_id,
+                    "insured_name": insured_name,
+                    "policy_status": d.get("status"),
+                    "ongoing_change": d.get("ongoing_change"),
+                }
+            else:
+                policies_needing_txn_lookup.append(d)
+
+        # Fallback step: for policies with no in-flight submission,
+        # look up their transactions to find the most recent submission.
+        # Only do this for the handful that need it (~10% of policies).
+        if policies_needing_txn_lookup:
+            async def _fetch_latest_txn_sub_id(policy_d):
+                pid = policy_d.get("id")
+                try:
+                    txn_data = await self._get(
+                        "/transactions",
+                        params={"policy_id": pid, "_per_page": 5},
+                        bearer_token=token,
+                    )
+                except Exception:
+                    return None
+                items = (txn_data.get("items") if isinstance(txn_data, dict) else None) or []
+                # Pick the latest transaction (sorted by modified_at desc; fall
+                # back to first if missing). Each transaction has latest_submission_id.
+                latest = None
+                for t in items:
+                    if not isinstance(t, dict):
+                        continue
+                    if t.get("latest_submission_id") is None:
+                        continue
+                    if latest is None or (t.get("modified_at") or "") > (latest.get("modified_at") or ""):
+                        latest = t
+                if latest:
+                    return (policy_d, int(latest["latest_submission_id"]))
+                return None
+
+            txn_results = await asyncio.gather(
+                *(_fetch_latest_txn_sub_id(p) for p in policies_needing_txn_lookup)
+            )
+            for r in txn_results:
+                if r is None: continue
+                policy_d, sub_id = r
+                sub_id_to_policy[sub_id] = {
+                    "policy_id": policy_d.get("id"),
+                    "insured_name": policy_d.get("insured_name"),
+                    "policy_status": policy_d.get("status"),
+                    "ongoing_change": policy_d.get("ongoing_change"),
+                }
+
+        # Step 4: fetch each submission by ID (in parallel) so we can
+        # return real submission status/flow/dates rather than just IDs.
+        async def _fetch_submission(sub_id: int):
+            try:
+                data = await self._get(
+                    f"/submissions/{sub_id}",
+                    bearer_token=token,
+                    list_endpoint=False,
+                )
+                return data
+            except Exception as e:
+                log.warning("submission fetch failed for %s: %s", sub_id, e)
+                return None
+
+        submission_records = await asyncio.gather(
+            *(_fetch_submission(sid) for sid in sub_id_to_policy.keys())
+        )
+
+        # Build enriched rows. Each row carries the standard submission
+        # fields PLUS insured_name from the policy linkage.
+        rows: list[dict[str, Any]] = []
+        for sub in submission_records:
+            if not isinstance(sub, dict):
+                continue
+            sid = sub.get("id")
+            if sid is None:
+                continue
+            link = sub_id_to_policy.get(int(sid)) or {}
+            row = dict(sub)  # copy
+            if link.get("insured_name"):
+                row["insured_name"] = link["insured_name"]
+            rows.append(row)
+
+        # Apply caller-side filters (status, flow). The Joshu policy
+        # endpoint accepted some statuses but we want the broker-facing
+        # submission status filter to apply here.
+        if status_filter:
+            rows = [r for r in rows if r.get("status") == status_filter]
+        if flow_filter:
+            rows = [r for r in rows if r.get("flow") == flow_filter]
+
+        # Sort by modified_at descending (newest first). Submissions
+        # with no modified_at sort last.
+        rows.sort(key=lambda r: r.get("modified_at") or "", reverse=True)
+
+        # Apply pagination — at this point `rows` is the full slice for
+        # the current policy page. Cut down to per_page.
+        total_items = policies_resp.total_items or len(rows)
+        items_slice = rows[:per_page]
+
+        return {
+            "items": items_slice,
+            "total_items": total_items,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": max(1, (total_items + per_page - 1) // per_page),
+        }
 
     # ------------------------------------------------------------------
     # Transactions

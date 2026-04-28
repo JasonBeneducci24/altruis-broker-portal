@@ -146,86 +146,37 @@ async def list_submissions(
     session=Depends(require_session),
     client: JoshuClientBase = Depends(get_joshu_client),
 ):
-    kwargs: dict[str, Any] = {
-        "status": status, "flow": flow,
-        "page": page, "per_page": per_page,
-    }
-    if mine_only:
-        kwargs["user_id"] = session["uid"]
-    result = await client.list_submissions(session["t"], **kwargs)
-    payload = result.model_dump(mode="json")
+    """List submissions, container-filtered.
 
-    # Enrich each row with `insured_name`. Per Joshu's API docs, the
-    # `/submissions` list endpoint does NOT return insured info directly —
-    # but `/policies` does. Each submission has a `policy_id` (UUID) that
-    # points to its policy, and the policy entity carries `insured_name`.
-    #
-    # Strategy:
-    #   1. Fetch the policies list once (1 extra API call total)
-    #   2. Build a {policy_id → insured_name} lookup
-    #   3. Map each submission to its insured via policy_id
-    #   4. For rows whose policy doesn't have an insured_name yet (e.g.
-    #      Incomplete submissions that haven't been fully created on the
-    #      Joshu side), fall back to fetching that submission's data and
-    #      extracting `insured.name` from the datapoints.
-    #
-    # The fallback is per-row but only runs for the small subset of
-    # Incomplete rows. Submitted/Pending/Bound/Declined rows always have
-    # an `insured_name` via the policy.
+    Discovery flow: list /policies (which honors container=Test), fan out
+    to fetch each policy's detail to extract `ongoing_change_submission_id`,
+    then fetch each submission record by ID. See
+    HttpJoshuClient.discover_test_submissions() for the full mechanics.
+
+    The /submissions list endpoint is NOT used here — it does not honor
+    the container filter for our API token and would leak production
+    records into a test-mode portal. We learned this the hard way.
+
+    Caller-side filters (status, flow) are applied to the discovered
+    submissions. The mine_only filter is currently ignored at this
+    layer (no submission-level user_id filtering in the discovery flow);
+    if/when we need it, we'll filter on the policy's user_id instead.
+    """
+    payload = await client.discover_test_submissions(
+        session["t"],
+        page=page, per_page=per_page,
+        status_filter=status,
+        flow_filter=flow,
+    )
     items = payload.get("items") or []
 
-    # Step 1+2: build policy_id → insured_name map.
-    # We fetch enough policies to cover all submissions on this page.
-    # For 25 submissions, fetch 50 policies (Joshu's max) to give some
-    # headroom; if more are needed, the user will see "Submission #ID"
-    # for the unmapped rows, which is the same behaviour as before.
-    policy_name_map: dict[str, str] = {}
-    policies_error: str | None = None
-    try:
-        policies_result = await client.list_policies(session["t"], page=1, per_page=50)
-        for prow in (policies_result.items or []):
-            # items is typed as list[Any] in the Paginated schema —
-            # in practice each entry is a plain dict from Joshu's response.
-            if not isinstance(prow, dict):
-                # Defensive: if Joshu ever switches to typed objects, adapt.
-                pid = getattr(prow, "id", None)
-                pname = getattr(prow, "insured_name", None)
-            else:
-                pid = prow.get("id")
-                pname = prow.get("insured_name")
-            if pid and pname and isinstance(pname, str) and pname.strip():
-                policy_name_map[str(pid)] = pname.strip()
-    except Exception as e:
-        # Capture for diagnostics. The frontend ignores this field; it's
-        # there for the /_debug/insured-lookup endpoint.
-        policies_error = f"{type(e).__name__}: {e}"
-
-    # Step 3: assign names from the policy map.
-    # Track which rows still need names via the per-row fallback.
-    needs_fallback: list[dict] = []
-    for row in items:
-        if not isinstance(row, dict):
-            continue
-        if row.get("insured_name"):
-            continue
-        pid = row.get("policy_id")
-        if pid and pid in policy_name_map:
-            row["insured_name"] = policy_name_map[pid]
-            continue
-        # Couldn't find a name via policy. Queue for per-row fallback.
-        # Apply this to ALL statuses, not just Incomplete — in practice
-        # Joshu's /policies endpoint may not include every submission's
-        # policy (depends on workflow state), so we shouldn't assume the
-        # policy lookup will cover Submitted/Declined/Bound rows.
-        needs_fallback.append(row)
-
-    # Step 4: per-row fallback via /submission-data, in parallel.
-    # This is N extra API calls but caps at the page size (25 typical),
-    # and asyncio.gather lets them all run concurrently. Joshu's
-    # /submission-data is a fast endpoint (~200ms each); 25 in parallel
-    # finishes in ~250ms total rather than 5s sequentially.
-    target_rows = needs_fallback[:per_page]
-    if target_rows:
+    # Insured-name fallback: most submissions get insured_name straight
+    # from the parent policy (set during discovery), but a small fraction
+    # may not have a name on the policy record. For those, fall back to
+    # /submission-data to pull `insured.name` directly. Capped at the
+    # page size, runs in parallel.
+    needs_fallback = [r for r in items if not r.get("insured_name")]
+    if needs_fallback:
         async def _fetch_name(row):
             sub_id = row.get("id")
             if not sub_id:
@@ -236,20 +187,15 @@ async def list_submissions(
                 return (row, None)
             return (row, _extract_name_from_data_dict(data))
 
-        results = await asyncio.gather(*(_fetch_name(r) for r in target_rows))
+        results = await asyncio.gather(*(_fetch_name(r) for r in needs_fallback))
         for row, name in results:
             if name:
                 row["insured_name"] = name
 
-    # Surface a debug header so the browser dev-tools network panel can
-    # show whether the policy lookup succeeded — useful when names still
-    # don't appear and we want to know why without adding visible UI.
     payload["_meta"] = {
-        "policy_lookup_count": len(policy_name_map),
-        "policy_lookup_error": policies_error,
-        "fallback_attempted": len(needs_fallback[:per_page]),
+        "discovery_flow": "policies-driven",
+        "fallback_attempted": len(needs_fallback),
     }
-
     return payload
 
 
