@@ -1,37 +1,40 @@
 """
-HTTP client for the Joshu API — READ-ONLY phase.
+HTTP client for the Joshu API.
 
 ARCHITECTURE AND SAFETY
 =======================
 
 This client talks to the real Joshu API at ``{JOSHU_BASE_URL}/api/insurance/v3/*``.
-The test-vs-production container is selected by a query-string parameter:
 
-    GET  /api/insurance/v3/submissions?container=Test
-    GET  /api/insurance/v3/policies?container=Test&_page=1&status=Active
+Test vs. production filtering uses Joshu's ``test`` boolean query parameter
+on list endpoints:
 
-**SAFETY INVARIANT**: The ``container`` parameter is fixed at construction
-time based on the startup environment (``JOSHU_ENVIRONMENT``). It CANNOT
-be overridden per-call. Every outbound request goes through ``_get()``,
-which injects ``container`` before the request leaves the process —
-individual methods have no ability to change it.
+    GET  /api/insurance/v3/submissions?test=true            (test only)
+    GET  /api/insurance/v3/submissions?test=false           (production only)
+    GET  /api/insurance/v3/policies?test=true&_page=1&status=Active
 
-Additional layered defenses:
+This is the actual Joshu mechanism documented in the API spec. An earlier
+version of this client used a ``container=Test`` query parameter that does
+NOT exist in the Joshu API and was being silently ignored, causing list
+endpoints to return all records (test + production mixed).
 
-  1. Env guard in ``config.py`` — app refuses to start with JOSHU_ENVIRONMENT
-     unset or in production without the explicit override token.
-  2. ``_assert_test_mode_for_write()`` — belt-and-suspenders check before
-     any mutation (not used in this read-only phase, in place for when
-     writes are enabled).
-  3. ``_build_params()`` actively strips any attempt by a caller to set
-     ``container`` in extra params and logs it loudly as a safety event.
+**SAFETY INVARIANTS**:
 
-PHASE
-=====
-
-This is the READ-ONLY phase. GET methods are active. Every mutating method
-still raises ``HttpClientNotReadyError``. Once reads are verified against
-the test container, writes get enabled in a second pass.
+  1. ``_test_filter`` is fixed at construction time based on the startup
+     environment (``JOSHU_ENVIRONMENT``). It CANNOT be overridden per call.
+  2. ``_build_params()`` injects ``test=<bool>`` on list endpoints and
+     strips any caller attempt to set ``test`` or the legacy ``container``
+     parameter, logging the attempt as a safety event.
+  3. ``_assert_test_mode_for_write()`` runs BEFORE any mutating call to
+     refuse production writes when the production override is not set.
+  4. ``_verify_record_matches_mode()`` runs BEFORE every write — fetches
+     the target record and refuses the write if its ``test`` field
+     doesn't match the environment. Guards against the case where a
+     production record ID surfaces in the UI (stale link, manual URL
+     edit, list-filter bug) and a write is attempted against it.
+  5. Env guard in ``config.py`` — app refuses to start with
+     JOSHU_ENVIRONMENT unset, or in production without the explicit
+     override token.
 """
 from __future__ import annotations
 
@@ -1327,12 +1330,24 @@ class HttpJoshuClient(JoshuClientBase):
                 "without ALTRUIS_ALLOW_PRODUCTION override."
             )
 
-        # Map environment to Joshu's container value. This is the ONLY place
-        # the container string is chosen. Callers cannot override it.
-        self._container: str = {
-            "test": "Test",
-            "production": "Production",
-        }.get(settings.joshu_environment, "Test")
+        # Joshu's actual filter mechanism is `?test=true` (or false) on list
+        # endpoints, NOT `?container=Test` as we previously assumed. The
+        # container query parameter does not exist in the Joshu API and was
+        # being silently ignored, which caused list endpoints to return
+        # ALL records — including production ones. (The schema confirms
+        # `test boolean | null` as a query parameter on /submissions and
+        # the same pattern on /quotes and /policies.)
+        #
+        # In test mode we send `test=true` to filter list responses to test
+        # records only. In production mode we send `test=false` (only when
+        # the override token is set; the constructor refuses otherwise).
+        self._test_filter: bool = {
+            "test": True,
+            "production": False,
+        }.get(settings.joshu_environment, True)
+
+        # Human-readable label for logging and the /api/diagnostics endpoint.
+        self._mode_label: str = "Test" if self._test_filter else "Production"
 
         self.base_url = settings.joshu_base_url.rstrip("/")
         self.api_token = settings.joshu_api_token
@@ -1352,9 +1367,15 @@ class HttpJoshuClient(JoshuClientBase):
             ] if flag
         ]
         log.info(
-            "HttpJoshuClient initialized · base_url=%s · container=%s · enabled_writes=%s",
-            self.base_url, self._container, enabled_writes or "none",
+            "HttpJoshuClient initialized · base_url=%s · mode=%s · test_filter=%s · enabled_writes=%s",
+            self.base_url, self._mode_label, self._test_filter, enabled_writes or "none",
         )
+
+    # Backwards-compatibility shim — older code paths read self._container.
+    # New code should use self._mode_label or self._test_filter.
+    @property
+    def _container(self) -> str:
+        return self._mode_label
 
     # ------------------------------------------------------------------
     # Core request helpers — ALL traffic flows through these
@@ -1395,51 +1416,151 @@ class HttpJoshuClient(JoshuClientBase):
             headers["Authorization"] = f"Token {self.api_token}"
         return headers
 
-    def _build_params(self, extra: dict[str, Any] | None = None) -> dict[str, Any]:
-        """Inject the ``container`` parameter — SAFETY LINCHPIN.
+    def _build_params(self, extra: dict[str, Any] | None = None,
+                      *, list_endpoint: bool = True) -> dict[str, Any]:
+        """Inject the ``test`` filter parameter — SAFETY LINCHPIN.
 
-        The container is fixed at construction time. Extra params from the
-        caller are merged but CANNOT override container. Any attempt is
-        logged as a safety event and silently ignored.
+        Joshu's list endpoints accept a `test` boolean query parameter that
+        filters results to test (true) or production (false) records. The
+        environment determines this value; callers cannot override it.
+
+        For list endpoints (default), the `test` parameter is added.
+        For single-record GETs (`/submissions/{id}`, etc.), the `test`
+        parameter has no effect — pass list_endpoint=False to skip adding
+        it. The defensive `_assert_record_in_expected_mode()` check at
+        the response layer catches any record that doesn't match.
+
+        Any caller attempt to set `test` or the legacy `container`
+        parameter is logged as a safety event and silently ignored.
+
+        IMPORTANT: We send the value as the lowercase string "true" or
+        "false" — NOT as a Python bool — because httpx serializes Python
+        ``True`` to the URL string "True" (capital T), which not all APIs
+        parse as a boolean. Joshu's API spec says `test boolean` and we've
+        observed list endpoints returning unfiltered (mixed test+prod)
+        records when the param is sent as "True"/"False". The lowercase
+        string form is the safe choice.
         """
         params: dict[str, Any] = {}
         if extra:
             for k, v in extra.items():
-                if k.lower() == "container":
+                key_low = k.lower()
+                if key_low in ("test", "container"):
                     log.error(
-                        "SAFETY: A caller attempted to set 'container' parameter. "
-                        "Ignored. caller_value=%r enforced_value=%r",
-                        v, self._container,
+                        "SAFETY: Caller attempted to set %r parameter. Ignored. "
+                        "caller_value=%r enforced_test=%s",
+                        k, v, self._test_filter,
                     )
                     continue
                 if v is not None:
                     params[k] = v
-        # Container is set LAST so it cannot be stomped by a later update
-        params["container"] = self._container
-        assert params["container"] == self._container, \
-            "Container param was unexpectedly mutated — this is a bug"
+        if list_endpoint:
+            # Lowercase string form, NOT a Python bool — see docstring.
+            # `test` set LAST so it cannot be stomped by a later update.
+            params["test"] = "true" if self._test_filter else "false"
         return params
 
     async def _get(
         self, path: str, *, params: dict[str, Any] | None = None,
-        bearer_token: str | None = None,
+        bearer_token: str | None = None, list_endpoint: bool = True,
     ) -> Any:
-        """Single choke point for all JSON reads."""
-        full_params = self._build_params(params)
+        """Single choke point for all JSON reads.
+
+        list_endpoint=True (default) → adds the `test` query filter so
+            list responses are scoped to test or production records as
+            appropriate for the environment.
+        list_endpoint=False → skips the `test` parameter (single-record
+            GETs like /submissions/{id} don't accept it). The defensive
+            check at the calling layer verifies the returned record's
+            own `test` field matches our expected mode.
+
+        Defensive check: when list_endpoint=True, verify every returned
+        item's `test` field matches our expected mode. If Joshu's API
+        ignores or mishandles our filter param, we'd otherwise leak
+        production records into a test-mode portal. The check logs
+        loudly and filters offending records out of the response so
+        the UI never shows them.
+        """
+        full_params = self._build_params(params, list_endpoint=list_endpoint)
         url = f"{self.API_PREFIX}{path}"
         log.debug("GET %s params=%s", url, full_params)
         resp = await self._client.get(
             url, params=full_params, headers=self._headers(bearer_token),
         )
         self._raise_for_status(resp, "GET", url)
-        return resp.json()
+        data = resp.json()
+        if list_endpoint:
+            data = self._filter_list_response_to_expected_mode(path, data)
+        return data
+
+    def _filter_list_response_to_expected_mode(self, path: str, data: Any) -> Any:
+        """Strip records whose `test` field doesn't match our mode.
+
+        If Joshu honored our `test=true` query param, this is a no-op.
+        If Joshu ignored it (or interpreted it differently), this catches
+        the mismatch and prevents production records from reaching the UI.
+
+        Returns the same shape (paginated dict or bare list), with
+        offending items removed and an audit log emitted.
+        """
+        expected_test = self._test_filter
+        items = None
+        if isinstance(data, dict) and "items" in data and isinstance(data["items"], list):
+            items = data["items"]
+        elif isinstance(data, list):
+            items = data
+        else:
+            return data  # not a list response shape we recognize
+
+        kept: list[Any] = []
+        dropped: list[Any] = []
+        for it in items:
+            if not isinstance(it, dict):
+                kept.append(it)
+                continue
+            test_val = it.get("test")
+            # Some list endpoints don't surface the `test` field on each
+            # item (transactions, documents). When test_val is missing,
+            # we trust the server's filter and keep the record. When it
+            # IS present, we enforce.
+            if test_val is None:
+                kept.append(it)
+                continue
+            # Coerce the value — Joshu returns Python bool over JSON, but
+            # tolerate string variants just in case.
+            actual_is_test = test_val if isinstance(test_val, bool) else (
+                str(test_val).strip().lower() in ("true", "1", "yes")
+            )
+            if actual_is_test == expected_test:
+                kept.append(it)
+            else:
+                dropped.append(it)
+
+        if dropped:
+            log.error(
+                "SAFETY: %d record(s) with mismatched `test` field returned by %s "
+                "(expected test=%s). Records were dropped before reaching the UI. "
+                "This indicates Joshu's API did not honor our `test` filter param. "
+                "Sample dropped IDs: %s",
+                len(dropped), path, expected_test,
+                [r.get("id") or r.get("unique_id") for r in dropped[:5]],
+            )
+            if isinstance(data, dict) and "items" in data:
+                data = {**data, "items": kept}
+                # Adjust counts so the UI's pagination math doesn't lie
+                if "total_items" in data and isinstance(data["total_items"], int):
+                    data["total_items"] = max(0, data["total_items"] - len(dropped))
+            else:
+                data = kept
+
+        return data
 
     async def _get_raw(
         self, path: str, *, params: dict[str, Any] | None = None,
-        bearer_token: str | None = None,
+        bearer_token: str | None = None, list_endpoint: bool = True,
     ) -> tuple[bytes, str]:
         """Binary read (for document downloads)."""
-        full_params = self._build_params(params)
+        full_params = self._build_params(params, list_endpoint=list_endpoint)
         url = f"{self.API_PREFIX}{path}"
         resp = await self._client.get(
             url, params=full_params, headers=self._headers(bearer_token),
@@ -1449,11 +1570,17 @@ class HttpJoshuClient(JoshuClientBase):
 
     async def _put(
         self, path: str, *, body: Any, params: dict[str, Any] | None = None,
-        bearer_token: str | None = None,
+        bearer_token: str | None = None, list_endpoint: bool = False,
     ) -> Any:
-        """Single choke point for PUT requests. Container is still forced."""
+        """Single choke point for PUT requests.
+
+        Defaults to list_endpoint=False since writes always target a
+        specific record by ID. The `_assert_test_mode_for_write` guard
+        enforces test mode at the environment layer, and callers SHOULD
+        verify the target record's `test` field matches before writing.
+        """
         self._assert_test_mode_for_write()
-        full_params = self._build_params(params)
+        full_params = self._build_params(params, list_endpoint=list_endpoint)
         url = f"{self.API_PREFIX}{path}"
         log.info("PUT %s params=%s", url, full_params)  # info, not debug — writes matter
         resp = await self._client.put(
@@ -1471,11 +1598,11 @@ class HttpJoshuClient(JoshuClientBase):
 
     async def _post(
         self, path: str, *, body: Any = None, params: dict[str, Any] | None = None,
-        bearer_token: str | None = None,
+        bearer_token: str | None = None, list_endpoint: bool = False,
     ) -> Any:
-        """Single choke point for POST requests. Container is still forced."""
+        """Single choke point for POST requests."""
         self._assert_test_mode_for_write()
-        full_params = self._build_params(params)
+        full_params = self._build_params(params, list_endpoint=list_endpoint)
         url = f"{self.API_PREFIX}{path}"
         log.info("POST %s params=%s", url, full_params)
         resp = await self._client.post(
@@ -1536,7 +1663,7 @@ class HttpJoshuClient(JoshuClientBase):
         return [Product.model_validate(p) for p in (items or [])]
 
     async def get_product(self, token: str, product_id: int) -> Product:
-        data = await self._get(f"/products/{product_id}", bearer_token=token)
+        data = await self._get(f"/products/{product_id}", bearer_token=token, list_endpoint=False)
         return Product.model_validate(data)
 
     # ------------------------------------------------------------------
@@ -1559,7 +1686,7 @@ class HttpJoshuClient(JoshuClientBase):
         # Joshu path params use unique_id (UUID), not the numeric id.
         # The numeric id is for display only. Accept either here and pass
         # through — the routers will ensure UUIDs are used when known.
-        data = await self._get(f"/submissions/{submission_id}", bearer_token=token)
+        data = await self._get(f"/submissions/{submission_id}", bearer_token=token, list_endpoint=False)
         return Submission.model_validate(data)
 
     async def get_submission_data(self, token, submission_id: str | int) -> dict[str, Any]:
@@ -1572,7 +1699,7 @@ class HttpJoshuClient(JoshuClientBase):
         preserving the original shape under `_raw` for downstream use.
         """
         try:
-            raw = await self._get(f"/submission-data/{submission_id}", bearer_token=token)
+            raw = await self._get(f"/submission-data/{submission_id}", bearer_token=token, list_endpoint=False)
         except Exception as e:
             log.warning("submission-data fetch failed for %s: %s", submission_id, e)
             return {}
@@ -1585,7 +1712,7 @@ class HttpJoshuClient(JoshuClientBase):
         happens in the router (which also merges in the current data values).
         """
         try:
-            return await self._get(f"/submission-status/{submission_id}", bearer_token=token)
+            return await self._get(f"/submission-status/{submission_id}", bearer_token=token, list_endpoint=False)
         except Exception as e:
             log.warning("submission-status fetch failed for %s: %s", submission_id, e)
             return {}
@@ -1612,7 +1739,7 @@ class HttpJoshuClient(JoshuClientBase):
         only if asset-data is unreachable.
         """
         try:
-            return await self._get(f"/asset-data/{submission_id}", bearer_token=token)
+            return await self._get(f"/asset-data/{submission_id}", bearer_token=token, list_endpoint=False)
         except Exception as e:
             log.warning("asset-data fetch failed for %s: %s", submission_id, e)
             return None
@@ -1631,6 +1758,9 @@ class HttpJoshuClient(JoshuClientBase):
         if not _ENABLE_UPDATE_SUBMISSION_DATA:
             raise _not_ready("update_submission_data")
         self._assert_test_mode_for_write()
+        await self._verify_record_matches_mode(
+            token, "/submissions", submission_id, "submission"
+        )
 
         body = _encode_data_payload(data, type_hints=type_hints)
         log.info("Updating submission %s with %d datapoints", submission_id, len(body["data"]))
@@ -1647,6 +1777,9 @@ class HttpJoshuClient(JoshuClientBase):
         if not _ENABLE_UPDATE_SUBMISSION:
             raise _not_ready("submit_submission")
         self._assert_test_mode_for_write()
+        await self._verify_record_matches_mode(
+            token, "/submissions", submission_id, "submission"
+        )
 
         log.info("Submitting submission %s (status → Submitted)", submission_id)
         await self._put(
@@ -1665,6 +1798,9 @@ class HttpJoshuClient(JoshuClientBase):
         if not _ENABLE_UPDATE_SUBMISSION:
             raise _not_ready("reopen_submission")
         self._assert_test_mode_for_write()
+        await self._verify_record_matches_mode(
+            token, "/submissions", submission_id, "submission"
+        )
 
         log.info("Reopening submission %s (status → Incomplete)", submission_id)
         await self._put(
@@ -1691,7 +1827,7 @@ class HttpJoshuClient(JoshuClientBase):
         return Paginated.model_validate(data)
 
     async def get_policy(self, token, policy_id: str) -> Policy:
-        data = await self._get(f"/policies/{policy_id}", bearer_token=token)
+        data = await self._get(f"/policies/{policy_id}", bearer_token=token, list_endpoint=False)
         return Policy.model_validate(data)
 
     # ------------------------------------------------------------------
@@ -1723,13 +1859,13 @@ class HttpJoshuClient(JoshuClientBase):
         return Paginated.model_validate(data)
 
     async def get_quote(self, token, quote_id: str | int) -> Quote:
-        data = await self._get(f"/quotes/{quote_id}", bearer_token=token)
+        data = await self._get(f"/quotes/{quote_id}", bearer_token=token, list_endpoint=False)
         return Quote.model_validate(data)
 
     async def get_quote_data(self, token, quote_id: str | int) -> dict[str, Any]:
         """Fetch datapoint values for a quote via /quote-data/{id}."""
         try:
-            raw = await self._get(f"/quote-data/{quote_id}", bearer_token=token)
+            raw = await self._get(f"/quote-data/{quote_id}", bearer_token=token, list_endpoint=False)
         except Exception as e:
             log.warning("quote-data fetch failed for %s: %s", quote_id, e)
             return {}
@@ -1753,7 +1889,7 @@ class HttpJoshuClient(JoshuClientBase):
         return Paginated.model_validate(data)
 
     async def get_document(self, token, document_id: int) -> Document:
-        data = await self._get(f"/documents/{document_id}", bearer_token=token)
+        data = await self._get(f"/documents/{document_id}", bearer_token=token, list_endpoint=False)
         return Document.model_validate(data)
 
     async def download_document(self, token, document_id: int) -> tuple[bytes, str]:
@@ -1763,6 +1899,7 @@ class HttpJoshuClient(JoshuClientBase):
         # different URL structure, you'll get a 404 and we'll adjust.
         return await self._get_raw(
             f"/documents/{document_id}/download", bearer_token=token,
+            list_endpoint=False,
         )
 
     # ------------------------------------------------------------------
@@ -1783,6 +1920,59 @@ class HttpJoshuClient(JoshuClientBase):
             raise RuntimeError(
                 "BLOCKED: production write attempted without override flag. "
                 "This is a safety stop — investigate before proceeding."
+            )
+
+    async def _verify_record_matches_mode(
+        self,
+        token: str,
+        path: str,
+        record_id: str | int,
+        record_kind: str,
+    ) -> None:
+        """Defensive per-record check before writing.
+
+        Fetches the target record and verifies its `test` field matches
+        the environment's expected mode. Refuses the write if it doesn't.
+
+        This guards against the scenario where a production record ID
+        somehow surfaces in the UI (e.g. a stale link, manual URL edit,
+        a bug in the list filter) and a write is attempted against it.
+        Even with the environment locked to test, hitting a production
+        record ID via the single-record endpoint would write to
+        production. This check makes that impossible.
+        """
+        try:
+            record = await self._get(
+                f"{path}/{record_id}",
+                bearer_token=token,
+                list_endpoint=False,
+            )
+        except Exception as e:
+            # If we can't fetch the record at all, fail closed — better
+            # to refuse a write than to risk writing to the wrong place.
+            log.error(
+                "BLOCKED write to %s/%s — could not verify record's test mode: %s",
+                path, record_id, e,
+            )
+            raise RuntimeError(
+                f"Cannot verify {record_kind} {record_id} test/production status — "
+                f"write blocked. Original error: {e}"
+            )
+        record_test = record.get("test")
+        # Joshu sometimes returns null for the field. Treat null as
+        # production (the conservative default). Only proceed if the
+        # record's `test` value is truthy AND we're in test mode.
+        record_is_test = bool(record_test)
+        if record_is_test != self._test_filter:
+            log.critical(
+                "BLOCKED write to %s/%s — record.test=%r does not match "
+                "environment expected_test=%s. This is a safety stop.",
+                path, record_id, record_test, self._test_filter,
+            )
+            raise RuntimeError(
+                f"BLOCKED: {record_kind} {record_id} has test={record_test!r}, "
+                f"but the environment expects test={self._test_filter}. "
+                f"Refusing to write across the test/production boundary."
             )
 
     async def aclose(self) -> None:

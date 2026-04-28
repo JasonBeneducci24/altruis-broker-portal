@@ -82,7 +82,11 @@ class _MockAsyncClient:
             200,
             json_data={
                 "page": 1, "per_page": 25, "total_items": 0, "total_pages": 0,
-                "items": [], "id": 42, "status": "Submitted",
+                "items": [],
+                # Single-record fields. `test: True` is required so the
+                # _verify_record_matches_mode check accepts the record
+                # before any write proceeds.
+                "id": 42, "status": "Submitted", "test": True,
             },
         )
 
@@ -208,8 +212,8 @@ def check(condition, message):
         FAILURES.append(message)
 
 
-async def test_reads_inject_container_test():
-    print("\n[1] Every read injects container=Test")
+async def test_reads_inject_test_true():
+    print("\n[1] Every list read injects test=True")
     client = HttpJoshuClient()
 
     # Fire each read method
@@ -223,39 +227,55 @@ async def test_reads_inject_container_test():
     requests = client._client.captured_requests
     check(len(requests) == 6, f"6 requests made (got {len(requests)})")
     for req in requests:
-        vals = req.url.params.get_list("container")
-        check(vals == ["Test"],
-              f"{req.url.path} has container=Test (got {vals})")
+        vals = req.url.params.get_list("test")
+        check(vals == [True] or vals == ["True"] or vals == ["true"],
+              f"{req.url.path} has test=true (got {vals!r})")
+        # And confirm the legacy container parameter is absent
+        cvals = req.url.params.get_list("container")
+        check(cvals == [],
+              f"{req.url.path} does NOT have legacy container param (got {cvals!r})")
 
 
 async def test_caller_override_is_stripped():
-    print("\n[2] Caller attempting to set container=Production is stripped")
+    print("\n[2] Caller attempting to set test=False or container=Production is stripped")
     client = HttpJoshuClient()
 
-    # Deliberate attack: caller passes container=Production
+    # Deliberate attacks: caller tries to flip the test filter or sneak
+    # in the legacy container param.
     await client._get(
         "/submissions",
-        params={"container": "Production", "_page": 1},
+        params={"test": False, "_page": 1},
+        bearer_token="some-token",
+    )
+    await client._get(
+        "/submissions",
+        params={"container": "Production", "_page": 2},
         bearer_token="some-token",
     )
 
     requests = client._client.captured_requests
-    check(len(requests) == 1, "1 request was made")
-    req = requests[0]
-    vals = req.url.params.get_list("container")
-    check(vals == ["Test"],
-          f"container override was stripped (got {vals})")
-    check(req.url.params.get("_page") == 1,
-          f"legitimate _page param preserved (got {req.url.params.get('_page')})")
+    check(len(requests) == 2, "2 requests were made")
+    for i, req in enumerate(requests):
+        vals = req.url.params.get_list("test")
+        check(vals == [True] or vals == ["True"] or vals == ["true"],
+              f"req {i}: caller's test override was stripped, real test=True (got {vals!r})")
+        cvals = req.url.params.get_list("container")
+        check(cvals == [],
+              f"req {i}: legacy container param did not leak through (got {cvals!r})")
+    # Legitimate non-safety params should be preserved
+    check(requests[0].url.params.get("_page") == 1,
+          f"legitimate _page=1 preserved on req 0")
+    check(requests[1].url.params.get("_page") == 2,
+          f"legitimate _page=2 preserved on req 1")
 
 
-async def test_case_insensitive_container_override_is_stripped():
-    print("\n[3] Case-variant container override (CONTAINER, Container, etc.) is also stripped")
+async def test_case_insensitive_override_is_stripped():
+    print("\n[3] Case-variant override of test/container is stripped")
     client = HttpJoshuClient()
 
     await client._get(
         "/submissions",
-        params={"Container": "Production", "_page": 1},
+        params={"Test": False, "_page": 1},
         bearer_token="some-token",
     )
     await client._get(
@@ -265,9 +285,26 @@ async def test_case_insensitive_container_override_is_stripped():
     )
 
     for req in client._client.captured_requests:
-        vals = req.url.params.get_list("container")
-        check(vals == ["Test"],
-              f"Case-variant override stripped on {req.url.path}")
+        vals = req.url.params.get_list("test")
+        check(vals == [True] or vals == ["True"] or vals == ["true"],
+              f"Case-variant override stripped on {req.url.path} (got {vals!r})")
+
+
+async def test_single_record_get_omits_test_param():
+    print("\n[3b] Single-record GETs omit the test query param (Joshu doesn't accept it there)")
+    client = HttpJoshuClient()
+
+    await client.get_submission("some-token", "abc-123")
+    await client.get_policy("some-token", "policy-uuid")
+    await client.get_quote("some-token", "quote-uuid")
+
+    requests = [r for r in client._client.captured_requests if "/submissions/" in r.url.path
+                or "/policies/" in r.url.path or "/quotes/" in r.url.path]
+    check(len(requests) >= 3, f"3+ single-record GETs were made (got {len(requests)})")
+    for req in requests:
+        vals = req.url.params.get_list("test")
+        check(vals == [],
+              f"Single-record {req.url.path} omits test param (got {vals!r})")
 
 
 async def test_api_token_sentinel_uses_token_auth():
@@ -328,32 +365,67 @@ async def test_locked_writes_raise_not_ready():
         check(raised, f"{name} raised HttpClientNotReadyError")
 
 
-async def test_enabled_writes_force_container_test():
-    """Newly enabled writes (phase 2) still inject ?container=Test."""
-    print("\n[7b] Enabled writes inject container=Test (verification after write unlock)")
+async def test_enabled_writes_inject_test_true_and_verify_record():
+    """Enabled writes go through _verify_record_matches_mode AND have
+    test=true on their query string when applicable."""
+    print("\n[7b] Enabled writes verify record's test field and refuse cross-mode writes")
     client = HttpJoshuClient()
 
-    # update_submission_data
+    # update_submission_data — should make a GET to verify record.test,
+    # then a PUT. Both go to /submission-data or /submissions paths.
     await client.update_submission_data("tok", 42, {"insured.name": "Test LLC"})
-    req = [r for r in client._client.captured_requests if r.method == "PUT"][0]
-    check(req.url.params.get("container") == "Test",
-          f"PUT /submission-data/{{id}} has ?container=Test (got {req.url.params.get('container')!r})")
-    check("submission-data/42" in req.url.path,
-          f"PUT path is /submission-data/42 (got {req.url.path})")
+    puts = [r for r in client._client.captured_requests if r.method == "PUT"]
+    gets = [r for r in client._client.captured_requests if r.method == "GET"]
+    check(len(puts) >= 1, "at least one PUT was made")
+    check(len(gets) >= 1, "at least one GET was made (record verification)")
+    check(any("/submissions/42" in r.url.path for r in gets),
+          "verification GET hit /submissions/42 to check record.test")
+    put = puts[0]
+    check("submission-data/42" in put.url.path,
+          f"PUT path is /submission-data/42 (got {put.url.path})")
 
     # submit_submission
     client2 = HttpJoshuClient()
     await client2.submit_submission("tok", 42)
-    req2 = [r for r in client2._client.captured_requests if r.method == "PUT"][0]
-    check(req2.url.params.get("container") == "Test",
-          f"PUT /submissions/{{id}} has ?container=Test")
+    puts2 = [r for r in client2._client.captured_requests if r.method == "PUT"]
+    check(len(puts2) >= 1, "submit_submission produced a PUT")
+    check("submissions/42" in puts2[0].url.path,
+          f"submit PUT path is /submissions/42")
 
     # reopen_submission
     client3 = HttpJoshuClient()
     await client3.reopen_submission("tok", 42)
-    req3 = [r for r in client3._client.captured_requests if r.method == "PUT"][0]
-    check(req3.url.params.get("container") == "Test",
-          f"reopen_submission PUT has ?container=Test")
+    puts3 = [r for r in client3._client.captured_requests if r.method == "PUT"]
+    check(len(puts3) >= 1, "reopen_submission produced a PUT")
+
+
+async def test_writes_blocked_when_record_is_production():
+    """A submission whose `test` field is False (i.e. a production record)
+    must NOT be writable from a test environment, even if the ID surfaces
+    in the UI somehow."""
+    print("\n[7c] Writes blocked when target record's test field doesn't match environment")
+
+    # Build a client that will return test=False for the verification GET.
+    client = HttpJoshuClient()
+    # Monkey-patch the mock client to return a production record
+    original_get = client._client.get
+    async def get_returning_prod_record(url, params=None, headers=None):
+        from app.joshu.client_http import HttpJoshuClient as _C  # for type-only ref
+        req_class = type(client._client.captured_requests[0]) if client._client.captured_requests else None
+        # Reuse the original mock framework by calling original_get and patching response
+        resp = await original_get(url, params, headers)
+        # Mutate the json so test=False
+        resp._json["test"] = False
+        return resp
+    client._client.get = get_returning_prod_record
+
+    # Attempt a write — should raise RuntimeError with BLOCKED in message
+    raised = False
+    try:
+        await client.update_submission_data("tok", 99, {"insured.name": "X"})
+    except RuntimeError as e:
+        raised = "BLOCKED" in str(e) and "test" in str(e).lower()
+    check(raised, "write blocked when record.test=False in test environment")
 
 
 async def test_api_prefix_correct():
@@ -390,14 +462,16 @@ async def test_production_env_requires_override():
 
 
 async def run_all():
-    await test_reads_inject_container_test()
+    await test_reads_inject_test_true()
     await test_caller_override_is_stripped()
-    await test_case_insensitive_container_override_is_stripped()
+    await test_case_insensitive_override_is_stripped()
+    await test_single_record_get_omits_test_param()
     await test_api_token_sentinel_uses_token_auth()
     await test_real_bearer_token_uses_bearer_auth()
     await test_pagination_params_underscore_prefixed()
     await test_locked_writes_raise_not_ready()
-    await test_enabled_writes_force_container_test()
+    await test_enabled_writes_inject_test_true_and_verify_record()
+    await test_writes_blocked_when_record_is_production()
     await test_api_prefix_correct()
     await test_production_env_requires_override()
 

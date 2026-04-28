@@ -237,8 +237,54 @@
     overflow-y: auto; display: flex; flex-direction: column;
   }
   .brand-mark {
-    display: flex; align-items: center; gap: 10px; padding: 0 10px; margin-bottom: 36px;
+    display: flex; flex-direction: column;
+    align-items: flex-start; gap: 6px;
+    padding: 0 10px; margin-bottom: 36px;
   }
+  .brand-mark img {
+    /* Wordmark — height set inline via brandWordmark(); ensure block
+       layout so it sits cleanly above the subtitle. */
+    display: block;
+  }
+  .brand-mark-row {
+    display: flex; align-items: center; gap: 8px;
+    padding-left: 2px;
+  }
+  .brand-mark-sub {
+    font-size: 0.62rem; font-weight: 500; letter-spacing: 0.18em;
+    text-transform: uppercase; color: #7a90b8;
+  }
+  /* Environment badge — visible proof of which Joshu container outbound
+     API calls are hitting. Styled so the broker can confirm at a glance:
+       • test → lime (reassuring — normal state)
+       • mock → gray (no Joshu calls at all)
+       • production → red (LOUD; should never be seen during normal dev) */
+  .env-badge {
+    font-size: 0.58rem; font-weight: 700;
+    letter-spacing: 0.1em;
+    padding: 2px 7px;
+    border-radius: 4px;
+    line-height: 1.3;
+    cursor: help;
+  }
+  .env-badge-test {
+    background: rgba(34, 197, 94, 0.18);
+    color: #4ade80;
+  }
+  .env-badge-mock {
+    background: rgba(148, 163, 184, 0.2);
+    color: #94a3b8;
+  }
+  .env-badge-production {
+    background: var(--err);
+    color: #fff;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15);
+  }
+  .env-badge-unknown {
+    background: rgba(148, 163, 184, 0.15);
+    color: #6b7280;
+  }
+  /* Legacy text fallback styles — kept in case any path still uses them */
   .brand-mark-name { font-size: 1.1rem; font-weight: 700; letter-spacing: -0.02em; color: #fff; }
   .brand-mark-name .sub {
     font-size: 0.62rem; font-weight: 500; letter-spacing: 0.18em;
@@ -913,6 +959,29 @@
     text-align: right;
   }
 
+  /* Coverage Extensions — labeled subsection inside a standard coverage
+     card (Property). Reads as a related cluster of opt-in increases
+     above the line's standard sublimits, separated by a hairline. */
+  .coverage-extensions {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px dashed var(--line);
+  }
+  .coverage-extensions-head {
+    margin-bottom: 12px;
+  }
+  .coverage-extensions-eyebrow {
+    font-size: 0.7rem; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 3px;
+  }
+  .coverage-extensions-subtitle {
+    font-size: 0.8rem;
+    color: var(--ink-mute);
+    font-weight: 400;
+  }
+
   /* Mobile: stack the dashboard header */
   @media (max-width: 720px) {
     .dashboard-greeting { font-size: 1.6rem; }
@@ -1325,28 +1394,54 @@
     text-align: left; cursor: pointer; transition: all 120ms;
     color: var(--ink-soft); background: transparent;
     width: 100%;
+    /* Reserve space for the active-state accent bar so rows don't
+       reflow when one becomes active. */
+    border-left: 3px solid transparent;
+    padding-left: 9px;
   }
   .section-nav-item:hover { background: var(--white); color: var(--ink); }
+  /* ACTIVE — left accent bar in Altruis blue + bolder label.
+     Note: we deliberately do NOT recolor the indicator circle here.
+     The indicator keeps showing its completion state (number, ✓, etc.)
+     so active and complete are independently legible. The blue accent
+     bar on the left is what tells the broker "you're here." */
   .section-nav-item.active {
     background: var(--white); color: var(--ink);
     box-shadow: var(--shadow-xs);
+    border-left-color: var(--blue);
   }
-  .section-nav-item.active .section-nav-indicator {
-    background: var(--blue); color: #fff; border-color: var(--blue);
+  .section-nav-item.active .section-nav-label {
+    font-weight: 600;
+    color: var(--navy, var(--ink));
   }
+  /* COMPLETE — solid blue circle with white check inside */
   .section-nav-item.complete .section-nav-indicator {
-    background: var(--ok); color: #fff; border-color: var(--ok);
+    background: var(--blue);
+    color: #fff;
+    border-color: var(--blue);
   }
+  /* HAS-ERRORS — solid red circle */
   .section-nav-item.has-errors .section-nav-indicator {
-    background: var(--err); color: #fff; border-color: var(--err);
+    background: var(--err);
+    color: #fff;
+    border-color: var(--err);
   }
   .section-nav-indicator {
     width: 24px; height: 24px; border-radius: 50%;
-    border: 1px solid var(--line);
+    border: 1.5px solid var(--line);
     background: var(--white); color: var(--ink-mute);
     display: flex; align-items: center; justify-content: center;
     font-size: 0.72rem; font-weight: 600; flex-shrink: 0;
     transition: all 150ms;
+  }
+  /* When the section is the active one BUT not yet complete, give the
+     numbered circle a thicker blue ring so it reads as "current" without
+     filling. (If complete, the .complete rule above takes precedence —
+     a completed circle stays solid blue regardless of active.) */
+  .section-nav-item.active:not(.complete):not(.has-errors) .section-nav-indicator {
+    border-color: var(--blue);
+    color: var(--blue);
+    border-width: 2px;
   }
   .section-nav-body { min-width: 0; flex: 1; }
   .section-nav-label {
@@ -2172,6 +2267,38 @@ function brandMark(color = 'white', size = 32) {
   return img;
 }
 
+// Environment indicator badge for the sidebar.
+//
+// Three distinct styles so a broker can verify at a glance which Joshu
+// container the portal is talking to:
+//   • test       → lime green "TEST" pill (reassuring — what we want)
+//   • mock       → gray "MOCK" pill (no Joshu calls happening at all)
+//   • production → red "PRODUCTION" pill (loud — should never see this
+//     in normal broker use; if it shows, something is wrong with the
+//     deployment configuration)
+//
+// The value comes from /api/config which the backend derives from the
+// JOSHU_ENVIRONMENT env var at startup. The container is locked in on
+// the backend at process boot — this badge is the visible proof of
+// what container outbound API calls are routed to.
+function renderEnvBadge() {
+  const env = state.env;
+  if (!env) {
+    // Config not yet loaded — show a neutral placeholder rather than
+    // implying something one way or the other.
+    return el('span', { className: 'env-badge env-badge-unknown', title: 'Environment not yet loaded' }, '\u2026');
+  }
+  const config = {
+    test:       { label: 'TEST',       cls: 'env-badge-test',       title: 'Connected to Joshu TEST container' },
+    mock:       { label: 'MOCK',       cls: 'env-badge-mock',       title: 'Mock data — no Joshu calls' },
+    production: { label: 'PRODUCTION', cls: 'env-badge-production', title: 'WARNING: Connected to Joshu PRODUCTION container' },
+  }[env] || { label: env.toUpperCase(), cls: 'env-badge-unknown', title: `Unknown environment: ${env}` };
+  return el('span', {
+    className: `env-badge ${config.cls}`,
+    title: config.title,
+  }, config.label);
+}
+
 function brandWordmark(color = 'white', height = 42) {
   // Full "altruis group" wordmark — for login hero
   const file = color === 'navy' ? 'altruis-logo-navy.svg'
@@ -2556,9 +2683,11 @@ function navItem(key, label) {
 
 function sidebar() {
   return el('aside', { className: 'sidebar' },
-    el('div', { className: 'brand-mark' }, brandMark('white', 28),
-      el('div', { className: 'brand-mark-name' }, 'Altruis',
-        el('span', { className: 'sub' }, 'Broker Portal'))),
+    el('div', { className: 'brand-mark' },
+      brandWordmark('white', 36),
+      el('div', { className: 'brand-mark-row' },
+        el('div', { className: 'brand-mark-sub' }, 'Broker Portal'),
+        renderEnvBadge())),
 
     el('div', { className: 'nav-section' }, 'Pipeline'),
     navItem('dashboard', 'Dashboard'),
@@ -4667,6 +4796,12 @@ const COVERAGE_LINES = [
       'PapersandRecords',
       'BI_days_limit',
       'Extended_BI_days_limit',
+    ],
+    // Coverage extensions — opt-in increases above standard limits.
+    // Rendered as a labeled subsection inside the Property card so the
+    // broker reads them as a related cluster, distinct from the core
+    // sublimits above.
+    extensionCodes: [
       'increased_signs',
       'increased_gatesandfences',
       'increased_treesandshrubs',
@@ -4784,7 +4919,17 @@ function renderCoverageLinesBody(section, fields, isEditing) {
         claimed.add(f.code);
       }
     }
-    return { ...line, fields: lineFields };
+    // Coverage extensions — separate bucket so the read/edit renderer
+    // can present them as a labeled subsection within the line card.
+    const extensionFields = [];
+    for (const code of (line.extensionCodes || [])) {
+      const f = findFieldByTail(fields, code);
+      if (f && !claimed.has(f.code)) {
+        extensionFields.push(f);
+        claimed.add(f.code);
+      }
+    }
+    return { ...line, fields: lineFields, extensionFields };
   });
 
   // Anything left over (visible but unclaimed) — render as a fallback
@@ -4840,7 +4985,11 @@ function renderCoverageLineCard(line, isEditing) {
 // Standard coverage card — always expanded, shows all sublimits.
 // Property and General Liability use this.
 function renderStandardCoverageCard(line, isEditing) {
-  if (!line.fields.length) {
+  const extensionFields = line.extensionFields || [];
+  const hasFields = line.fields.length > 0;
+  const hasExtensions = extensionFields.length > 0;
+
+  if (!hasFields && !hasExtensions) {
     // No fields mapped from Joshu — render an informational placeholder
     return el('div', { className: 'coverage-card coverage-card-standard' },
       el('div', { className: 'coverage-card-head' },
@@ -4848,6 +4997,33 @@ function renderStandardCoverageCard(line, isEditing) {
         el('div', { className: 'coverage-card-pill coverage-card-pill-standard' }, 'Standard')),
       el('div', { className: 'coverage-card-empty' },
         line.description || 'No fields configured.'));
+  }
+
+  // Build the body — main sublimits, then (optional) "Coverage extensions"
+  // subsection for opt-in increases above standard limits. Both sections
+  // share the same render style; the subsection just gets a labeled
+  // eyebrow above it to read as a related cluster.
+  const bodyChildren = [];
+  if (hasFields) {
+    bodyChildren.push(
+      isEditing
+        ? el('div', { className: 'form-grid coverage-card-fields' },
+            ...line.fields.map(f => renderFormField(f, true)))
+        : renderCoverageReadList(line.fields)
+    );
+  }
+  if (hasExtensions) {
+    bodyChildren.push(
+      el('div', { className: 'coverage-extensions' },
+        el('div', { className: 'coverage-extensions-head' },
+          el('div', { className: 'coverage-extensions-eyebrow' }, 'Coverage Extensions'),
+          el('div', { className: 'coverage-extensions-subtitle' },
+            'Optional increases above standard limits')),
+        isEditing
+          ? el('div', { className: 'form-grid coverage-card-fields' },
+              ...extensionFields.map(f => renderFormField(f, true)))
+          : renderCoverageReadList(extensionFields))
+    );
   }
 
   return el('div', { className: 'coverage-card coverage-card-standard' },
@@ -4858,10 +5034,7 @@ function renderStandardCoverageCard(line, isEditing) {
           ? el('div', { className: 'coverage-card-subtitle' }, line.description)
           : null),
       el('div', { className: 'coverage-card-pill coverage-card-pill-standard' }, 'Standard')),
-    isEditing
-      ? el('div', { className: 'form-grid coverage-card-fields' },
-          ...line.fields.map(f => renderFormField(f, true)))
-      : renderCoverageReadList(line.fields));
+    ...bodyChildren);
 }
 
 // Add-on coverage card — collapses when status=false, expands when true.
@@ -4989,6 +5162,18 @@ const COVERAGE_FIELD_OVERRIDES = {
   'gl_limits': {
     label: 'GL Limits',
     formatter: formatGLLimits,
+  },
+  // Joshu auto-labels these from the field code, producing
+  // "Increased Gatesandfences" / "Increased Treesandshrubs" — fix
+  // the spacing and append "Limit" so the labels read naturally.
+  'increased_signs': {
+    label: 'Increased Signs Limit',
+  },
+  'increased_gatesandfences': {
+    label: 'Increased Gates and Fences Limit',
+  },
+  'increased_treesandshrubs': {
+    label: 'Increased Trees and Shrubs Limit',
   },
 };
 

@@ -103,17 +103,121 @@ def diagnostics():
         "update_quote": _ch._ENABLE_UPDATE_QUOTE,
     }
 
+    # Show how the params actually serialize on the wire — Python's
+    # `True` becomes `"True"` (capital T) in URLs, which Joshu may not
+    # parse as the boolean.
+    serialized = {}
+    for k, v in sample_params.items():
+        serialized[k] = {"python_repr": repr(v), "python_type": type(v).__name__}
+    try:
+        import httpx as _httpx
+        sample_request = _httpx.Request("GET", f"{settings.joshu_base_url}{sample_path}", params=sample_params)
+        sample_serialized_url = str(sample_request.url)
+    except Exception as e:
+        sample_serialized_url = f"<error: {e}>"
+
     return {
         "mode": settings.joshu_environment,
         "base_url": settings.joshu_base_url,
         "api_prefix": getattr(client, "API_PREFIX", "/api/insurance/v3"),
         "container": getattr(client, "_container", "unknown"),
+        "test_filter": getattr(client, "_test_filter", None),
         "sample_url": f"{settings.joshu_base_url}{sample_path}",
         "sample_params": sample_params,
+        "sample_serialized_url": sample_serialized_url,
+        "param_types": serialized,
         "sample_headers": sample_headers,
         "writes_enabled": writes,
         "note": "No request was made. This is a description of how the next request will be built.",
     }
+
+
+@app.get("/api/diagnostics/live")
+async def diagnostics_live():
+    """Make a LIVE call to Joshu's submissions list and report back.
+
+    This is the definitive end-to-end test: it shows what actually comes
+    back from Joshu when we send our `test=true` filter. If the response
+    contains records that say `test: false`, then the filter isn't being
+    honored on Joshu's side and we have a real bug to fix.
+
+    Returns:
+      • the request URL we sent (with params serialized as on the wire)
+      • count of records returned
+      • for each record: insured_id, status, flow, and the value of the
+        record's `test` field (so we can see if mixed test/prod records
+        came back)
+    """
+    if settings.is_mock:
+        return {"mode": "mock", "note": "Mock mode — skipping live call."}
+
+    from app.joshu.factory import get_joshu_client
+    import httpx as _httpx
+    client = get_joshu_client()
+
+    sample_params = client._build_params({"_page": 1, "_per_page": 10})  # type: ignore[attr-defined]
+    headers = client._headers()  # type: ignore[attr-defined]
+
+    url = f"{settings.joshu_base_url}/api/insurance/v3/submissions"
+    constructed_url = str(_httpx.Request("GET", url, params=sample_params).url)
+
+    try:
+        async with _httpx.AsyncClient(timeout=30.0) as http:
+            resp = await http.get(url, params=sample_params, headers=headers)
+        status = resp.status_code
+        body = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else resp.text[:500]
+    except Exception as e:
+        return {
+            "mode": settings.joshu_environment,
+            "request_url": constructed_url,
+            "request_params": sample_params,
+            "error": f"{type(e).__name__}: {e}",
+        }
+
+    # Summarize the response — pull out each record's test field so we
+    # can see if filtering is working
+    summary = {
+        "mode": settings.joshu_environment,
+        "request_url": constructed_url,
+        "request_params": sample_params,
+        "request_param_types": {k: type(v).__name__ for k, v in sample_params.items()},
+        "response_status": status,
+    }
+    if isinstance(body, dict):
+        items = body.get("items") or []
+        summary["total_items"] = body.get("total_items")
+        summary["page"] = body.get("page")
+        summary["per_page"] = body.get("per_page")
+        summary["returned_count"] = len(items)
+        summary["records"] = []
+        for it in items[:10]:
+            summary["records"].append({
+                "id": it.get("id"),
+                "test_field_value": it.get("test"),
+                "test_field_type": type(it.get("test")).__name__,
+                "status": it.get("status"),
+                "flow": it.get("flow"),
+                "policy_id": it.get("policy_id"),
+                "insured_id": it.get("insured_id"),
+                "modified_at": it.get("modified_at") or it.get("modi(cid:21)ed_at"),
+            })
+        # Aggregate: how many returned records have test=true vs test=false?
+        test_counts = {"true": 0, "false": 0, "null_or_missing": 0, "other": 0}
+        for it in items:
+            v = it.get("test")
+            if v is True:
+                test_counts["true"] += 1
+            elif v is False:
+                test_counts["false"] += 1
+            elif v is None:
+                test_counts["null_or_missing"] += 1
+            else:
+                test_counts["other"] += 1
+        summary["test_field_breakdown"] = test_counts
+    else:
+        summary["body_preview"] = str(body)[:500]
+
+    return summary
 
 
 # Serve the single-file UI at /
