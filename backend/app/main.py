@@ -133,6 +133,71 @@ def diagnostics():
     }
 
 
+@app.get("/api/diagnostics/products-live")
+async def diagnostics_products_live():
+    """Show the raw response from Joshu's /products endpoint so we can see
+    why some products are missing from the broker portal's picker.
+
+    The picker filters on `published` being non-null. If a product has
+    no `published` ProductVersion, it's hidden. This endpoint surfaces
+    the full list (with version structure) so we can verify whether
+    missing products are unpublished, archived, or named differently.
+    """
+    if settings.is_mock:
+        return {"mode": "mock"}
+
+    from app.joshu.factory import get_joshu_client
+    import httpx as _httpx
+    client = get_joshu_client()
+    headers = client._headers()  # type: ignore[attr-defined]
+
+    # Try the basic call first
+    url = f"{settings.joshu_base_url}/api/insurance/v3/products"
+    try:
+        async with _httpx.AsyncClient(timeout=30.0) as http:
+            # Default call (with whatever filters our _build_params adds)
+            params_default = client._build_params({})  # type: ignore[attr-defined]
+            resp_default = await http.get(url, params=params_default, headers=headers)
+            # Try with is_archived=false to see if there's a difference
+            resp_archived = await http.get(url, params={**params_default, "is_archived": "false"}, headers=headers)
+            # Try without container filter at all (raw)
+            resp_raw = await http.get(url, params={"_per_page": 50}, headers=headers)
+    except Exception as e:
+        return {"error": f"{type(e).__name__}: {e}"}
+
+    def summarize(resp):
+        out = {"status": resp.status_code, "url": str(resp.url)}
+        try:
+            body = resp.json()
+        except Exception:
+            return {**out, "body_preview": resp.text[:300]}
+        items = body.get("items", body) if isinstance(body, dict) else body
+        out["item_count"] = len(items) if isinstance(items, list) else None
+        if isinstance(items, list):
+            out["items"] = []
+            for p in items:
+                if not isinstance(p, dict):
+                    continue
+                out["items"].append({
+                    "id": p.get("id"),
+                    "name": p.get("name"),
+                    "display_name": p.get("display_name"),
+                    "is_archived": p.get("is_archived"),
+                    "container": p.get("container"),
+                    "published_present": p.get("published") is not None,
+                    "published_id": (p.get("published") or {}).get("id") if isinstance(p.get("published"), dict) else None,
+                    "versions_count": len(p.get("versions") or []) if isinstance(p.get("versions"), list) else None,
+                    "all_top_level_keys": list(p.keys()),
+                })
+        return out
+
+    return {
+        "default_call": summarize(resp_default),
+        "with_is_archived_false": summarize(resp_archived),
+        "no_container_filter": summarize(resp_raw),
+    }
+
+
 @app.get("/api/diagnostics/test-submission-ids")
 async def diagnostics_test_submission_ids():
     """End-to-end discovery: list test policies, then fan out to fetch
