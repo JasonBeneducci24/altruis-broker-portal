@@ -291,6 +291,31 @@
     text-transform: uppercase; color: #7a90b8; display: block; margin-top: 1px;
   }
 
+  /* Sidebar primary CTA — persistent "New Submission" button. Sits
+     directly under the brand block, before the nav. White-on-blue so
+     it visually pops out of the navy sidebar; this is the single most
+     important action a broker takes, so it lives here regardless of
+     what view they're currently on. */
+  .sidebar-cta {
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px;
+    margin: 0 0 24px;
+    padding: 11px 14px;
+    background: var(--blue);
+    color: #fff;
+    font-weight: 600; font-size: 0.92rem;
+    border: none; border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 120ms var(--ease), transform 120ms var(--ease);
+    width: 100%;
+  }
+  .sidebar-cta:hover { background: var(--blue-hover); }
+  .sidebar-cta:active { transform: translateY(1px); }
+  .sidebar-cta-plus {
+    font-size: 1.05rem; line-height: 1; font-weight: 400;
+    opacity: 0.9;
+  }
+
   .nav-section {
     font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase;
     color: #5a6e90; padding: 20px 14px 8px; font-weight: 600;
@@ -2824,17 +2849,20 @@ function sidebar() {
         el('div', { className: 'brand-mark-sub' }, 'Broker Portal'),
         renderEnvBadge())),
 
+    // Persistent primary CTA — most important broker action,
+    // available from every view.
+    el('button', {
+      className: 'sidebar-cta',
+      onClick: () => { state.view = 'new-submission'; render(); },
+    },
+      el('span', { className: 'sidebar-cta-plus' }, '+'),
+      'New submission'),
+
     el('div', { className: 'nav-section' }, 'Pipeline'),
     navItem('dashboard', 'Dashboard'),
     navItem('submissions', 'Submissions'),
     navItem('quotes', 'Quotes'),
     navItem('policies', 'Policies'),
-
-    el('div', { className: 'nav-section' }, 'Library'),
-    navItem('documents', 'Documents'),
-
-    el('div', { className: 'nav-section' }, 'Actions'),
-    navItem('new-submission', 'New Submission'),
 
     el('div', { className: 'user-box' },
       el('div', { className: 'u-row' },
