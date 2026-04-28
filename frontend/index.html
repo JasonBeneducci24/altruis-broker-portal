@@ -2031,6 +2031,110 @@
   }
   .readonly-value.empty { color: var(--mute); font-weight: 400; }
 
+  /* ─── Product picker (New Submission, step 1) ─────────────────────
+     Card-based selector — one card per published product. Clicking a
+     card advances to step 2 (confirm). Editorial layout: distinct icon
+     glyph on the left, product name + version on the right, subtle
+     arrow affordance on the far right. Each card is a button so it's
+     keyboard-accessible. */
+  .product-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    max-width: 880px;
+  }
+  .product-card {
+    display: flex; align-items: center; gap: 18px;
+    padding: 22px 24px;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    text-align: left;
+    transition: all 160ms var(--ease);
+    color: var(--ink);
+    box-shadow: var(--shadow-xs);
+  }
+  .product-card:hover {
+    border-color: var(--blue);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+  }
+  .product-card.selected {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 1px var(--blue);
+  }
+  .product-card-icon {
+    width: 44px; height: 44px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--blue-tint);
+    color: var(--blue);
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+  }
+  .product-card-body {
+    flex: 1; min-width: 0;
+  }
+  .product-card-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--navy, var(--ink));
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+  }
+  .product-card-version {
+    font-size: 0.72rem;
+    color: var(--ink-mute);
+    margin-top: 4px;
+    letter-spacing: 0.04em;
+  }
+  .product-card-arrow {
+    font-size: 1.2rem;
+    color: var(--ink-mute);
+    flex-shrink: 0;
+    transition: color 160ms var(--ease);
+  }
+  .product-card:hover .product-card-arrow {
+    color: var(--blue);
+  }
+
+  /* Confirm step — selected product summary row at top of card */
+  .confirm-product-row {
+    display: flex; align-items: center; gap: 16px;
+    padding: 14px 16px;
+    background: var(--blue-tint);
+    border-radius: var(--radius-sm);
+  }
+  .confirm-product-label {
+    font-size: 0.66rem; font-weight: 600;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--blue);
+    flex-shrink: 0;
+  }
+  .confirm-product-value {
+    flex: 1;
+    font-size: 0.98rem; font-weight: 500;
+    color: var(--navy, var(--ink));
+    letter-spacing: -0.005em;
+  }
+  .btn-link {
+    background: transparent; border: none;
+    color: var(--blue); font-weight: 500; font-size: 0.85rem;
+    cursor: pointer; padding: 0;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-color: rgba(47, 95, 184, 0.3);
+    transition: text-decoration-color 120ms;
+  }
+  .btn-link:hover {
+    text-decoration-color: var(--blue);
+  }
+
+  /* Mobile: single-column product grid */
+  @media (max-width: 720px) {
+    .product-grid { grid-template-columns: 1fr; }
+  }
+
   /* ─────────── Detail layout ─────────── */
   .detail-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
 
@@ -6163,54 +6267,172 @@ function documentsView() {
 // NEW SUBMISSION
 // ═════════════════════════════════════════════════════════════════
 function newSubmissionView() {
+  // Two-step flow:
+  //   step 1: product picker (cards) — load /api/products, render one card per product
+  //   step 2: confirm details (effective date) — broker can go back to switch product
+  // We can't auto-pick a product because Altruis has multiple (Self Storage,
+  // GL, Excess GL, ISO Self Storage), and each has its own application
+  // schema. The broker has to consciously choose.
   const form = {
+    step: 'pick_product',         // 'pick_product' | 'confirm'
+    products: null,               // array from /api/products, or null while loading
+    productsError: null,
+    selectedProduct: null,        // { id, name, display_name, product_version_id, version_label }
     effective_date: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
     creating: false,
   };
   const container = el('div', {});
+
+  // Kick off product fetch on view mount. Only fetch once — subsequent
+  // re-renders use the cached `form.products`.
+  api('/api/products')
+    .then(res => {
+      form.products = res.items || [];
+      // If only one product is configured, auto-advance to step 2.
+      if (form.products.length === 1) {
+        form.selectedProduct = form.products[0];
+        form.step = 'confirm';
+      }
+      rerender();
+    })
+    .catch(e => {
+      form.productsError = e?.message || 'Failed to load products.';
+      form.products = [];
+      rerender();
+    });
+
   const rerender = () => {
     container.innerHTML = '';
     container.appendChild(
       el('div', { className: 'page-header' },
         el('div', {},
           el('div', { className: 'eyebrow' }, 'New submission'),
-          el('h1', {}, 'Start a new risk')),
+          el('h1', {}, form.step === 'pick_product' ? 'Choose a product' : 'Confirm submission')),
         el('button', { className: 'btn btn-secondary',
-          onClick: () => { state.view = 'dashboard'; render(); loadView(); } }, '← Back')));
+          onClick: () => { state.view = 'dashboard'; render(); loadView(); } }, '\u2190 Back')));
 
-    container.appendChild(
-      el('div', { className: 'card' },
-        el('p', { className: 'subtle' },
-          'Create a new submission. Insured and coverage details are filled in on the next screen using the product’s current schema.'),
-        el('div', { className: 'form-grid', style: { marginTop: '24px' } },
-          el('div', { className: 'form-field' },
-            el('label', {}, 'Requested effective date'),
-            el('input', { type: 'date', value: form.effective_date,
-              onInput: (e) => { form.effective_date = e.target.value; } })),
-          el('div', { className: 'form-field' },
-            el('label', {}, 'Product'),
-            el('div', { className: 'readonly-value' },
-              'Altruis Commercial Package Policy (auto-selected)'))),
-        el('div', { style: { marginTop: '28px', display: 'flex', justifyContent: 'flex-end', gap: '12px' } },
-          el('button', { className: 'btn btn-secondary',
-            onClick: () => { state.view = 'dashboard'; render(); loadView(); } }, 'Cancel'),
-          el('button', { className: 'btn btn-primary', disabled: form.creating,
-            onClick: async () => {
-              form.creating = true; rerender();
-              try {
-                const res = await api('/api/submissions/start', {
-                  method: 'POST',
-                  body: { effective_date: form.effective_date }
-                });
-                toast('Submission created', 'ok');
-                state.view = 'submissions'; state.subView = res.submission_id;
-                loadSubmission(res.submission_id);
-              } catch (e) { form.creating = false; rerender(); }
-            }
-          }, form.creating ? 'Creating' : 'Create submission'))));
+    if (form.step === 'pick_product') {
+      container.appendChild(renderProductPicker(form, rerender));
+    } else {
+      container.appendChild(renderConfirmStep(form, rerender));
+    }
   };
+
   rerender();
   return container;
+}
+
+function renderProductPicker(form, rerender) {
+  if (form.products === null) {
+    return el('div', { className: 'card' },
+      el('p', { className: 'subtle' }, 'Loading products\u2026'));
+  }
+  if (form.productsError) {
+    return el('div', { className: 'card' },
+      el('p', { style: { color: 'var(--err)' } }, form.productsError),
+      el('button', {
+        className: 'btn btn-secondary',
+        onClick: () => { form.productsError = null; form.products = null; rerender(); api('/api/products').then(r => { form.products = r.items || []; rerender(); }).catch(e => { form.productsError = e.message; rerender(); }); }
+      }, 'Retry'));
+  }
+  if (form.products.length === 0) {
+    return el('div', { className: 'card' },
+      el('p', { className: 'subtle' }, 'No products are currently published. Contact your underwriter.'));
+  }
+
+  return el('div', {},
+    el('p', { className: 'subtle', style: { marginBottom: '20px' } },
+      'Select the product you\u2019re quoting. Each product has its own application questions and coverage options.'),
+    el('div', { className: 'product-grid' },
+      ...form.products.map(p => el('button', {
+        className: `product-card ${form.selectedProduct?.id === p.id ? 'selected' : ''}`,
+        onClick: () => {
+          form.selectedProduct = p;
+          form.step = 'confirm';
+          rerender();
+        },
+      },
+        el('div', { className: 'product-card-icon' }, productIcon(p)),
+        el('div', { className: 'product-card-body' },
+          el('div', { className: 'product-card-name' }, p.display_name),
+          p.version_label
+            ? el('div', { className: 'product-card-version' }, `Version ${p.version_label}`)
+            : null),
+        el('div', { className: 'product-card-arrow' }, '\u2192')))));
+}
+
+function renderConfirmStep(form, rerender) {
+  return el('div', { className: 'card' },
+    // Selected product summary at top with a "Change" link
+    el('div', { className: 'confirm-product-row' },
+      el('div', { className: 'confirm-product-label' }, 'PRODUCT'),
+      el('div', { className: 'confirm-product-value' }, form.selectedProduct.display_name),
+      el('button', {
+        className: 'btn-link',
+        onClick: () => { form.step = 'pick_product'; rerender(); },
+      }, 'Change')),
+    el('p', { className: 'subtle', style: { marginTop: '20px' } },
+      'Set a requested effective date. Insured details and coverage selections come next, on the application screen.'),
+    el('div', { className: 'form-grid', style: { marginTop: '24px', maxWidth: '320px' } },
+      el('div', { className: 'form-field' },
+        el('label', {}, 'Requested effective date'),
+        el('input', { type: 'date', value: form.effective_date,
+          onInput: (e) => { form.effective_date = e.target.value; } }))),
+    el('div', { style: { marginTop: '28px', display: 'flex', justifyContent: 'flex-end', gap: '12px' } },
+      el('button', { className: 'btn btn-secondary',
+        onClick: () => { state.view = 'dashboard'; render(); loadView(); } }, 'Cancel'),
+      el('button', { className: 'btn btn-primary', disabled: form.creating,
+        onClick: async () => {
+          form.creating = true; rerender();
+          try {
+            const res = await api('/api/submissions/start', {
+              method: 'POST',
+              body: {
+                effective_date: form.effective_date,
+                product_version_id: form.selectedProduct.product_version_id,
+              }
+            });
+            toast('Submission created', 'ok');
+            state.view = 'submissions'; state.subView = res.submission_id;
+            loadSubmission(res.submission_id);
+          } catch (e) { form.creating = false; rerender(); }
+        }
+      }, form.creating ? 'Creating\u2026' : 'Create submission')));
+}
+
+function productIcon(product) {
+  // Pick a small SVG glyph based on the product name. Each product gets
+  // a distinct icon so the picker reads at a glance:
+  //   • Storage / Self Storage → warehouse outline
+  //   • General Liability      → shield outline
+  //   • Excess Liability        → stacked shield outline
+  //   • ISO Self Storage        → warehouse with stamp
+  //   • fallback                → plain document
+  const name = (product.display_name || product.name || '').toLowerCase();
+  const stroke = 'currentColor';
+  const sw = 1.5;
+  const path = (d, fill = 'none') => `<path d="${d}" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" fill="${fill}"/>`;
+
+  let inner = '';
+  if (name.includes('iso')) {
+    // Warehouse + small "ISO" badge
+    inner = path('M3 10v9h18v-9') + path('M3 10l9-6 9 6') + path('M9 19v-5h6v5');
+  } else if (name.includes('storage')) {
+    // Warehouse outline
+    inner = path('M3 10v9h18v-9') + path('M3 10l9-6 9 6') + path('M9 19v-5h6v5');
+  } else if (name.includes('excess')) {
+    // Two stacked shields
+    inner = path('M12 4l6 2v5c0 4-3 7-6 8-3-1-6-4-6-8V6l6-2z') + path('M12 9l3 1v3c0 2-1.5 3.5-3 4-1.5-0.5-3-2-3-4v-3l3-1z');
+  } else if (name.includes('liability') || name.includes('gl')) {
+    // Single shield
+    inner = path('M12 3l8 3v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-3z');
+  } else {
+    // Plain document
+    inner = path('M6 3h9l4 4v14H6z') + path('M15 3v4h4');
+  }
+  const wrap = document.createElement('div');
+  wrap.innerHTML = `<svg viewBox="0 0 24 24" width="28" height="28" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
+  return wrap.firstChild;
 }
 
 // ═════════════════════════════════════════════════════════════════

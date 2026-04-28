@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 
 # Import config FIRST so the environment guardrail runs before anything else
 from app.config import settings
-from app.routers import auth, submissions, quotes, policies, documents
+from app.routers import auth, submissions, quotes, policies, documents, products
 
 
 app = FastAPI(
@@ -45,6 +45,7 @@ app.include_router(submissions.router)
 app.include_router(quotes.router)
 app.include_router(policies.router)
 app.include_router(documents.router)
+app.include_router(products.router)
 
 
 @app.get("/api/health")
