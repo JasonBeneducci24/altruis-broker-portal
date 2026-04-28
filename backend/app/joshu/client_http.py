@@ -75,21 +75,20 @@ log = logging.getLogger("altruis.joshu.http")
 # write, flip its flag to True. The read paths are independent of
 # these flags and remain fully functional.
 #
-# IMPORTANT — production-leak history (Apr 28 2026):
+# History (Apr 28 2026):
 # create_policy and create_transaction were briefly enabled but a bug
 # in _build_params() meant the `container=Test` query param was only
 # added to LIST endpoint requests, not to writes. The result: a
 # test-environment "Create submission" click landed the new policy in
-# the production container. The bug is now fixed (container is sent
-# on EVERY request, regardless of endpoint shape), but the flags stay
-# False until /api/diagnostics/write-construction is hit on the live
-# deploy and confirms `expected_container_in_url: true` for both
-# POST /policies and POST /transactions. Once verified, flip these
-# flags back to True and redeploy.
+# the production container. The bug was fixed (container is now sent
+# on EVERY request, regardless of endpoint shape) and verified on the
+# live deploy via /api/diagnostics/write-construction, which confirmed
+# `expected_container_in_url: true` for both POST /policies and POST
+# /transactions. Writes are now re-enabled.
 _ENABLE_UPDATE_SUBMISSION_DATA = True   # PUT /submission-data/{id}
 _ENABLE_UPDATE_SUBMISSION = True        # PUT /submissions/{id} (status change)
-_ENABLE_CREATE_POLICY = False           # POST /policies — re-disabled, see SAFETY NOTE
-_ENABLE_CREATE_TRANSACTION = False      # POST /transactions — re-disabled, see SAFETY NOTE
+_ENABLE_CREATE_POLICY = True            # POST /policies
+_ENABLE_CREATE_TRANSACTION = True       # POST /transactions
 _ENABLE_UPDATE_QUOTE = False            # PUT /quotes/{id} (publish/bind)
 
 

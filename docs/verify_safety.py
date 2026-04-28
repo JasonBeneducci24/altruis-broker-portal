@@ -358,15 +358,11 @@ async def test_locked_writes_raise_not_ready():
     print("\n[7] Writes NOT yet enabled still raise HttpClientNotReadyError")
     client = HttpJoshuClient()
 
-    # create_policy and create_transaction are CURRENTLY DISABLED pending
-    # verification that the container=Test query param reaches write
-    # endpoints (the previous build's bug only added it to LIST endpoints,
-    # which caused a write to land in production).
-    # update_quote_status remains disabled awaiting the bind/publish
-    # workflow build-out.
+    # Only update_quote_status remains locked, awaiting the bind/publish
+    # workflow build-out. create_policy and create_transaction were
+    # enabled after /api/diagnostics/write-construction confirmed both
+    # write URLs include container=Test, closing the leak.
     locked = [
-        ("create_policy", lambda c: c.create_policy("t")),
-        ("create_transaction", lambda c: c.create_transaction("t", flow="New", policy_id="x", product_version_id=1)),
         ("update_quote_status", lambda c: c.update_quote_status("t", 1, "QuotePublished")),
     ]
     for name, op in locked:
