@@ -132,6 +132,71 @@ def diagnostics():
     }
 
 
+@app.get("/api/diagnostics/test-submission-ids")
+async def diagnostics_test_submission_ids():
+    """End-to-end discovery: list test policies, then fan out to fetch
+    each one's detail to extract `ongoing_change_submission_id`.
+
+    Reports timing, count, and sample IDs so we can sanity-check the
+    final flow before refactoring the main routers.
+    """
+    if settings.is_mock:
+        return {"mode": "mock"}
+    import asyncio
+    import time
+    from app.joshu.factory import get_joshu_client
+    import httpx as _httpx
+
+    client = get_joshu_client()
+    headers = client._headers()  # type: ignore[attr-defined]
+
+    list_url = f"{settings.joshu_base_url}/api/insurance/v3/policies"
+    list_params = client._build_params({"_page": 1, "_per_page": 50})  # type: ignore[attr-defined]
+
+    t0 = time.monotonic()
+    async with _httpx.AsyncClient(timeout=30.0) as http:
+        list_resp = await http.get(list_url, params=list_params, headers=headers)
+        list_body = list_resp.json()
+        policies = list_body.get("items", []) if isinstance(list_body, dict) else []
+        t_list = time.monotonic() - t0
+
+        # Fan out detail fetches in parallel
+        t1 = time.monotonic()
+
+        async def fetch_one(p):
+            url = f"{settings.joshu_base_url}/api/insurance/v3/policies/{p['id']}"
+            try:
+                r = await http.get(url, headers=headers)
+                return r.json() if r.status_code == 200 else None
+            except Exception:
+                return None
+
+        details = await asyncio.gather(*(fetch_one(p) for p in policies))
+        t_detail = time.monotonic() - t1
+
+    submission_ids = []
+    for d in details:
+        if not d: continue
+        sid = d.get("ongoing_change_submission_id")
+        if sid is not None:
+            submission_ids.append({
+                "submission_id": sid,
+                "policy_id": d.get("id"),
+                "insured_name": d.get("insured_name"),
+                "container": d.get("container"),
+            })
+
+    return {
+        "policies_total": list_body.get("total_items"),
+        "policies_returned": len(policies),
+        "details_fetched": sum(1 for d in details if d),
+        "submission_ids_found": len(submission_ids),
+        "list_call_ms": int(t_list * 1000),
+        "detail_calls_ms_total_parallel": int(t_detail * 1000),
+        "sample_submission_ids": submission_ids[:10],
+    }
+
+
 @app.get("/api/diagnostics/policy-detail")
 async def diagnostics_policy_detail(policy_id: str = "499be470-94d3-4d9d-af00-01f24b44f147"):
     """Fetch a single policy by ID and show every field returned.
