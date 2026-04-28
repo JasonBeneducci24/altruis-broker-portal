@@ -1831,6 +1831,76 @@ class HttpJoshuClient(JoshuClientBase):
         return Policy.model_validate(data)
 
     # ------------------------------------------------------------------
+    # Policy discovery cache
+    # ------------------------------------------------------------------
+    #
+    # The dashboard calls /api/submissions, /api/quotes, and /api/documents
+    # in parallel on every load. With our policy-driven discovery, each
+    # of these would re-fetch the full policy list and re-fan-out to
+    # policy details — same work, three times. We cache the (policies,
+    # submission-id-map) result for a short TTL keyed by token + page +
+    # per_page so all three callers within one page-load share it.
+    #
+    # The cache is process-local and TTL-based. No invalidation on
+    # writes — but writes don't happen in this read flow, and a 30s TTL
+    # is short enough that any stale data from a future write path
+    # would refresh quickly.
+    _POLICY_DISCOVERY_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
+    _POLICY_DISCOVERY_TTL_SEC = 30
+
+    async def _get_policy_discovery(
+        self, token: str, *, page: int, per_page: int,
+    ) -> dict[str, Any]:
+        """Fetch (and cache) the policy discovery result.
+
+        Returns:
+          {
+            "policies":   list of policy summary dicts (from /policies),
+            "details":    list of policy detail dicts (from /policies/{id}),
+            "policies_total": total_items from the list response,
+          }
+        """
+        import time
+        cache_key = f"{token[:32]}::{page}::{per_page}"
+        now = time.monotonic()
+        cached = self._POLICY_DISCOVERY_CACHE.get(cache_key)
+        if cached and (now - cached[0]) < self._POLICY_DISCOVERY_TTL_SEC:
+            return cached[1]
+
+        # Cache miss — do the real work.
+        policies_resp = await self.list_policies(token, page=page, per_page=per_page)
+        policies = policies_resp.items or []
+
+        async def _fetch_detail(p):
+            pid = p.get("id") if isinstance(p, dict) else getattr(p, "id", None)
+            if not pid:
+                return None
+            try:
+                return await self._get(
+                    f"/policies/{pid}", bearer_token=token, list_endpoint=False,
+                )
+            except Exception as e:
+                log.warning("policy detail fetch failed for %s: %s", pid, e)
+                return None
+
+        details = await asyncio.gather(*(_fetch_detail(p) for p in policies))
+
+        result = {
+            "policies": policies,
+            "details": [d for d in details if d],
+            "policies_total": policies_resp.total_items,
+        }
+        self._POLICY_DISCOVERY_CACHE[cache_key] = (now, result)
+
+        # Opportunistic eviction of expired entries to avoid unbounded
+        # growth. Cheap because entries are few.
+        for k, (ts, _) in list(self._POLICY_DISCOVERY_CACHE.items()):
+            if (now - ts) >= self._POLICY_DISCOVERY_TTL_SEC:
+                self._POLICY_DISCOVERY_CACHE.pop(k, None)
+
+        return result
+
+    # ------------------------------------------------------------------
     # Policy-driven submission discovery
     # ------------------------------------------------------------------
     #
@@ -1869,26 +1939,12 @@ class HttpJoshuClient(JoshuClientBase):
         Pagination is applied to the FILTERED list of policies, not to
         the raw policy count, so per_page/page produce the right slice.
         """
-        # Step 1: list policies (filtered to test container by _build_params).
-        # We over-fetch to account for status filters dropping rows.
+        # Step 1+2: list policies + fetch each one's detail (cached).
         policies_per_page = max(per_page * 2, 50)
-        policies_resp = await self.list_policies(token, page=page, per_page=policies_per_page)
-        policies = policies_resp.items or []
-
-        # Step 2: fetch policy detail in parallel — that's where
-        # ongoing_change_submission_id lives. The list endpoint omits it.
-        async def _fetch_detail(p):
-            pid = p.get("id") if isinstance(p, dict) else getattr(p, "id", None)
-            if not pid:
-                return None
-            try:
-                detail = await self._get(f"/policies/{pid}", bearer_token=token, list_endpoint=False)
-                return detail
-            except Exception as e:
-                log.warning("policy detail fetch failed for %s: %s", pid, e)
-                return None
-
-        details = await asyncio.gather(*(_fetch_detail(p) for p in policies))
+        discovery = await self._get_policy_discovery(
+            token, page=page, per_page=policies_per_page,
+        )
+        details = discovery["details"]
 
         # Step 3: derive submission IDs from policy details.
         # Primary: ongoing_change_submission_id (active in-flight submission)
@@ -1898,9 +1954,7 @@ class HttpJoshuClient(JoshuClientBase):
         sub_id_to_policy: dict[int, dict[str, Any]] = {}
         policies_needing_txn_lookup: list[dict[str, Any]] = []
 
-        for p, d in zip(policies, details):
-            if not d:
-                continue
+        for d in details:
             sub_id = d.get("ongoing_change_submission_id")
             insured_name = d.get("insured_name")
             policy_id = d.get("id")
@@ -2003,7 +2057,7 @@ class HttpJoshuClient(JoshuClientBase):
 
         # Apply pagination — at this point `rows` is the full slice for
         # the current policy page. Cut down to per_page.
-        total_items = policies_resp.total_items or len(rows)
+        total_items = discovery.get("policies_total") or len(rows)
         items_slice = rows[:per_page]
 
         return {
@@ -2033,6 +2087,111 @@ class HttpJoshuClient(JoshuClientBase):
     # ------------------------------------------------------------------
     # Quotes
     # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # Policy-driven quote discovery
+    # ------------------------------------------------------------------
+    #
+    # Same problem as submissions: /quotes list endpoint without a
+    # submission_id parameter doesn't honor the container filter for
+    # our token, so it leaks production quotes. The fix: rediscover
+    # via policies (which are correctly filtered), then fan out to
+    # /quotes?submission_id=X per policy.
+    #
+    # Joshu's UI uses this exact pattern — its initial page-load
+    # network panel shows /policies?container=Test followed by N
+    # parallel /quotes?submission_id=... calls.
+
+    async def discover_test_quotes(
+        self, token: str, *,
+        page: int = 1, per_page: int = 25,
+        status_filter: str | None = None,
+    ) -> dict[str, Any]:
+        """Return a paginated, container-filtered list of quote rows.
+
+        Each row is shaped like Joshu's /quotes list response (id, status,
+        submission_id, etc.) PLUS:
+          • `insured_name` from the parent policy
+          • `policy_id` from the parent policy
+
+        The pagination contract matches existing list endpoints:
+        {items, total_items, page, per_page, total_pages}.
+        """
+        # Step 1: discover policies (filtered) and their submission IDs
+        # via the shared discovery cache (so the dashboard's parallel
+        # /api/submissions, /api/quotes, /api/documents calls all share
+        # the same upstream lookups).
+        policies_per_page = max(per_page * 2, 50)
+        discovery = await self._get_policy_discovery(
+            token, page=page, per_page=policies_per_page,
+        )
+        details = discovery["details"]
+
+        # Build {submission_id: policy_context} so we can attach insured
+        # name to each quote later.
+        sub_to_policy: dict[int, dict[str, Any]] = {}
+        for d in details:
+            sub_id = d.get("ongoing_change_submission_id")
+            if sub_id is None:
+                continue
+            sub_to_policy[int(sub_id)] = {
+                "policy_id": d.get("id"),
+                "insured_name": d.get("insured_name"),
+                "policy_status": d.get("status"),
+            }
+
+        # Step 2: for each submission, fetch quotes in parallel.
+        # Per-submission /quotes calls don't need container filtering —
+        # the submission_id is unique system-wide and only resolves to
+        # quotes attached to it.
+        async def _fetch_quotes_for_submission(sub_id: int):
+            try:
+                data = await self._get(
+                    "/quotes",
+                    params={"submission_id": sub_id, "_per_page": 50},
+                    bearer_token=token,
+                )
+            except Exception as e:
+                log.warning("quote list fetch failed for submission %s: %s", sub_id, e)
+                return []
+            items = (data.get("items") if isinstance(data, dict) else None) or []
+            ctx = sub_to_policy.get(sub_id, {})
+            for q in items:
+                if not isinstance(q, dict):
+                    continue
+                if ctx.get("insured_name") and not q.get("insured_name"):
+                    q["insured_name"] = ctx["insured_name"]
+                if ctx.get("policy_id") and not q.get("policy_id"):
+                    q["policy_id"] = ctx["policy_id"]
+                # Ensure submission_id is present on the row even if
+                # Joshu didn't echo it back (unlikely, but defensive).
+                if not q.get("submission_id"):
+                    q["submission_id"] = sub_id
+            return items
+
+        all_quotes_nested = await asyncio.gather(
+            *(_fetch_quotes_for_submission(sid) for sid in sub_to_policy.keys())
+        )
+        all_quotes: list[dict[str, Any]] = []
+        for batch in all_quotes_nested:
+            all_quotes.extend(batch)
+
+        # Filter by quote status if requested (e.g. only QuotePublished).
+        if status_filter:
+            all_quotes = [q for q in all_quotes if q.get("status") == status_filter]
+
+        # Sort newest first, then paginate.
+        all_quotes.sort(key=lambda q: q.get("modified_at") or q.get("created_at") or "", reverse=True)
+        items_slice = all_quotes[:per_page]
+        total_items = len(all_quotes)
+
+        return {
+            "items": items_slice,
+            "total_items": total_items,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": max(1, (total_items + per_page - 1) // per_page),
+        }
 
     async def list_quotes(
         self, token, *, submission_id=None, page=1, per_page=25,
@@ -2071,6 +2230,87 @@ class HttpJoshuClient(JoshuClientBase):
         if document_type: params["document_type"] = document_type
         data = await self._get("/documents", params=params, bearer_token=token)
         return Paginated.model_validate(data)
+
+    # ------------------------------------------------------------------
+    # Policy-driven document discovery
+    # ------------------------------------------------------------------
+    #
+    # Documents have no own container field — they're attached to a
+    # quote, which is attached to a submission, which is attached to a
+    # policy. So we discover by composing on top of discover_test_quotes:
+    # find all test quotes, then fan out /documents?quote_id=X per quote.
+    #
+    # This is N+1 in shape (1 policy list + N policy details + M quote
+    # lists + K document lists). For ~50 policies, that's roughly 150
+    # parallel HTTP calls. Each is small and fast; total wall time is
+    # ~3-4 seconds. Worth caching at the router level if this becomes
+    # a hot path.
+
+    async def discover_test_documents(
+        self, token: str, *,
+        page: int = 1, per_page: int = 25,
+        document_type: str | None = None,
+    ) -> dict[str, Any]:
+        """Return a paginated, container-filtered list of document rows.
+
+        Each row is shaped like Joshu's /documents list response, with
+        these enrichments where available:
+          • `insured_name` from the parent policy
+          • `policy_id` from the parent policy
+          • `submission_id` from the parent quote
+        """
+        # Step 1: find all test quotes (deeper per_page so we cover the book).
+        quotes_payload = await self.discover_test_quotes(
+            token, page=1, per_page=200,
+        )
+        test_quotes = quotes_payload.get("items") or []
+
+        # Step 2: for each quote, fetch its documents in parallel.
+        async def _docs_for_quote(q: dict[str, Any]):
+            qid = q.get("id")
+            if not qid:
+                return []
+            params: dict[str, Any] = {"quote_id": qid, "_per_page": 50}
+            if document_type:
+                params["document_type"] = document_type
+            try:
+                data = await self._get("/documents", params=params, bearer_token=token)
+            except Exception as e:
+                log.warning("documents fetch failed for quote %s: %s", qid, e)
+                return []
+            items = (data.get("items") if isinstance(data, dict) else None) or []
+            for d in items:
+                if not isinstance(d, dict):
+                    continue
+                # Enrich each document row with parent context. Joshu may
+                # not echo all of these on the document record itself.
+                if q.get("insured_name") and not d.get("insured_name"):
+                    d["insured_name"] = q["insured_name"]
+                if q.get("policy_id") and not d.get("policy_id"):
+                    d["policy_id"] = q["policy_id"]
+                if q.get("submission_id") and not d.get("submission_id"):
+                    d["submission_id"] = q["submission_id"]
+                if not d.get("quote_id"):
+                    d["quote_id"] = qid
+            return items
+
+        all_docs_nested = await asyncio.gather(*(_docs_for_quote(q) for q in test_quotes))
+        all_docs: list[dict[str, Any]] = []
+        for batch in all_docs_nested:
+            all_docs.extend(batch)
+
+        # Sort newest first, paginate.
+        all_docs.sort(key=lambda d: d.get("created_at") or d.get("modified_at") or "", reverse=True)
+        items_slice = all_docs[(page - 1) * per_page : page * per_page]
+        total_items = len(all_docs)
+
+        return {
+            "items": items_slice,
+            "total_items": total_items,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": max(1, (total_items + per_page - 1) // per_page),
+        }
 
     async def get_document(self, token, document_id: int) -> Document:
         data = await self._get(f"/documents/{document_id}", bearer_token=token, list_endpoint=False)

@@ -178,6 +178,24 @@ class JoshuClientBase(ABC):
     ) -> Paginated:
         ...
 
+    async def discover_test_quotes(
+        self, token: str, *,
+        page: int = 1, per_page: int = 25,
+        status_filter: str | None = None,
+    ) -> dict[str, Any]:
+        """Default: fall back to list_quotes for clients that don't
+        override. The HTTP client overrides with the policy-driven
+        discovery flow that actually filters by container.
+        """
+        result = await self.list_quotes(token, page=page, per_page=per_page)
+        payload = result.model_dump(mode="json")
+        if status_filter:
+            payload["items"] = [
+                q for q in (payload.get("items") or [])
+                if q.get("status") == status_filter
+            ]
+        return payload
+
     @abstractmethod
     async def get_quote(self, token: str, quote_id: str | int) -> Quote:
         ...
@@ -202,6 +220,20 @@ class JoshuClientBase(ABC):
         per_page: int = 25,
     ) -> Paginated:
         ...
+
+    async def discover_test_documents(
+        self, token: str, *,
+        page: int = 1, per_page: int = 25,
+        document_type: str | None = None,
+    ) -> dict[str, Any]:
+        """Default: fall back to list_documents for clients that don't
+        override. The HTTP client overrides with a quote-driven
+        discovery flow that filters by container.
+        """
+        result = await self.list_documents(
+            token, document_type=document_type, page=page, per_page=per_page,
+        )
+        return result.model_dump(mode="json")
 
     @abstractmethod
     async def get_document(self, token: str, document_id: str | int) -> Document:

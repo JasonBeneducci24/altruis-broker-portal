@@ -21,11 +21,33 @@ async def list_documents(
     session=Depends(require_session),
     client: JoshuClientBase = Depends(get_joshu_client),
 ):
-    result = await client.list_documents(
-        session["t"], quote_id=quote_id, document_type=document_type,
-        page=page, per_page=per_page,
+    """List documents, container-filtered.
+
+    Two distinct usage shapes:
+      • quote_id given → fetch documents for one specific quote.
+        Per-quote lookups don't need container filtering — the quote_id
+        is unique system-wide and only resolves to documents attached
+        to it.
+      • no quote_id → broker library / dashboard widget. Uses the
+        quote-driven discovery flow (which itself uses the policy-driven
+        quote discovery) to ensure only test-container documents
+        surface. /documents without a quote_id does not honor the
+        container filter for our token (same problem as /submissions
+        and /quotes).
+    """
+    if quote_id is not None:
+        result = await client.list_documents(
+            session["t"], quote_id=quote_id, document_type=document_type,
+            page=page, per_page=per_page,
+        )
+        return result.model_dump(mode="json")
+
+    payload = await client.discover_test_documents(
+        session["t"], page=page, per_page=per_page,
+        document_type=document_type,
     )
-    return result.model_dump(mode="json")
+    payload["_meta"] = {"discovery_flow": "quote-driven (via policies)"}
+    return payload
 
 
 @router.get("/{document_id}")
