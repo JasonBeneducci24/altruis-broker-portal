@@ -132,6 +132,88 @@ def diagnostics():
     }
 
 
+@app.get("/api/diagnostics/policies-live")
+async def diagnostics_policies_live():
+    """Mirror Joshu's UI initial page load: GET /policies with container=Test
+    and the same status / ongoing_change filter set the UI uses.
+
+    If our hypothesis is correct, this endpoint honors container=Test even
+    though /submissions does not. Returned total_items should be much
+    smaller than 1281 — it'll match what Joshu's UI shows in test mode.
+    """
+    if settings.is_mock:
+        return {"mode": "mock", "note": "Mock mode — skipping live call."}
+
+    from app.joshu.factory import get_joshu_client
+    import httpx as _httpx
+    client = get_joshu_client()
+
+    # Mirror Joshu's UI request shape exactly. Multiple status= and
+    # ongoing_change= values, joined with httpx's list-param convention.
+    params = client._build_params({  # type: ignore[attr-defined]
+        "status": ["Incomplete", "Future", "Active", "Canceled", "Declined", "Expired"],
+        "ongoing_change": ["New", "FlatCancellation", "ManualCancellation",
+                           "Endorsement", "Renewal", "CancellationReissuance",
+                           "Reinstatement"],
+        "_page": 1,
+        "_per_page": 10,
+    })
+    headers = client._headers()  # type: ignore[attr-defined]
+
+    url = f"{settings.joshu_base_url}/api/insurance/v3/policies"
+    constructed_url = str(_httpx.Request("GET", url, params=params).url)
+
+    try:
+        async with _httpx.AsyncClient(timeout=30.0) as http:
+            resp = await http.get(url, params=params, headers=headers)
+        status = resp.status_code
+        body = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else resp.text[:500]
+    except Exception as e:
+        return {
+            "mode": settings.joshu_environment,
+            "request_url": constructed_url,
+            "error": f"{type(e).__name__}: {e}",
+        }
+
+    summary = {
+        "mode": settings.joshu_environment,
+        "request_url": constructed_url,
+        "response_status": status,
+    }
+    if isinstance(body, dict):
+        items = body.get("items") or []
+        summary["total_items"] = body.get("total_items")
+        summary["returned_count"] = len(items)
+        # Pull a few key fields from each item — including `test` and
+        # `submission_id` so we can see the linkage.
+        summary["records"] = []
+        for it in items[:10]:
+            summary["records"].append({
+                "id": it.get("id"),
+                "test_field_value": it.get("test"),
+                "test_field_type": type(it.get("test")).__name__,
+                "status": it.get("status"),
+                "ongoing_change": it.get("ongoing_change"),
+                "insured_id": it.get("insured_id"),
+                "insured_name": it.get("insured_name"),
+                "submission_id": it.get("submission_id"),
+                "latest_submission_id": it.get("latest_submission_id"),
+            })
+        # Aggregate test field values
+        test_counts = {"true": 0, "false": 0, "null_or_missing": 0, "other": 0}
+        for it in items:
+            v = it.get("test")
+            if v is True: test_counts["true"] += 1
+            elif v is False: test_counts["false"] += 1
+            elif v is None: test_counts["null_or_missing"] += 1
+            else: test_counts["other"] += 1
+        summary["test_field_breakdown"] = test_counts
+    else:
+        summary["body_preview"] = str(body)[:500]
+
+    return summary
+
+
 @app.get("/api/diagnostics/live")
 async def diagnostics_live():
     """Make a LIVE call to Joshu's submissions list and report back.
