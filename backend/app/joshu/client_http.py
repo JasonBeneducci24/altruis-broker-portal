@@ -1418,28 +1418,23 @@ class HttpJoshuClient(JoshuClientBase):
 
     def _build_params(self, extra: dict[str, Any] | None = None,
                       *, list_endpoint: bool = True) -> dict[str, Any]:
-        """Inject the ``test`` filter parameter — SAFETY LINCHPIN.
+        """Inject the ``container`` filter parameter — SAFETY LINCHPIN.
 
-        Joshu's list endpoints accept a `test` boolean query parameter that
-        filters results to test (true) or production (false) records. The
-        environment determines this value; callers cannot override it.
+        Joshu's list endpoints filter by `container=Test` or
+        `container=Production`. This was confirmed by intercepting the
+        network request from Joshu's own UI:
 
-        For list endpoints (default), the `test` parameter is added.
-        For single-record GETs (`/submissions/{id}`, etc.), the `test`
-        parameter has no effect — pass list_endpoint=False to skip adding
-        it. The defensive `_assert_record_in_expected_mode()` check at
-        the response layer catches any record that doesn't match.
+            GET /api/insurance/v3/policies?status=...&container=Test&_page=1
 
-        Any caller attempt to set `test` or the legacy `container`
-        parameter is logged as a safety event and silently ignored.
+        The published API spec lists `test boolean | null` as a query
+        parameter, but in practice that parameter is silently ignored
+        on this account — the actual filter mechanism is `container`.
+        We had this right originally and incorrectly "fixed" it to
+        `test=true` after misreading the docs.
 
-        IMPORTANT: We send the value as the lowercase string "true" or
-        "false" — NOT as a Python bool — because httpx serializes Python
-        ``True`` to the URL string "True" (capital T), which not all APIs
-        parse as a boolean. Joshu's API spec says `test boolean` and we've
-        observed list endpoints returning unfiltered (mixed test+prod)
-        records when the param is sent as "True"/"False". The lowercase
-        string form is the safe choice.
+        The container value is fixed at construction time based on the
+        startup environment. Callers cannot override it. Any caller
+        attempt to set `test` or `container` is logged and ignored.
         """
         params: dict[str, Any] = {}
         if extra:
@@ -1448,16 +1443,17 @@ class HttpJoshuClient(JoshuClientBase):
                 if key_low in ("test", "container"):
                     log.error(
                         "SAFETY: Caller attempted to set %r parameter. Ignored. "
-                        "caller_value=%r enforced_test=%s",
-                        k, v, self._test_filter,
+                        "caller_value=%r enforced_container=%s",
+                        k, v, self._mode_label,
                     )
                     continue
                 if v is not None:
                     params[k] = v
         if list_endpoint:
-            # Lowercase string form, NOT a Python bool — see docstring.
-            # `test` set LAST so it cannot be stomped by a later update.
-            params["test"] = "true" if self._test_filter else "false"
+            # Set last so it cannot be stomped by an earlier caller value.
+            # Capitalized form ("Test"/"Production") matches what Joshu's UI
+            # itself sends on every list call.
+            params["container"] = self._mode_label
         return params
 
     async def _get(
@@ -1496,9 +1492,15 @@ class HttpJoshuClient(JoshuClientBase):
     def _filter_list_response_to_expected_mode(self, path: str, data: Any) -> Any:
         """Strip records whose `test` field doesn't match our mode.
 
-        If Joshu honored our `test=true` query param, this is a no-op.
-        If Joshu ignored it (or interpreted it differently), this catches
-        the mismatch and prevents production records from reaching the UI.
+        Belt-and-suspenders defense layered on top of the `container`
+        query filter. Joshu's list endpoints return records WITHOUT the
+        `test` field populated (it's always null on items in list
+        responses), so this layer is normally a no-op — we trust the
+        `container=Test` filter on the request side.
+
+        If a future Joshu API version starts surfacing a `test` field on
+        list items AND a record's value disagrees with our mode, this
+        will catch it and log loudly.
 
         Returns the same shape (paginated dict or bare list), with
         offending items removed and an audit log emitted.
@@ -1519,15 +1521,13 @@ class HttpJoshuClient(JoshuClientBase):
                 kept.append(it)
                 continue
             test_val = it.get("test")
-            # Some list endpoints don't surface the `test` field on each
-            # item (transactions, documents). When test_val is missing,
-            # we trust the server's filter and keep the record. When it
-            # IS present, we enforce.
+            # Joshu doesn't populate the `test` field on list items —
+            # it's always null. We trust the `container` query filter
+            # for these. Only drop records when the field IS present
+            # AND disagrees with our mode (a future-proof guard).
             if test_val is None:
                 kept.append(it)
                 continue
-            # Coerce the value — Joshu returns Python bool over JSON, but
-            # tolerate string variants just in case.
             actual_is_test = test_val if isinstance(test_val, bool) else (
                 str(test_val).strip().lower() in ("true", "1", "yes")
             )
@@ -1539,15 +1539,14 @@ class HttpJoshuClient(JoshuClientBase):
         if dropped:
             log.error(
                 "SAFETY: %d record(s) with mismatched `test` field returned by %s "
-                "(expected test=%s). Records were dropped before reaching the UI. "
-                "This indicates Joshu's API did not honor our `test` filter param. "
-                "Sample dropped IDs: %s",
-                len(dropped), path, expected_test,
+                "(expected test=%s, container=%s). Records were dropped before "
+                "reaching the UI. This indicates Joshu's container filter is not "
+                "working as expected. Sample dropped IDs: %s",
+                len(dropped), path, expected_test, self._mode_label,
                 [r.get("id") or r.get("unique_id") for r in dropped[:5]],
             )
             if isinstance(data, dict) and "items" in data:
                 data = {**data, "items": kept}
-                # Adjust counts so the UI's pagination math doesn't lie
                 if "total_items" in data and isinstance(data["total_items"], int):
                     data["total_items"] = max(0, data["total_items"] - len(dropped))
             else:
