@@ -76,19 +76,17 @@ log = logging.getLogger("altruis.joshu.http")
 # these flags and remain fully functional.
 #
 # History (Apr 28 2026):
-# create_policy and create_transaction were briefly enabled but a bug
-# in _build_params() meant the `container=Test` query param was only
-# added to LIST endpoint requests, not to writes. The result: a
-# test-environment "Create submission" click landed the new policy in
-# the production container. The bug was fixed (container is now sent
-# on EVERY request, regardless of endpoint shape) and verified on the
-# live deploy via /api/diagnostics/write-construction, which confirmed
-# `expected_container_in_url: true` for both POST /policies and POST
-# /transactions. Writes are now re-enabled.
+# Two production leaks have occurred during the create-submission
+# rollout. First leak: _build_params() only added `container=Test`
+# on list endpoints, leaving writes unscoped. Fixed.
+# Second leak: With `container=Test` confirmed on the write URL AND
+# `test: true` in the transaction body, the new policy STILL landed
+# in production. Root cause unknown. Creates remain disabled until
+# we have a verified explanation.
 _ENABLE_UPDATE_SUBMISSION_DATA = True   # PUT /submission-data/{id}
 _ENABLE_UPDATE_SUBMISSION = True        # PUT /submissions/{id} (status change)
-_ENABLE_CREATE_POLICY = True            # POST /policies
-_ENABLE_CREATE_TRANSACTION = True       # POST /transactions
+_ENABLE_CREATE_POLICY = False           # POST /policies — DISABLED, second leak under investigation
+_ENABLE_CREATE_TRANSACTION = False      # POST /transactions — DISABLED, second leak under investigation
 _ENABLE_UPDATE_QUOTE = False            # PUT /quotes/{id} (publish/bind)
 
 
