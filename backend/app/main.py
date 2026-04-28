@@ -133,6 +133,67 @@ def diagnostics():
     }
 
 
+@app.get("/api/diagnostics/write-construction")
+def diagnostics_write_construction():
+    """Show what the URLs and params would look like for write requests
+    (POST /policies, POST /transactions) WITHOUT making them.
+
+    Used to verify that the container parameter is correctly applied to
+    write requests before re-enabling the create flow. The previous
+    build had a bug where _build_params only added container on list
+    endpoints, leaving writes unscoped — which caused a write to land
+    in production despite a test-mode portal.
+    """
+    if settings.is_mock:
+        return {"mode": "mock"}
+
+    from app.joshu.factory import get_joshu_client
+    import httpx as _httpx
+    client = get_joshu_client()
+
+    # POST /policies — empty body, no caller params
+    policies_params = client._build_params({}, list_endpoint=False)  # type: ignore[attr-defined]
+    policies_url = f"{settings.joshu_base_url}/api/insurance/v3/policies"
+    policies_serialized = str(_httpx.Request("POST", policies_url, params=policies_params).url)
+
+    # POST /transactions — caller provides body, params still go through _build_params
+    txn_params = client._build_params({}, list_endpoint=False)  # type: ignore[attr-defined]
+    txn_url = f"{settings.joshu_base_url}/api/insurance/v3/transactions"
+    txn_serialized = str(_httpx.Request("POST", txn_url, params=txn_params).url)
+    txn_body_shape = {
+        "New": {
+            "product_version_id": "<int — broker-selected>",
+            "policy_id": "<uuid — from prior POST /policies>",
+            "test": getattr(client, "_test_filter", None),
+        }
+    }
+
+    return {
+        "mode": settings.joshu_environment,
+        "test_filter": getattr(client, "_test_filter", None),
+        "container_label": getattr(client, "_mode_label", None),
+        "post_policies": {
+            "method": "POST",
+            "url": policies_serialized,
+            "params": policies_params,
+            "body": None,
+            "expected_container_in_url": "Test" in policies_serialized.split("?")[-1],
+        },
+        "post_transactions": {
+            "method": "POST",
+            "url": txn_serialized,
+            "params": txn_params,
+            "body_shape": txn_body_shape,
+            "expected_container_in_url": "Test" in txn_serialized.split("?")[-1],
+        },
+        "writes_currently_enabled": {
+            "create_policy": __import__("app.joshu.client_http", fromlist=["_ENABLE_CREATE_POLICY"])._ENABLE_CREATE_POLICY,
+            "create_transaction": __import__("app.joshu.client_http", fromlist=["_ENABLE_CREATE_TRANSACTION"])._ENABLE_CREATE_TRANSACTION,
+        },
+        "note": "No request was made. If `expected_container_in_url` is true on both, the fix is working and writes will land in the correct container.",
+    }
+
+
 @app.get("/api/diagnostics/products-live")
 async def diagnostics_products_live():
     """Show the raw response from Joshu's /products endpoint so we can see

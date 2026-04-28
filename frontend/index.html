@@ -1525,6 +1525,29 @@
   .form-field .err-msg {
     font-size: 0.78rem; color: var(--err); margin-top: 2px;
   }
+  /* When the broker submits and Joshu returns a validation_error for
+     a field, the field's border goes red so it's spottable at a glance.
+     Also catches client-side HTML5 :invalid state — patterns, type
+     mismatches, range violations get the same visual treatment. */
+  .form-field.has-error input,
+  .form-field.has-error select,
+  .form-field.has-error textarea {
+    border-color: var(--err);
+    background: rgba(184, 47, 47, 0.04);
+  }
+  .form-field.has-error input:focus,
+  .form-field.has-error select:focus {
+    box-shadow: 0 0 0 3px rgba(184, 47, 47, 0.12);
+  }
+  /* Mark required-but-empty fields visually when the form is in edit
+     mode but ONLY after the broker has tried to submit once (avoid
+     scolding fields they haven't gotten to yet). The .show-required
+     class is added to the form pane after a failed submit attempt. */
+  .form-pane.show-required .form-field.is-editing input:required:placeholder-shown,
+  .form-pane.show-required .form-field.is-editing select:required:invalid {
+    border-color: var(--err);
+    background: rgba(184, 47, 47, 0.04);
+  }
   .form-field .help {
     font-size: 0.78rem; color: var(--slate); margin-top: 2px;
   }
@@ -2281,6 +2304,10 @@
     animation: slidein 200ms ease;
     border-left: 3px solid var(--blue);
     display: flex; gap: 12px; align-items: flex-start;
+    /* Preserve newlines in the message — used by the submit-blocked
+       toast that lists multiple incomplete sections. */
+    white-space: pre-wrap;
+    line-height: 1.5;
   }
   .toast.ok { border-left-color: var(--ok); }
   .toast.err { border-left-color: var(--err); }
@@ -2504,10 +2531,14 @@ function userInitials(user) {
 function toast(msg, kind = '') {
   const t = el('div', { className: `toast ${kind}` }, el('div', {}, msg));
   $('#toast-host').appendChild(t);
+  // Long messages need more reading time. Multi-line incomplete-fields
+  // toasts can list 3-4 sections — at 4.2s that's barely scannable.
+  // Scale dismissal: ~50ms per character, 4s minimum, 12s maximum.
+  const ms = Math.max(4200, Math.min(12000, msg.length * 50));
   setTimeout(() => {
     t.style.opacity = '0'; t.style.transition = 'opacity 200ms';
     setTimeout(() => t.remove(), 200);
-  }, 4200);
+  }, ms);
 }
 
 async function api(path, opts = {}) {
@@ -3712,7 +3743,7 @@ function submissionMainCard(s) {
         ...sections.map(sec => sectionNavItem(sec, sec.code === activeSection.code))),
 
       // CENTER pane — fields for the active section
-      el('div', { className: 'form-pane' },
+      el('div', { className: `form-pane ${state.showRequiredHighlight ? 'show-required' : ''}` },
         el('div', { className: 'form-pane-head' },
           el('div', { className: 'eyebrow' }, isEditing ? 'Edit' : 'Review'),
           el('h2', {}, activeSection.label),
@@ -5509,9 +5540,16 @@ function renderFormField(field, isEditing) {
 
   // Same structure in both modes — render the input, lock it if not editing
   const input = renderFieldInput(field, currentValue, !isEditing);
-  return el('div', { className: `form-field ${isFullWidth ? 'full' : ''} ${isEditing ? 'is-editing' : 'is-locked'}` },
+  // The has-error class is applied when the field has a server-side
+  // validation_error (returned by Joshu's submission-status). This
+  // gives the input itself a red border so the broker can spot the
+  // problem from the section level without reading every error message.
+  const hasError = !!(field.validation_error && isEditing);
+  return el('div', { className:
+    `form-field ${isFullWidth ? 'full' : ''} ${isEditing ? 'is-editing' : 'is-locked'} ${hasError ? 'has-error' : ''}`
+  },
     labelEl, input,
-    field.validation_error && isEditing ? el('div', { className: 'err-msg' }, field.validation_error) : null);
+    hasError ? el('div', { className: 'err-msg' }, field.validation_error) : null);
 }
 
 function renderFieldInput(field, value, locked = false) {
@@ -5588,28 +5626,64 @@ function renderFieldInput(field, value, locked = false) {
 
   if (field.type === 'date') {
     if (locked) return lockedValueEl(formatByType(field, cleanValue));
-    return el('input', { type: 'date', value: cleanValue || '',
-      onInput: (e) => onChange(e.target.value || null) });
+    // Sane bounds for broker-entered dates: nothing in the past further
+    // than 1 year (covers retroactive endorsements), nothing more than
+    // 2 years out (no insurance product covers later than that). Joshu
+    // does its own server-side validation; this is a UX guardrail to
+    // catch obvious typos like 1947 or 2287 before save.
+    const today = new Date();
+    const minDate = new Date(today); minDate.setFullYear(today.getFullYear() - 1);
+    const maxDate = new Date(today); maxDate.setFullYear(today.getFullYear() + 2);
+    return el('input', {
+      type: 'date', value: cleanValue || '',
+      min: minDate.toISOString().split('T')[0],
+      max: maxDate.toISOString().split('T')[0],
+      required: field.required || undefined,
+      onInput: (e) => onChange(e.target.value || null),
+    });
   }
 
   if (field.type === 'number' || field.type === 'monetary') {
     const numVal = typeof cleanValue === 'object' && cleanValue?.amount != null
       ? cleanValue.amount : (cleanValue ?? '');
     if (locked) return lockedValueEl(formatByType(field, numVal));
-    return el('input', { type: 'number', value: numVal,
+    // Use Joshu's `decimal_places` to set the input step. 0 → integers
+    // only, no decimals; 2 → cents on monetary; etc.
+    const decimals = field.decimal_places ?? (field.type === 'monetary' ? 2 : 0);
+    const step = decimals === 0 ? '1' : (1 / Math.pow(10, decimals)).toString();
+    // Most monetary fields in insurance are non-negative (premiums,
+    // limits, sublimits, building values). Negative numbers are
+    // technically valid input for general numbers (acreage adjustments,
+    // etc. are rare but possible), but for monetary it's almost always
+    // a typo. We default monetary to min=0 unless the field has options
+    // (in which case the options govern, not the range).
+    const attrs = {
+      type: 'number',
+      value: numVal,
+      step: step,
       placeholder: field.type === 'monetary' ? '0.00' : '',
-      onInput: (e) => onChange(e.target.value || null) });
+      required: field.required || undefined,
+      onInput: (e) => onChange(e.target.value || null),
+    };
+    if (field.type === 'monetary' && !field.options) {
+      attrs.min = '0';
+    }
+    return el('input', attrs);
   }
 
   if (field.type === 'location') {
     const strVal = typeof cleanValue === 'object'
       ? formatDatapointValue(cleanValue)
       : (cleanValue || '');
-    const displayVal = strVal === '—' ? '' : strVal;
+    const displayVal = strVal === '\u2014' ? '' : strVal;
     if (locked) return lockedValueEl(displayVal);
-    return el('input', { type: 'text', value: displayVal,
+    return el('input', {
+      type: 'text', value: displayVal,
       placeholder: 'Address, City, State ZIP',
-      onInput: (e) => onChange(e.target.value || null) });
+      required: field.required || undefined,
+      maxLength: 200,
+      onInput: (e) => onChange(e.target.value || null),
+    });
   }
 
   // Default: text (Array values pass through formatByType)
@@ -5618,8 +5692,23 @@ function renderFieldInput(field, value, locked = false) {
     : field.format === 'PhoneNumber' ? 'tel'
     : field.format === 'WebsiteAddress' ? 'url'
     : 'text';
-  return el('input', { type: inputType, value: cleanValue || '',
-    onInput: (e) => onChange(e.target.value || null) });
+  // Reasonable length caps so a paste-bomb can't put 10,000 chars into
+  // an insured-name field. Specific formats get tighter caps.
+  const maxLen = inputType === 'email' ? 254       // RFC 5321 limit
+    : inputType === 'tel' ? 32                     // International + extension
+    : inputType === 'url' ? 2048
+    : 500;                                          // Generic text safety net
+  // Pattern for phone numbers: digits, spaces, dashes, parens, plus, dots.
+  // Lets US "(555) 123-4567" and intl "+1 555 123 4567" both through.
+  const pattern = inputType === 'tel' ? '[0-9 +\\-()\\.]+' : undefined;
+  return el('input', {
+    type: inputType,
+    value: cleanValue || '',
+    required: field.required || undefined,
+    maxLength: maxLen,
+    pattern: pattern,
+    onInput: (e) => onChange(e.target.value || null),
+  });
 }
 
 // Detect "this is a yes/no field" from field metadata + observed value.
@@ -5953,6 +6042,10 @@ async function saveDirtyData() {
     }
     state.submissionDirty = {};
     state.submissionSaving = 'saved';
+    // Once a save lands, clear the "show what's required" highlight.
+    // It will come back if the broker tries to submit again with gaps,
+    // but in the meantime the editing experience is uncluttered.
+    state.showRequiredHighlight = false;
     render();
     setTimeout(() => {
       if (state.submissionSaving === 'saved') {
@@ -5990,12 +6083,95 @@ async function submitForQuote(id) {
   if (Object.keys(state.submissionDirty).length > 0) {
     await saveDirtyData();
   }
+
+  // Pre-flight check: count required-but-empty fields across all sections
+  // BEFORE we ask Joshu. This catches obvious omissions on the client
+  // side rather than waiting for a server-side validation_error to come
+  // back. Joshu will still do its own validation on submit; this is a
+  // friendlier check that guides the broker before they hit the API.
+  const incomplete = countIncompleteRequiredFields();
+  if (incomplete.count > 0) {
+    // Flip on visual highlighting of required-but-empty fields. This
+    // CSS class is added to the form pane and stays on until the next
+    // successful save / submit. It uses the :placeholder-shown trick
+    // and :invalid pseudo-class to highlight fields that the
+    // browser knows are required-and-empty without us tracking them
+    // individually in JS.
+    state.showRequiredHighlight = true;
+    const sectionList = incomplete.bySection
+      .map(s => `  \u2022 ${s.label}: ${s.count} field${s.count === 1 ? '' : 's'}`)
+      .join('\n');
+    toast(
+      `${incomplete.count} required field${incomplete.count === 1 ? '' : 's'} still need${incomplete.count === 1 ? 's' : ''} a value:\n${sectionList}`,
+      'err'
+    );
+    // Jump them to the first incomplete section so they don't hunt for it
+    if (incomplete.firstSectionCode && state.activeSection !== incomplete.firstSectionCode) {
+      state.activeSection = incomplete.firstSectionCode;
+    }
+    render();
+    return;
+  }
+
   if (!confirm('Submit this to underwriting for a quote?')) return;
   try {
     await api(`/api/submissions/${id}/submit`, { method: 'POST' });
-    toast('Submitted for quote — underwriting will review', 'ok');
+    toast('Submitted for quote \u2014 underwriting will review', 'ok');
     loadSubmission(id);
   } catch (e) { /* toast shown */ }
+}
+
+// Walk the submission's section/field tree and count how many fields
+// are marked required AND visible AND have no value (and no pending
+// dirty edit). Returns counts per-section so the toast can guide the
+// broker to where the gaps are.
+//
+// Fields are "empty" if their value is null, undefined, '', or an
+// empty array/object. Booleans default to "no" (false), which counts
+// as a value — Joshu treats unset boolean as the schema default.
+//
+// Hidden conditional fields (visible: false) are excluded — broker
+// shouldn't be required to fill in fields they can't see.
+function countIncompleteRequiredFields() {
+  const result = { count: 0, bySection: [], firstSectionCode: null };
+  const submission = state.submission;
+  if (!submission || !Array.isArray(submission.sections)) return result;
+
+  for (const section of submission.sections) {
+    if (!Array.isArray(section.fields)) continue;
+    let sectionCount = 0;
+    for (const field of section.fields) {
+      if (!field.required) continue;
+      if (field.visible === false) continue;
+      // Boolean fields are never "empty" in a meaningful sense.
+      // They're either checked or unchecked, both valid values.
+      if (isBooleanField(field, field.value)) continue;
+      // Get the effective value (dirty edit takes precedence over
+      // server value).
+      const dirty = state.submissionDirty[field.code];
+      const effective = dirty !== undefined ? dirty : field.value;
+      if (effective === null || effective === undefined || effective === '') {
+        sectionCount++;
+      } else if (Array.isArray(effective) && effective.length === 0) {
+        sectionCount++;
+      } else if (typeof effective === 'object' &&
+                 Object.keys(effective).length === 0) {
+        sectionCount++;
+      }
+    }
+    if (sectionCount > 0) {
+      result.bySection.push({
+        code: section.code,
+        label: section.label || section.code,
+        count: sectionCount,
+      });
+      result.count += sectionCount;
+      if (!result.firstSectionCode) {
+        result.firstSectionCode = section.code;
+      }
+    }
+  }
+  return result;
 }
 
 function submissionOverviewBar(s) {

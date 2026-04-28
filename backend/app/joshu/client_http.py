@@ -71,10 +71,25 @@ log = logging.getLogger("altruis.joshu.http")
 #
 # We're in PHASE 2 now. Production gate still applies regardless.
 
+# SAFETY NOTE: Writes are gated by per-operation flags. To enable a
+# write, flip its flag to True. The read paths are independent of
+# these flags and remain fully functional.
+#
+# IMPORTANT — production-leak history (Apr 28 2026):
+# create_policy and create_transaction were briefly enabled but a bug
+# in _build_params() meant the `container=Test` query param was only
+# added to LIST endpoint requests, not to writes. The result: a
+# test-environment "Create submission" click landed the new policy in
+# the production container. The bug is now fixed (container is sent
+# on EVERY request, regardless of endpoint shape), but the flags stay
+# False until /api/diagnostics/write-construction is hit on the live
+# deploy and confirms `expected_container_in_url: true` for both
+# POST /policies and POST /transactions. Once verified, flip these
+# flags back to True and redeploy.
 _ENABLE_UPDATE_SUBMISSION_DATA = True   # PUT /submission-data/{id}
 _ENABLE_UPDATE_SUBMISSION = True        # PUT /submissions/{id} (status change)
-_ENABLE_CREATE_POLICY = True            # POST /policies
-_ENABLE_CREATE_TRANSACTION = True       # POST /transactions
+_ENABLE_CREATE_POLICY = False           # POST /policies — re-disabled, see SAFETY NOTE
+_ENABLE_CREATE_TRANSACTION = False      # POST /transactions — re-disabled, see SAFETY NOTE
 _ENABLE_UPDATE_QUOTE = False            # PUT /quotes/{id} (publish/bind)
 
 
@@ -1421,7 +1436,7 @@ class HttpJoshuClient(JoshuClientBase):
                       *, list_endpoint: bool = True) -> dict[str, Any]:
         """Inject the ``container`` filter parameter — SAFETY LINCHPIN.
 
-        Joshu's list endpoints filter by `container=Test` or
+        Joshu's endpoints filter by `container=Test` or
         `container=Production`. This was confirmed by intercepting the
         network request from Joshu's own UI:
 
@@ -1430,12 +1445,26 @@ class HttpJoshuClient(JoshuClientBase):
         The published API spec lists `test boolean | null` as a query
         parameter, but in practice that parameter is silently ignored
         on this account — the actual filter mechanism is `container`.
-        We had this right originally and incorrectly "fixed" it to
-        `test=true` after misreading the docs.
+
+        CRITICAL: We send `container` on EVERY request — reads, writes,
+        single-record GETs alike. An earlier version of this method
+        gated `container` on the `list_endpoint` flag, which meant
+        writes (POST /policies, POST /transactions) went out with NO
+        container param. This caused Joshu to default writes to the
+        production container, which leaked a test-environment "Create
+        submission" click into production. The current behavior:
+        always send container, regardless of endpoint type. Joshu
+        ignores the param on endpoints that don't honor it; that's
+        harmless. Joshu USES the param on endpoints that do; that's
+        the safety guarantee we need.
 
         The container value is fixed at construction time based on the
         startup environment. Callers cannot override it. Any caller
         attempt to set `test` or `container` is logged and ignored.
+
+        The `list_endpoint` parameter is now retained only for API
+        compatibility with existing callers; its value no longer
+        affects whether `container` is added.
         """
         params: dict[str, Any] = {}
         if extra:
@@ -1450,11 +1479,10 @@ class HttpJoshuClient(JoshuClientBase):
                     continue
                 if v is not None:
                     params[k] = v
-        if list_endpoint:
-            # Set last so it cannot be stomped by an earlier caller value.
-            # Capitalized form ("Test"/"Production") matches what Joshu's UI
-            # itself sends on every list call.
-            params["container"] = self._mode_label
+        # Always set container — see the docstring's CRITICAL note.
+        # `list_endpoint` is no longer used to gate this; it's only
+        # retained as a parameter for caller compatibility.
+        params["container"] = self._mode_label
         return params
 
     async def _get(
