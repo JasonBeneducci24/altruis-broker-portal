@@ -132,6 +132,77 @@ def diagnostics():
     }
 
 
+@app.get("/api/diagnostics/policy-detail")
+async def diagnostics_policy_detail(policy_id: str = "499be470-94d3-4d9d-af00-01f24b44f147"):
+    """Fetch a single policy by ID and show every field returned.
+
+    Used to find which fields contain the linkage to submissions /
+    quotes / transactions. The /policies list response has submission_id
+    and latest_submission_id as null — but the single-record endpoint
+    may populate them.
+    """
+    if settings.is_mock:
+        return {"mode": "mock"}
+
+    from app.joshu.factory import get_joshu_client
+    import httpx as _httpx
+    client = get_joshu_client()
+    headers = client._headers()  # type: ignore[attr-defined]
+
+    url = f"{settings.joshu_base_url}/api/insurance/v3/policies/{policy_id}"
+    try:
+        async with _httpx.AsyncClient(timeout=30.0) as http:
+            resp = await http.get(url, headers=headers)
+        return {
+            "request_url": url,
+            "response_status": resp.status_code,
+            "body": resp.json() if resp.headers.get("content-type", "").startswith("application/json") else resp.text[:1000],
+        }
+    except Exception as e:
+        return {"error": f"{type(e).__name__}: {e}"}
+
+
+@app.get("/api/diagnostics/transactions-by-policy")
+async def diagnostics_transactions_by_policy(policy_id: str = "499be470-94d3-4d9d-af00-01f24b44f147"):
+    """List transactions for a given policy. Each transaction has
+    `latest_submission_id` per the API spec, so this gives us the
+    submission IDs for a policy.
+    """
+    if settings.is_mock:
+        return {"mode": "mock"}
+
+    from app.joshu.factory import get_joshu_client
+    import httpx as _httpx
+    client = get_joshu_client()
+    params = client._build_params({"policy_id": policy_id, "_per_page": 50})  # type: ignore[attr-defined]
+    headers = client._headers()  # type: ignore[attr-defined]
+
+    url = f"{settings.joshu_base_url}/api/insurance/v3/transactions"
+    constructed_url = str(_httpx.Request("GET", url, params=params).url)
+    try:
+        async with _httpx.AsyncClient(timeout=30.0) as http:
+            resp = await http.get(url, params=params, headers=headers)
+        body = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else resp.text[:1000]
+        items = (body.get("items") if isinstance(body, dict) else None) or []
+        return {
+            "request_url": constructed_url,
+            "response_status": resp.status_code,
+            "total_items": body.get("total_items") if isinstance(body, dict) else None,
+            "items": [
+                {
+                    "id": it.get("id"),
+                    "flow": it.get("flow"),
+                    "status": it.get("status"),
+                    "latest_submission_id": it.get("latest_submission_id"),
+                    "effective_at": it.get("effective_at"),
+                }
+                for it in items
+            ],
+        }
+    except Exception as e:
+        return {"error": f"{type(e).__name__}: {e}"}
+
+
 @app.get("/api/diagnostics/policies-live")
 async def diagnostics_policies_live():
     """Mirror Joshu's UI initial page load: GET /policies with container=Test
