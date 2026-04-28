@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 
 # Import config FIRST so the environment guardrail runs before anything else
 from app.config import settings
-from app.routers import auth, submissions, quotes, policies, documents, products
+from app.routers import auth, submissions, quotes, policies, documents, products, diag_jwt
 
 
 app = FastAPI(
@@ -46,6 +46,7 @@ app.include_router(quotes.router)
 app.include_router(policies.router)
 app.include_router(documents.router)
 app.include_router(products.router)
+app.include_router(diag_jwt.router)  # throwaway: JWT auth-scope investigation
 
 
 @app.get("/api/health")
