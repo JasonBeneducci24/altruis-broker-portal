@@ -164,7 +164,6 @@ def diagnostics_write_construction():
         "New": {
             "product_version_id": "<int — broker-selected>",
             "policy_id": "<uuid — from prior POST /policies>",
-            "test": getattr(client, "_test_filter", None),
         }
     }
 

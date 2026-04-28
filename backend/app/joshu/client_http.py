@@ -76,13 +76,35 @@ log = logging.getLogger("altruis.joshu.http")
 # these flags and remain fully functional.
 #
 # History (Apr 28 2026):
-# Two production leaks have occurred during the create-submission
-# rollout. First leak: _build_params() only added `container=Test`
-# on list endpoints, leaving writes unscoped. Fixed.
-# Second leak: With `container=Test` confirmed on the write URL AND
-# `test: true` in the transaction body, the new policy STILL landed
-# in production. Root cause unknown. Creates remain disabled until
-# we have a verified explanation.
+# Two production-leak attempts have occurred during the create-submission
+# rollout:
+#
+# 1. First leak: _build_params() only added `container=Test` on list
+#    endpoints, leaving writes unscoped. Fixed.
+#
+# 2. Second leak: With `container=Test` confirmed on the write URL AND
+#    `test: true` in the transaction body, the new policy STILL landed
+#    in production.
+#
+# Network-trace inspection of Joshu's UI in Test Mode revealed:
+#  - Joshu's UI does NOT send `container=Test` on write URLs
+#  - Joshu's UI does NOT send `test: true` in the transaction body
+#    (despite the API spec listing it as Required)
+#  - Joshu's UI uses Authorization: Bearer <jwt> (a JWT obtained via
+#    email/password login), NOT the long-lived API token. The JWT is
+#    presumably scoped to the user's currently-selected container.
+#
+# The transaction body has been updated to match Joshu's UI exactly:
+#   {"New": {"product_version_id": <int>, "policy_id": <uuid>}}
+# (no `test` field, despite spec)
+#
+# It is unclear whether this body-shape fix alone will route writes to
+# the test container, or whether the auth scheme (Token vs Bearer JWT)
+# is what determines container scope. Creates remain DISABLED. After
+# this build deploys, the write-construction diagnostic should confirm
+# the new body shape, and we'll attempt ONE create with caution. If
+# that ALSO leaks, the issue is definitively the auth scheme and we
+# need a test-scoped API token from Joshu support.
 _ENABLE_UPDATE_SUBMISSION_DATA = True   # PUT /submission-data/{id}
 _ENABLE_UPDATE_SUBMISSION = True        # PUT /submissions/{id} (status change)
 _ENABLE_CREATE_POLICY = False           # POST /policies — DISABLED, second leak under investigation
@@ -2123,17 +2145,20 @@ class HttpJoshuClient(JoshuClientBase):
     ) -> Transaction:
         """POST /transactions — create a transaction on a policy.
 
-        Joshu's `New` flow body shape (per API spec page 368):
+        Joshu's `New` flow body shape, AS OBSERVED IN JOSHU'S OWN UI:
             { "New": {
                 "product_version_id": <int>,
-                "policy_id": <uuid string>,
-                "test": <bool>
+                "policy_id": <uuid string>
             }}
 
-        The `test` field is REQUIRED on writes — that's how Joshu
-        decides which container the new record lives in. We use the
-        same _test_filter we use for reads (locked at construction
-        time based on JOSHU_ENVIRONMENT).
+        Important: We do NOT send the `test` boolean despite the API
+        spec listing it as Required. Network-trace inspection of
+        Joshu's UI in Test Mode showed the UI omits this field. The
+        first two production-leak attempts had `test: true` in the
+        body and still landed in production, so the field is clearly
+        not the routing mechanism. Container scope is determined by
+        the auth context (JWT scope in Joshu's UI; long-lived API
+        token's default scope in our case).
 
         Other flows (Endorsement, Renewal, etc.) take different body
         shapes — `effective_date` for Endorsement, etc. We only
@@ -2154,7 +2179,7 @@ class HttpJoshuClient(JoshuClientBase):
 
         if flow != "New":
             # Other flows have different body shapes; defer until needed.
-            raise _not_ready(f"create_transaction(flow={flow!r}) — only New is implemented")
+            raise _not_ready(f"create_transaction(flow={flow!r}) \u2014 only New is implemented")
         if not product_version_id:
             raise ValueError("product_version_id is required for New flow")
         if not policy_id:
@@ -2164,12 +2189,11 @@ class HttpJoshuClient(JoshuClientBase):
             "New": {
                 "product_version_id": product_version_id,
                 "policy_id": str(policy_id),
-                "test": self._test_filter,
             }
         }
         log.info(
-            "WRITE: POST /transactions flow=New policy_id=%s product_version_id=%s test=%s",
-            policy_id, product_version_id, self._test_filter,
+            "WRITE: POST /transactions flow=New policy_id=%s product_version_id=%s",
+            policy_id, product_version_id,
         )
         data = await self._post("/transactions", body=body, bearer_token=token)
         log.info(
