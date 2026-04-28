@@ -358,12 +358,11 @@ async def test_locked_writes_raise_not_ready():
     print("\n[7] Writes NOT yet enabled still raise HttpClientNotReadyError")
     client = HttpJoshuClient()
 
-    # create_policy and create_transaction are DISABLED while we
-    # investigate why a write with container=Test on URL AND test:true
-    # in body still landed in the production container.
+    # Only update_quote_status remains locked. create_policy and
+    # create_transaction were re-enabled to test the body-shape fix
+    # (transaction body no longer carries `test: true`, matching what
+    # Joshu's UI was observed to send via network trace).
     locked = [
-        ("create_policy", lambda c: c.create_policy("t")),
-        ("create_transaction", lambda c: c.create_transaction("t", flow="New", policy_id="x", product_version_id=1)),
         ("update_quote_status", lambda c: c.update_quote_status("t", 1, "QuotePublished")),
     ]
     for name, op in locked:

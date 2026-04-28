@@ -107,8 +107,8 @@ log = logging.getLogger("altruis.joshu.http")
 # need a test-scoped API token from Joshu support.
 _ENABLE_UPDATE_SUBMISSION_DATA = True   # PUT /submission-data/{id}
 _ENABLE_UPDATE_SUBMISSION = True        # PUT /submissions/{id} (status change)
-_ENABLE_CREATE_POLICY = False           # POST /policies — DISABLED, second leak under investigation
-_ENABLE_CREATE_TRANSACTION = False      # POST /transactions — DISABLED, second leak under investigation
+_ENABLE_CREATE_POLICY = True            # POST /policies — testing body-shape fix
+_ENABLE_CREATE_TRANSACTION = True       # POST /transactions — testing body-shape fix
 _ENABLE_UPDATE_QUOTE = False            # PUT /quotes/{id} (publish/bind)
 
 
