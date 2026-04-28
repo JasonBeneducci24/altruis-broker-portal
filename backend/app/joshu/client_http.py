@@ -73,8 +73,8 @@ log = logging.getLogger("altruis.joshu.http")
 
 _ENABLE_UPDATE_SUBMISSION_DATA = True   # PUT /submission-data/{id}
 _ENABLE_UPDATE_SUBMISSION = True        # PUT /submissions/{id} (status change)
-_ENABLE_CREATE_POLICY = False           # POST /policies
-_ENABLE_CREATE_TRANSACTION = False      # POST /transactions
+_ENABLE_CREATE_POLICY = True            # POST /policies
+_ENABLE_CREATE_TRANSACTION = True       # POST /transactions
 _ENABLE_UPDATE_QUOTE = False            # PUT /quotes/{id} (publish/bind)
 
 
@@ -1815,8 +1815,25 @@ class HttpJoshuClient(JoshuClientBase):
     # ------------------------------------------------------------------
 
     async def create_policy(self, token: str) -> Policy:
+        """POST /policies — create an empty policy container.
+
+        No body required; Joshu returns a 201 with a fresh policy
+        record (id, created_at, status='Incomplete', etc.). The newly
+        created policy has no submission attached yet — that comes
+        from the subsequent create_transaction call.
+
+        Audit log: a record of every successful policy creation is
+        emitted at INFO level so write activity is traceable in Render
+        logs.
+        """
         self._assert_test_mode_for_write()
-        raise _not_ready("create_policy")
+        if not _ENABLE_CREATE_POLICY:
+            raise _not_ready("create_policy")
+        log.info("WRITE: POST /policies (token_prefix=%s, mode=%s)",
+                 (token or "")[:8], self._mode_label)
+        data = await self._post("/policies", body=None, bearer_token=token)
+        log.info("WRITE OK: policy created id=%s", data.get("id") if isinstance(data, dict) else "?")
+        return Policy.model_validate(data)
 
     async def list_policies(
         self, token, *, status=None, page=1, per_page=25,
@@ -2072,9 +2089,70 @@ class HttpJoshuClient(JoshuClientBase):
     # Transactions
     # ------------------------------------------------------------------
 
-    async def create_transaction(self, token, **kwargs) -> Transaction:
+    async def create_transaction(
+        self, token, *,
+        flow: str = "New",
+        policy_id: str,
+        product_version_id: int | None = None,
+        effective_date: datetime | None = None,
+    ) -> Transaction:
+        """POST /transactions — create a transaction on a policy.
+
+        Joshu's `New` flow body shape (per API spec page 368):
+            { "New": {
+                "product_version_id": <int>,
+                "policy_id": <uuid string>,
+                "test": <bool>
+            }}
+
+        The `test` field is REQUIRED on writes — that's how Joshu
+        decides which container the new record lives in. We use the
+        same _test_filter we use for reads (locked at construction
+        time based on JOSHU_ENVIRONMENT).
+
+        Other flows (Endorsement, Renewal, etc.) take different body
+        shapes — `effective_date` for Endorsement, etc. We only
+        implement `New` here; broker-initiated endorsements are a
+        future feature.
+
+        Joshu auto-creates the underlying submission record on
+        transaction creation; the response includes
+        `latest_submission_id` which is what the broker actually
+        navigates to next.
+
+        Audit log: emits a structured INFO record before and after
+        the call so writes are traceable.
+        """
         self._assert_test_mode_for_write()
-        raise _not_ready("create_transaction")
+        if not _ENABLE_CREATE_TRANSACTION:
+            raise _not_ready("create_transaction")
+
+        if flow != "New":
+            # Other flows have different body shapes; defer until needed.
+            raise _not_ready(f"create_transaction(flow={flow!r}) — only New is implemented")
+        if not product_version_id:
+            raise ValueError("product_version_id is required for New flow")
+        if not policy_id:
+            raise ValueError("policy_id is required")
+
+        body = {
+            "New": {
+                "product_version_id": product_version_id,
+                "policy_id": str(policy_id),
+                "test": self._test_filter,
+            }
+        }
+        log.info(
+            "WRITE: POST /transactions flow=New policy_id=%s product_version_id=%s test=%s",
+            policy_id, product_version_id, self._test_filter,
+        )
+        data = await self._post("/transactions", body=body, bearer_token=token)
+        log.info(
+            "WRITE OK: transaction created id=%s latest_submission_id=%s",
+            data.get("id") if isinstance(data, dict) else "?",
+            data.get("latest_submission_id") if isinstance(data, dict) else "?",
+        )
+        return Transaction.model_validate(data)
 
     async def list_transactions(
         self, token, *, policy_id=None, page=1, per_page=25,

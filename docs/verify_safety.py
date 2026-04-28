@@ -227,13 +227,17 @@ async def test_reads_inject_test_true():
     requests = client._client.captured_requests
     check(len(requests) == 6, f"6 requests made (got {len(requests)})")
     for req in requests:
-        vals = req.url.params.get_list("test")
-        check(vals == [True] or vals == ["True"] or vals == ["true"],
-              f"{req.url.path} has test=true (got {vals!r})")
-        # And confirm the legacy container parameter is absent
+        # Joshu honors `container=Test` on list endpoints (confirmed by
+        # intercepting their UI's network calls). The `test` boolean
+        # query param documented in the spec is silently ignored on
+        # this account, so we use container instead.
         cvals = req.url.params.get_list("container")
-        check(cvals == [],
-              f"{req.url.path} does NOT have legacy container param (got {cvals!r})")
+        check(cvals == ["Test"],
+              f"{req.url.path} has container=Test (got {cvals!r})")
+        # The `test` boolean param is intentionally NOT sent on reads.
+        tvals = req.url.params.get_list("test")
+        check(tvals == [],
+              f"{req.url.path} does NOT have stale test param (got {tvals!r})")
 
 
 async def test_caller_override_is_stripped():
@@ -241,7 +245,7 @@ async def test_caller_override_is_stripped():
     client = HttpJoshuClient()
 
     # Deliberate attacks: caller tries to flip the test filter or sneak
-    # in the legacy container param.
+    # in a different container value.
     await client._get(
         "/submissions",
         params={"test": False, "_page": 1},
@@ -256,12 +260,14 @@ async def test_caller_override_is_stripped():
     requests = client._client.captured_requests
     check(len(requests) == 2, "2 requests were made")
     for i, req in enumerate(requests):
-        vals = req.url.params.get_list("test")
-        check(vals == [True] or vals == ["True"] or vals == ["true"],
-              f"req {i}: caller's test override was stripped, real test=True (got {vals!r})")
+        # Real container should be Test regardless of caller attempts.
         cvals = req.url.params.get_list("container")
-        check(cvals == [],
-              f"req {i}: legacy container param did not leak through (got {cvals!r})")
+        check(cvals == ["Test"],
+              f"req {i}: caller's container override was stripped, real container=Test (got {cvals!r})")
+        # The `test` boolean override should never reach the wire.
+        tvals = req.url.params.get_list("test")
+        check(tvals == [],
+              f"req {i}: stale test param did not leak through (got {tvals!r})")
     # Legitimate non-safety params should be preserved
     check(requests[0].url.params.get("_page") == 1,
           f"legitimate _page=1 preserved on req 0")
@@ -285,9 +291,11 @@ async def test_case_insensitive_override_is_stripped():
     )
 
     for req in client._client.captured_requests:
-        vals = req.url.params.get_list("test")
-        check(vals == [True] or vals == ["True"] or vals == ["true"],
-              f"Case-variant override stripped on {req.url.path} (got {vals!r})")
+        # The real container should be Test regardless of caller's
+        # case-variant attempt to inject Test/CONTAINER.
+        cvals = req.url.params.get_list("container")
+        check(cvals == ["Test"],
+              f"Case-variant override stripped on {req.url.path} (got {cvals!r})")
 
 
 async def test_single_record_get_omits_test_param():
@@ -350,10 +358,10 @@ async def test_locked_writes_raise_not_ready():
     print("\n[7] Writes NOT yet enabled still raise HttpClientNotReadyError")
     client = HttpJoshuClient()
 
-    # These three remain locked for phase 2 (edit workflow)
+    # Only update_quote_status remains locked. create_policy and
+    # create_transaction were enabled in the build that shipped the
+    # New Submission picker flow.
     locked = [
-        ("create_policy", lambda c: c.create_policy("t")),
-        ("create_transaction", lambda c: c.create_transaction("t", flow="New", policy_id="x")),
         ("update_quote_status", lambda c: c.update_quote_status("t", 1, "QuotePublished")),
     ]
     for name, op in locked:

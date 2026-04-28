@@ -35,13 +35,27 @@ async def start_submission(
     session=Depends(require_session),
     client: JoshuClientBase = Depends(get_joshu_client),
 ):
+    """Create a new submission: empty policy → New transaction.
+
+    Joshu auto-creates the underlying submission record when a New
+    transaction is created on a policy. The broker's chosen
+    `effective_date` is captured but NOT applied here — for `New`
+    flows, the Joshu API doesn't accept effective_date on the
+    transaction creation. The broker sets it inside the application
+    form on the next screen, where it lives as a regular
+    `policy.effective_date` field they can edit.
+    """
+    if not body.product_version_id:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=400,
+            detail="product_version_id is required (selected via the product picker).",
+        )
+
     policy = await client.create_policy(session["t"])
-    eff = None
-    if body.effective_date:
-        eff = datetime.fromisoformat(body.effective_date)
     txn = await client.create_transaction(
         session["t"], flow="New", policy_id=policy.id,
-        product_version_id=body.product_version_id, effective_date=eff,
+        product_version_id=body.product_version_id,
     )
     return {
         "policy_id": policy.id,
