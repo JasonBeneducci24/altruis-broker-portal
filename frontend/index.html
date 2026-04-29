@@ -45,15 +45,15 @@
     /* States — strict 4-color status palette
        used consistently across dashboard segments, status badges,
        status banners, and section navigation rail. */
-    --ok: #22C55E;            /* success green — standard "complete/bound" */
+    --ok: #22C55E;            /* lime green — bound / active / coverage active */
     --ok-soft: #DCFCE7;
     --ok-deep: #15803D;       /* darker shade for icon backgrounds */
-    --warn: #6B7280;          /* gray — drafts in progress (was brown) */
+    --warn: #6B7280;          /* gray — closed / expired / inactive (dormant states) */
     --warn-soft: #F3F4F6;
-    --err: #DC2626;           /* red — declined/error */
+    --err: #DC2626;           /* red — declined / canceled / error */
     --err-soft: #FEE2E2;
-    --info: #2F5FB8;          /* brand blue — submitted/awaiting */
-    --info-soft: #E3ECFB;
+    --info: #EAB308;          /* yellow — incomplete / submitted / pending / in-motion (needs attention) */
+    --info-soft: #FEF9C3;
     --green: #22C55E;         /* marketing alias */
     --red: #DC2626;           /* marketing alias */
 
@@ -461,8 +461,8 @@
     background: var(--line-2, var(--line));
   }
   .pipeline-strip-bar > span { display: block; height: 100%; }
-  .pipeline-strip-bar-draft    { background: var(--warn); }
-  .pipeline-strip-bar-uw       { background: var(--info); }
+  .pipeline-strip-bar-draft    { background: #FDE68A; }   /* pale yellow — drafts on broker plate */
+  .pipeline-strip-bar-uw       { background: var(--info); } /* yellow — awaiting UW */
   .pipeline-strip-bar-declined { background: var(--err); }
   .pipeline-strip-legend {
     display: flex; gap: 14px; flex-wrap: wrap;
@@ -475,7 +475,7 @@
     width: 7px; height: 7px; border-radius: 50%;
     flex-shrink: 0;
   }
-  .pipeline-strip-legend-dot.draft    { background: var(--warn); }
+  .pipeline-strip-legend-dot.draft    { background: #FDE68A; }
   .pipeline-strip-legend-dot.uw       { background: var(--info); }
   .pipeline-strip-legend-dot.declined { background: var(--err); }
   .pipeline-strip-scope {
@@ -591,8 +591,8 @@
     transition: opacity 0.15s var(--ease);
   }
   .segment + .segment { margin-left: 2px; }
-  .segment-draft { background: var(--warn); }       /* gray — drafts in progress */
-  .segment-uw { background: var(--blue); }           /* brand blue — awaiting quote */
+  .segment-draft { background: #FDE68A; }            /* pale yellow — drafts on broker plate */
+  .segment-uw { background: var(--info); }            /* yellow — awaiting UW */
   .segment-declined { background: var(--err); }      /* red — declined */
   .segment-other { background: var(--ok); }          /* lime green — bound / other complete */
 
@@ -607,8 +607,8 @@
     width: 8px; height: 8px; border-radius: 50%;
     display: inline-block;
   }
-  .legend-dot-draft { background: var(--warn); }
-  .legend-dot-uw { background: var(--blue); }
+  .legend-dot-draft { background: #FDE68A; }
+  .legend-dot-uw { background: var(--info); }
   .legend-dot-declined { background: var(--err); }
   .legend-dot-other { background: var(--ok); }
 
@@ -1251,12 +1251,12 @@
   }
   /* Status badges — strict 4-color palette via design tokens.
      Mapping rule:
-       gray  (--warn)  → drafts in progress / not yet submitted / closed
-       blue  (--info)  → submitted / awaiting / pending / under review
-       lime  (--ok)    → bound / active / complete / success
+       lime  (--ok)    → bound / active / coverage active / ready
+       yellow (--info) → incomplete / submitted / pending / awaiting / in-motion
+       gray  (--warn)  → closed / expired / blocked / inactive (dormant)
        red   (--err)   → declined / canceled / error
   */
-  .badge-incomplete { background: var(--warn-soft); color: var(--warn); }
+  .badge-incomplete { background: var(--info-soft); color: var(--info); }
   .badge-pending, .badge-quotepending, .badge-binderpending, .badge-coveragepending,
   .badge-processing,
   .badge-quoteindication, .badge-quotestoreedit { background: var(--info-soft); color: var(--info); }
