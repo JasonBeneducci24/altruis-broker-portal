@@ -427,6 +427,123 @@
     font-weight: 400;
   }
 
+  /* Pipeline strip — thin contextual band that replaces the heavy
+     stat-tile panel. Sits between the greeting and the unified
+     activity list, gives the broker a glance at total book without
+     dominating the page. */
+  .pipeline-strip {
+    display: flex; align-items: center; gap: 18px;
+    padding: 14px 18px;
+    background: var(--white);
+    border: 1px solid var(--line-soft, var(--line));
+    border-radius: var(--radius-md);
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .pipeline-strip-total {
+    display: flex; align-items: baseline; gap: 8px;
+    flex-shrink: 0;
+  }
+  .pipeline-strip-total-num {
+    font-size: 1.5rem; font-weight: 600; color: var(--navy);
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .pipeline-strip-total-label {
+    font-size: 0.78rem; font-weight: 500;
+    color: var(--ink-mute, var(--mute));
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .pipeline-strip-bar {
+    flex: 1; min-width: 180px;
+    display: flex; gap: 2px;
+    height: 6px; border-radius: 3px;
+    overflow: hidden;
+    background: var(--line-2, var(--line));
+  }
+  .pipeline-strip-bar > span { display: block; height: 100%; }
+  .pipeline-strip-bar-draft    { background: var(--warn); }
+  .pipeline-strip-bar-uw       { background: var(--info); }
+  .pipeline-strip-bar-declined { background: var(--err); }
+  .pipeline-strip-legend {
+    display: flex; gap: 14px; flex-wrap: wrap;
+    font-size: 0.78rem; color: var(--ink-mute, var(--mute));
+  }
+  .pipeline-strip-legend-item {
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .pipeline-strip-legend-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .pipeline-strip-legend-dot.draft    { background: var(--warn); }
+  .pipeline-strip-legend-dot.uw       { background: var(--info); }
+  .pipeline-strip-legend-dot.declined { background: var(--err); }
+  .pipeline-strip-scope {
+    margin-left: auto; flex-shrink: 0;
+  }
+
+  /* Activity list — replaces both the "Needs your attention" panel and
+     the "Recent activity" list with a single unified list. The broker
+     toggles between cohorts via filter chips at the top. */
+  .activity-section {
+    background: var(--white);
+    border: 1px solid var(--line-soft, var(--line));
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .activity-section-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--line-2, var(--line));
+    gap: 12px; flex-wrap: wrap;
+  }
+  .activity-chips {
+    display: flex; gap: 6px; flex-wrap: wrap;
+  }
+  .activity-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px;
+    background: transparent;
+    border: 1px solid var(--line, var(--line-2));
+    border-radius: var(--radius-pill);
+    font-size: 0.85rem; font-weight: 500;
+    color: var(--ink-soft, var(--graphite));
+    cursor: pointer;
+    transition: all 120ms var(--ease);
+    white-space: nowrap;
+  }
+  .activity-chip:hover {
+    background: var(--paper, var(--blue-tint));
+    border-color: var(--line-soft);
+  }
+  .activity-chip.active {
+    background: var(--navy);
+    border-color: var(--navy);
+    color: #fff;
+  }
+  .activity-chip-count {
+    font-size: 0.78rem;
+    color: var(--ink-quiet, var(--mute));
+    font-variant-numeric: tabular-nums;
+  }
+  .activity-chip.active .activity-chip-count { color: rgba(255,255,255,0.7); }
+  .activity-section-aux {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .activity-list { padding: 0; }
+  .activity-empty {
+    padding: 40px 24px;
+    text-align: center;
+  }
+  .activity-empty-title {
+    font-size: 1rem; font-weight: 500; color: var(--ink);
+    margin-bottom: 4px;
+  }
+  .activity-empty-body {
+    font-size: 0.9rem; color: var(--ink-mute, var(--mute));
+  }
+
   /* Consolidated pipeline panel — replaces 4 separate stat tiles */
   .pipeline-panel {
     background: var(--white);
@@ -2701,8 +2818,9 @@ const state = {
   dashboard: {
     search: '',                  // search query in the page header
     scope: 'mine',               // 'mine' | 'agency' — pipeline panel toggle
-    recentStatus: 'all',         // 'all' | 'incomplete' | 'submitted' | 'declined' | 'bound'
-    recentFlow: 'all',           // 'all' | 'New' | 'Renewal' | 'Endorsement' | 'Cancellation'
+    activityTab: 'attention',    // 'attention' | 'awaiting' | 'recent' | 'declined' | 'all'
+    recentStatus: 'all',         // [legacy — retained for compatibility] 'all' | 'incomplete' | 'submitted' | 'declined' | 'bound'
+    recentFlow: 'all',           // [legacy — retained for compatibility] 'all' | 'New' | 'Renewal' | 'Endorsement' | 'Cancellation'
   },
 };
 
@@ -2945,51 +3063,161 @@ function dashboardView() {
   const inUw = subs.filter(s => s.status === 'Submitted' || s.status === 'Pending').length;
   const declined = subs.filter(s => s.status === 'Declined').length;
 
-  // ── Greeting ───────────────────────────────────────────────────────
+  // ── Greeting (compact: no subgreeting; the page itself shows what
+  //    the pipeline looks like) ───────────────────────────────────────
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const firstName = (state.user.name || state.user.email || 'Broker').split(' ')[0]
     .replace(/\d+$/, '');  // strip trailing digits ("Jasonbeneducci2" → "Jasonbeneducci")
 
-  // ── Compute the four attention lanes ──────────────────────────────
-  const attentionLanes = computeAttentionLanes(subs, quotes, policies);
-
   return el('div', { className: 'dashboard' },
-    // Page header — greeting on left, search + new submission on right
+    // Compact header — greeting on left, search on right. The "New
+    // submission" button has moved to the persistent sidebar CTA, so
+    // it doesn't need to appear here too.
     el('div', { className: 'dashboard-header' },
       el('div', { className: 'dashboard-header-left' },
-        el('h1', { className: 'dashboard-greeting' }, `${greeting}, ${firstName}.`),
-        el('div', { className: 'dashboard-subgreeting' },
-          'Here\u2019s what your pipeline looks like today.')),
+        el('h1', { className: 'dashboard-greeting' }, `${greeting}, ${firstName}.`)),
       el('div', { className: 'dashboard-header-actions' },
-        renderHeaderSearch(subs),
-        el('button', { className: 'btn btn-primary',
-          onClick: () => { state.view = 'new-submission'; render(); } },
-          'New submission'))),
+        renderHeaderSearch(subs))),
 
-    // ── Attention panel ─────────────────────────────────────────────
-    renderAttentionPanel(attentionLanes),
+    // Thin pipeline strip — total + segmented bar + scope toggle.
+    // Replaces the heavier pipeline-panel which dominated the page.
+    renderPipelineStrip(total, { drafts, inUw, declined }),
 
-    // ── Pipeline panel — with My book / Agency toggle ───────────────
-    el('div', { className: 'pipeline-panel' },
-      el('div', { className: 'pipeline-panel-head' },
-        el('div', { className: 'pipeline-panel-title' }, 'Pipeline'),
-        el('div', { className: 'pipeline-panel-actions' },
-          renderScopeToggle(),
-          el('button', { className: 'btn btn-ghost btn-sm',
-            onClick: () => { state.view = 'submissions'; render(); loadView(); } },
-            'View all submissions \u2192'))),
-
-      el('div', { className: 'pipeline-big-number' },
-        el('div', { className: 'pipeline-big-number-value' }, String(total)),
-        el('div', { className: 'pipeline-big-number-label' },
-          total === 1 ? 'submission' : 'submissions')),
-
-      total > 0 ? renderPipelineSegments(total, { drafts, inUw, declined }) : null),
-
-    // ── Recent activity — with status + flow filters, relative time ─
-    renderRecentActivity(subs)
+    // Unified activity list — replaces both the "Needs your attention"
+    // panel and the separate "Recent activity" list. The broker
+    // toggles between cohorts via filter chips.
+    renderActivitySection(subs, quotes, policies)
   );
+}
+
+// ─── Pipeline strip ──────────────────────────────────────────────────
+function renderPipelineStrip(total, { drafts, inUw, declined }) {
+  if (total === 0) {
+    // Special case — empty book. Don't render the strip; the
+    // activity section will show a useful empty state instead.
+    return null;
+  }
+  const draftPct = (drafts / total) * 100;
+  const uwPct = (inUw / total) * 100;
+  const declinedPct = (declined / total) * 100;
+  const otherPct = Math.max(0, 100 - draftPct - uwPct - declinedPct);
+
+  return el('div', { className: 'pipeline-strip' },
+    el('div', { className: 'pipeline-strip-total' },
+      el('span', { className: 'pipeline-strip-total-num' }, String(total)),
+      el('span', { className: 'pipeline-strip-total-label' },
+        total === 1 ? 'submission' : 'submissions')),
+    el('div', { className: 'pipeline-strip-bar', title: 'Pipeline composition' },
+      drafts ? el('span', { className: 'pipeline-strip-bar-draft', style: { flex: String(draftPct) } }) : null,
+      inUw ? el('span', { className: 'pipeline-strip-bar-uw', style: { flex: String(uwPct) } }) : null,
+      declined ? el('span', { className: 'pipeline-strip-bar-declined', style: { flex: String(declinedPct) } }) : null,
+      otherPct > 0 ? el('span', { style: { flex: String(otherPct), background: 'var(--line-2, var(--line))' } }) : null),
+    el('div', { className: 'pipeline-strip-legend' },
+      drafts ? el('span', { className: 'pipeline-strip-legend-item' },
+        el('span', { className: 'pipeline-strip-legend-dot draft' }),
+        `${drafts} draft${drafts === 1 ? '' : 's'}`) : null,
+      inUw ? el('span', { className: 'pipeline-strip-legend-item' },
+        el('span', { className: 'pipeline-strip-legend-dot uw' }),
+        `${inUw} awaiting quote`) : null,
+      declined ? el('span', { className: 'pipeline-strip-legend-item' },
+        el('span', { className: 'pipeline-strip-legend-dot declined' }),
+        `${declined} declined`) : null),
+    el('div', { className: 'pipeline-strip-scope' }, renderScopeToggle())
+  );
+}
+
+// ─── Activity section (chip filters + unified list) ──────────────────
+function renderActivitySection(subs, quotes, policies) {
+  // The lane logic from computeAttentionLanes still drives "what needs
+  // attention" — but instead of rendering as a separate panel, we use
+  // the lane categorization to filter the unified activity list.
+  const lanes = computeAttentionLanes(subs, quotes, policies);
+
+  // Identify the IDs of submissions whose quotes are ready for review.
+  const readyQuoteSubIds = new Set(
+    (quotes || [])
+      .filter(q =>
+        q.status === 'QuotePublished' ||
+        q.status === 'BinderPublished' ||
+        q.status === 'QuoteIndication'
+      )
+      .map(q => q.submission_id)
+  );
+
+  // Cohorts:
+  //   attention = drafts + submissions with ready quotes (the union of
+  //               "you owe us something" and "we've returned a quote")
+  //   awaiting  = submissions sitting with the underwriter
+  //   recent    = recently bound (last 60 days) — the "good news" tab
+  //   declined  = recently declined
+  //   all       = everything, sorted by recency
+  const subsAttention = subs.filter(s =>
+    s.status === 'Incomplete' || readyQuoteSubIds.has(s.id) || readyQuoteSubIds.has(s.unique_id)
+  );
+  const subsAwaiting = subs.filter(s =>
+    (s.status === 'Submitted' || s.status === 'Pending')
+    && !readyQuoteSubIds.has(s.id) && !readyQuoteSubIds.has(s.unique_id)
+  );
+  const sixtyDaysAgo = Date.now() - 60 * 24 * 60 * 60 * 1000;
+  const subsRecent = subs.filter(s =>
+    s.bound_at && new Date(s.bound_at).getTime() >= sixtyDaysAgo
+  );
+  const subsDeclined = subs.filter(s => s.status === 'Declined');
+
+  const cohorts = {
+    attention: subsAttention,
+    awaiting:  subsAwaiting,
+    recent:    subsRecent,
+    declined:  subsDeclined,
+    all:       subs,
+  };
+
+  // Default tab — if "attention" is empty but other things exist,
+  // fall through to "all" so the broker isn't staring at an empty list.
+  let tab = state.dashboard.activityTab;
+  if (tab === 'attention' && cohorts.attention.length === 0 && subs.length > 0) {
+    tab = 'all';
+  }
+
+  const items = [...cohorts[tab]]
+    .sort((a, b) => new Date(b.modified_at || b.created_at || 0) - new Date(a.modified_at || a.created_at || 0))
+    .slice(0, 12);
+
+  const chips = [
+    { value: 'attention', label: 'Needs action',     count: cohorts.attention.length },
+    { value: 'awaiting',  label: 'Awaiting quote',   count: cohorts.awaiting.length },
+    { value: 'recent',    label: 'Recently bound',   count: cohorts.recent.length },
+    { value: 'declined',  label: 'Declined',         count: cohorts.declined.length },
+    { value: 'all',       label: 'All',              count: cohorts.all.length },
+  ];
+
+  return el('div', { className: 'activity-section' },
+    el('div', { className: 'activity-section-head' },
+      el('div', { className: 'activity-chips' },
+        ...chips.map(c => el('button', {
+          className: 'activity-chip' + (c.value === tab ? ' active' : ''),
+          onClick: () => { state.dashboard.activityTab = c.value; render(); },
+        },
+          c.label,
+          el('span', { className: 'activity-chip-count' }, String(c.count))
+        ))),
+      el('div', { className: 'activity-section-aux' },
+        el('button', {
+          className: 'btn btn-ghost btn-sm',
+          onClick: () => { state.view = 'submissions'; render(); loadView(); },
+        }, 'View all \u2192'))),
+
+    items.length === 0
+      ? el('div', { className: 'activity-empty' },
+          el('div', { className: 'activity-empty-title' },
+            tab === 'attention' ? 'You\u2019re all caught up.' : 'Nothing to show in this view.'),
+          el('div', { className: 'activity-empty-body' },
+            tab === 'attention'
+              ? 'No drafts in progress and no quotes waiting on your review.'
+              : 'Try a different filter, or start a new submission.'))
+      : el('div', { className: 'activity-list' },
+          ...items.map(s => recentSubmissionRow(s))));
 }
 
 // ─── Header search bar ───────────────────────────────────────────────
