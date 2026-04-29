@@ -2293,6 +2293,106 @@
   .btn-link:hover {
     text-decoration-color: var(--blue);
   }
+  .btn-link:disabled {
+    color: var(--ink-mute);
+    cursor: not-allowed;
+    text-decoration-color: transparent;
+  }
+
+  /* ─────────── Upload step — dropzone + file list ─────────── */
+  .upload-dropzone {
+    margin-top: 20px;
+    border: 1.5px dashed var(--line-soft);
+    border-radius: var(--radius-md);
+    background: var(--paper-warm);
+    padding: 48px 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 120ms, background 120ms;
+  }
+  .upload-dropzone:hover {
+    border-color: var(--blue);
+    background: var(--blue-50);
+  }
+  .upload-dropzone-active {
+    border-color: var(--blue);
+    background: var(--blue-50);
+    border-style: solid;
+  }
+  .upload-dropzone-inner {
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    pointer-events: none;
+  }
+  .upload-dropzone-icon {
+    width: 40px; height: 40px;
+    color: var(--blue);
+  }
+  .upload-dropzone-icon svg { width: 100%; height: 100%; display: block; }
+  .upload-dropzone-headline {
+    font-size: 1rem; font-weight: 500; color: var(--ink);
+  }
+  .upload-dropzone-sub {
+    font-size: 0.85rem; color: var(--ink-mute);
+  }
+  .upload-file-list {
+    margin-top: 16px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .upload-file-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+  }
+  .upload-file-icon {
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--blue-50); color: var(--blue);
+    border-radius: var(--radius-sm);
+    font-size: 0.7rem;
+    flex-shrink: 0;
+  }
+  .upload-file-meta { flex: 1; min-width: 0; }
+  .upload-file-name {
+    font-size: 0.92rem; font-weight: 500; color: var(--ink);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .upload-file-size {
+    font-size: 0.78rem; color: var(--ink-mute);
+    margin-top: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+  .upload-file-status { font-size: 0.85rem; color: var(--ink-mute); }
+  .upload-file-remove { font-size: 0.85rem; }
+  .upload-actions {
+    margin-top: 24px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+
+  /* Auto-filled field highlight — submission detail shows a subtle
+     blue accent on fields that were pre-filled by document extraction,
+     so the broker knows what to verify. The highlight clears once
+     the broker focuses/edits the field (they've reviewed it). */
+  .field-extracted {
+    position: relative;
+  }
+  .field-extracted::before {
+    content: 'Auto-filled';
+    position: absolute; top: -6px; right: 8px;
+    background: var(--blue); color: #fff;
+    font-size: 0.62rem; font-weight: 500;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 1px 6px;
+    border-radius: var(--radius-pill);
+    pointer-events: none;
+  }
+  .field-extracted input,
+  .field-extracted select,
+  .field-extracted textarea {
+    border-color: var(--blue) !important;
+    background: var(--blue-50) !important;
+  }
 
   /* Mobile: single-column product grid */
   @media (max-width: 720px) {
@@ -2852,6 +2952,17 @@ const state = {
   activeAsset: null,           // { section, idx }  for right-sidebar scroll-link highlighting
   selectedQuote: null,
   selectedPolicy: null,
+  // Set<string> of submission data point keys that were auto-filled by
+  // document extraction, so the submission detail can render them with a
+  // visual highlight. Populated by createSubmissionAndContinue() after
+  // a successful extraction. The submission_id pairing prevents stale
+  // highlights from showing on unrelated submissions; loadSubmission()
+  // clears these when navigating to a different submission. The
+  // highlight on a given field also clears when the broker manually
+  // edits it (touching submissionDirty drops the highlight) — the edit
+  // signals "I've reviewed this."
+  extractedFields: new Set(),
+  extractedFieldsForSubmissionId: null,
   // Variation form state — for the "Create variation" inline panel on
   // a quote detail page. Closed by default. When opened, `values` is
   // seeded from the parent quote via variationDefaultsFromQuote().
@@ -4243,6 +4354,13 @@ async function loadSubmission(id) {
   state.submissionDirty = {};
   state.submissionSaving = 'idle';
   state.activeSection = null;
+  // Clear extracted-field highlights unless they were stashed for THIS
+  // submission. Coercing to string because submission ids may arrive as
+  // numbers from the API and as strings from state.subView routing.
+  if (String(state.extractedFieldsForSubmissionId) !== String(id)) {
+    state.extractedFields = new Set();
+    state.extractedFieldsForSubmissionId = null;
+  }
   render();
   try {
     const [sub, form, quotes] = await Promise.all([
@@ -6225,8 +6343,16 @@ function renderFormField(field, isEditing) {
   // gives the input itself a red border so the broker can spot the
   // problem from the section level without reading every error message.
   const hasError = !!(field.validation_error && isEditing);
+  // The field-extracted class is applied when this field was pre-filled
+  // by document extraction. Adds a visual highlight + small "Auto-filled"
+  // pill so the broker knows to verify it. Cleared once the broker
+  // edits the field (touching submissionDirty drops the highlight) — the
+  // edit means "I've reviewed this."
+  const isExtracted = state.extractedFields
+    && state.extractedFields.has(field.code)
+    && state.submissionDirty[field.code] === undefined;
   return el('div', { className:
-    `form-field ${isFullWidth ? 'full' : ''} ${isEditing ? 'is-editing' : 'is-locked'} ${hasError ? 'has-error' : ''}`
+    `form-field ${isFullWidth ? 'full' : ''} ${isEditing ? 'is-editing' : 'is-locked'} ${hasError ? 'has-error' : ''} ${isExtracted ? 'field-extracted' : ''}`
   },
     labelEl, input,
     hasError ? el('div', { className: 'err-msg' }, field.validation_error) : null);
@@ -7303,19 +7429,36 @@ function documentsView() {
 // NEW SUBMISSION
 // ═════════════════════════════════════════════════════════════════
 function newSubmissionView() {
-  // Two-step flow:
-  //   step 1: product picker (cards) — load /api/products, render one card per product
-  //   step 2: confirm details (effective date) — broker can go back to switch product
-  // We can't auto-pick a product because Altruis has multiple (Self Storage,
-  // GL, Excess GL, ISO Self Storage), and each has its own application
-  // schema. The broker has to consciously choose.
+  // Three-step flow:
+  //   step 1: pick_product — cards, one per product
+  //   step 2: confirm — set effective date, confirm product
+  //   step 3: upload — drag-and-drop documents, process via external API,
+  //                    receive structured JSON to pre-populate the submission.
+  //                    Skippable — brokers without source documents can
+  //                    proceed to a blank application.
+  // After step 3 (whether documents were processed or skipped), we POST to
+  // /api/submissions/start, then patch the submission's data with anything
+  // we extracted, then route to the submission detail page where the
+  // broker fills in the rest. Extracted-field keys are stashed in
+  // state.extractedFields so the submission detail page can render them
+  // with a visual highlight (broker-verifiable auto-fill).
+  //
+  // External processing API is not yet wired. The processDocuments() stub
+  // simulates a 1.5s round-trip and returns an empty extracted-data object,
+  // which means "no fields pre-filled" — identical to today's behavior
+  // until the real API is connected. Swap the stub body when ready.
   const form = {
-    step: 'pick_product',         // 'pick_product' | 'confirm'
-    products: null,               // array from /api/products, or null while loading
+    step: 'pick_product',
+    products: null,
     productsError: null,
-    selectedProduct: null,        // { id, name, display_name, product_version_id, version_label }
+    selectedProduct: null,
     effective_date: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
     creating: false,
+    // Step 3 (upload) state
+    files: [],                    // [{ id, file: File, name, size, status }]
+    processing: false,            // true while external API is "thinking"
+    extractedData: null,          // null = not yet processed; {} = processed with no extractions; {key: value, ...} = processed with extractions
+    extractError: null,
   };
   const container = el('div', {});
 
@@ -7339,18 +7482,25 @@ function newSubmissionView() {
 
   const rerender = () => {
     container.innerHTML = '';
+    const stepTitle = {
+      pick_product: 'Choose a product',
+      confirm: 'Confirm submission',
+      upload: 'Upload supporting documents',
+    }[form.step] || 'New submission';
     container.appendChild(
       el('div', { className: 'page-header' },
         el('div', {},
           el('div', { className: 'eyebrow' }, 'New submission'),
-          el('h1', {}, form.step === 'pick_product' ? 'Choose a product' : 'Confirm submission')),
+          el('h1', {}, stepTitle)),
         el('button', { className: 'btn btn-secondary',
           onClick: () => { state.view = 'dashboard'; render(); loadView(); } }, '\u2190 Back')));
 
     if (form.step === 'pick_product') {
       container.appendChild(renderProductPicker(form, rerender));
-    } else {
+    } else if (form.step === 'confirm') {
       container.appendChild(renderConfirmStep(form, rerender));
+    } else if (form.step === 'upload') {
+      container.appendChild(renderUploadStep(form, rerender));
     }
   };
 
@@ -7408,7 +7558,7 @@ function renderConfirmStep(form, rerender) {
         onClick: () => { form.step = 'pick_product'; rerender(); },
       }, 'Change')),
     el('p', { className: 'subtle', style: { marginTop: '20px' } },
-      'Set a requested effective date. Insured details and coverage selections come next, on the application screen.'),
+      'Set a requested effective date. Next, you\u2019ll have a chance to upload supporting documents to pre-populate the application — or skip and start with a blank form.'),
     el('div', { className: 'form-grid', style: { marginTop: '24px', maxWidth: '320px' } },
       el('div', { className: 'form-field' },
         el('label', {}, 'Requested effective date'),
@@ -7417,23 +7567,243 @@ function renderConfirmStep(form, rerender) {
     el('div', { style: { marginTop: '28px', display: 'flex', justifyContent: 'flex-end', gap: '12px' } },
       el('button', { className: 'btn btn-secondary',
         onClick: () => { state.view = 'dashboard'; render(); loadView(); } }, 'Cancel'),
-      el('button', { className: 'btn btn-primary', disabled: form.creating,
-        onClick: async () => {
-          form.creating = true; rerender();
-          try {
-            const res = await api('/api/submissions/start', {
-              method: 'POST',
-              body: {
-                effective_date: form.effective_date,
-                product_version_id: form.selectedProduct.product_version_id,
-              }
-            });
-            toast('Submission created', 'ok');
-            state.view = 'submissions'; state.subView = res.submission_id;
-            loadSubmission(res.submission_id);
-          } catch (e) { form.creating = false; rerender(); }
-        }
-      }, form.creating ? 'Creating\u2026' : 'Create submission')));
+      el('button', { className: 'btn btn-primary',
+        onClick: () => { form.step = 'upload'; rerender(); } },
+        'Continue')));
+}
+
+// ─── Upload / extraction step ──────────────────────────────────────
+// Drag-and-drop zone with a fallback file picker, a list of staged
+// files, and two terminal actions:
+//   1. "Process documents" — sends staged files to processDocuments()
+//      (currently a stub that resolves with empty extraction). On
+//      success, advances to submission creation. Disabled if no files.
+//   2. "Skip and start blank" — bypasses extraction entirely and
+//      proceeds to submission creation with no extracted data.
+//
+// Either action ultimately calls createSubmissionAndContinue() which
+// posts to /api/submissions/start, optionally PUTs the extracted data
+// onto the new submission, then routes to the submission detail page.
+//
+// Once the external extraction API is hooked up, only processDocuments
+// changes — everything else (UI, state machine, persistence) stays the
+// same. That isolation is the whole point of the stub.
+function renderUploadStep(form, rerender) {
+  const onFilesAdded = (newFiles) => {
+    for (const f of newFiles) {
+      // Skip duplicates by (name, size) — pragmatic dedup, not bulletproof
+      if (form.files.some(existing => existing.name === f.name && existing.size === f.size)) continue;
+      form.files.push({
+        id: Math.random().toString(36).slice(2, 10),
+        file: f,
+        name: f.name,
+        size: f.size,
+        status: 'staged',  // 'staged' | 'processing' | 'done' | 'error'
+      });
+    }
+    rerender();
+  };
+
+  const removeFile = (id) => {
+    form.files = form.files.filter(f => f.id !== id);
+    rerender();
+  };
+
+  return el('div', {},
+    // Selected product + effective date summary at top — broker can confirm
+    // they're still on the right track before committing to file processing.
+    el('div', { className: 'card', style: { marginBottom: '20px' } },
+      el('div', { className: 'confirm-product-row' },
+        el('div', { className: 'confirm-product-label' }, 'PRODUCT'),
+        el('div', { className: 'confirm-product-value' }, form.selectedProduct.display_name),
+        el('button', { className: 'btn-link',
+          onClick: () => { form.step = 'confirm'; rerender(); } }, 'Change')),
+      el('div', { className: 'confirm-product-row', style: { marginTop: '8px' } },
+        el('div', { className: 'confirm-product-label' }, 'EFFECTIVE'),
+        el('div', { className: 'confirm-product-value' }, fmtDate(form.effective_date)))),
+
+    el('div', { className: 'card' },
+      el('p', { className: 'subtle' },
+        'Upload loss runs, ACORDs, statements of value, or prior policies. We\u2019ll extract what we can and pre-fill the application — fields we auto-populate will be highlighted so you can verify them.'),
+
+      uploadDropZone(form, onFilesAdded, rerender),
+
+      form.files.length > 0
+        ? el('div', { className: 'upload-file-list' },
+            ...form.files.map(f => uploadFileRow(f, removeFile, form.processing)))
+        : null,
+
+      form.extractError
+        ? el('div', { className: 'login-err', style: { marginTop: '16px' } }, form.extractError)
+        : null,
+
+      // Action row: Skip on the left, Process on the right.
+      el('div', { className: 'upload-actions' },
+        el('button', { className: 'btn-link',
+          disabled: form.processing || form.creating,
+          onClick: () => createSubmissionAndContinue(form, rerender, /* extracted */ {}) },
+          'Skip and start blank'),
+        el('button', { className: 'btn btn-primary',
+          disabled: form.files.length === 0 || form.processing || form.creating,
+          onClick: async () => {
+            form.processing = true; form.extractError = null; rerender();
+            try {
+              const extracted = await processDocuments(form.files);
+              form.extractedData = extracted;
+              form.processing = false;
+              rerender();
+              // Then immediately create the submission with extracted data
+              await createSubmissionAndContinue(form, rerender, extracted);
+            } catch (e) {
+              form.processing = false;
+              form.extractError = e.message || 'Document processing failed.';
+              rerender();
+            }
+          } },
+          form.processing ? 'Processing\u2026'
+            : form.creating ? 'Creating submission\u2026'
+            : `Process ${form.files.length || ''} document${form.files.length === 1 ? '' : 's'}`.trim()))));
+}
+
+function uploadDropZone(form, onFilesAdded, rerender) {
+  const dz = el('div', { className: 'upload-dropzone' });
+
+  // Visual + text — split out for the dragover state hover.
+  const inner = el('div', { className: 'upload-dropzone-inner' },
+    el('div', { className: 'upload-dropzone-icon' },
+      // Inline cloud-arrow-up SVG, sized via CSS
+      ((() => {
+        const ns = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(ns, 'svg');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.setAttribute('fill', 'none');
+        svg.setAttribute('stroke', 'currentColor');
+        svg.setAttribute('stroke-width', '1.5');
+        svg.setAttribute('stroke-linecap', 'round');
+        svg.setAttribute('stroke-linejoin', 'round');
+        const p1 = document.createElementNS(ns, 'path');
+        p1.setAttribute('d', 'M7 18a4 4 0 01-.4-7.978 6 6 0 0111.6-1.778 4.5 4.5 0 011.8 8.756');
+        const p2 = document.createElementNS(ns, 'path');
+        p2.setAttribute('d', 'M12 12v9m0-9l-3 3m3-3l3 3');
+        svg.appendChild(p1); svg.appendChild(p2);
+        return svg;
+      })())),
+    el('div', { className: 'upload-dropzone-headline' }, 'Drag and drop documents here'),
+    el('div', { className: 'upload-dropzone-sub' }, 'or click to browse \u2014 PDFs, images, Word docs'));
+
+  dz.appendChild(inner);
+
+  // Hidden file input — clicking the dropzone triggers it
+  const input = el('input', {
+    type: 'file', multiple: '',
+    accept: '.pdf,.png,.jpg,.jpeg,.tif,.tiff,.docx,.doc,.xlsx,.xls,.csv',
+    style: { display: 'none' },
+    onChange: (e) => {
+      onFilesAdded(Array.from(e.target.files));
+      e.target.value = '';   // reset so re-uploading the same file fires onChange again
+    },
+  });
+  dz.appendChild(input);
+
+  dz.addEventListener('click', (e) => {
+    if (form.processing || form.creating) return;
+    input.click();
+  });
+
+  dz.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    if (form.processing || form.creating) return;
+    dz.classList.add('upload-dropzone-active');
+  });
+  dz.addEventListener('dragleave', () => {
+    dz.classList.remove('upload-dropzone-active');
+  });
+  dz.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dz.classList.remove('upload-dropzone-active');
+    if (form.processing || form.creating) return;
+    const files = Array.from(e.dataTransfer.files || []);
+    if (files.length > 0) onFilesAdded(files);
+  });
+
+  return dz;
+}
+
+function uploadFileRow(f, removeFile, locked) {
+  const sizeKb = (f.size / 1024).toFixed(0);
+  const sizeStr = f.size > 1024 * 1024
+    ? `${(f.size / (1024 * 1024)).toFixed(1)} MB`
+    : `${sizeKb} KB`;
+  return el('div', { className: 'upload-file-row' },
+    el('div', { className: 'upload-file-icon' }, '\u25A0'),
+    el('div', { className: 'upload-file-meta' },
+      el('div', { className: 'upload-file-name' }, f.name),
+      el('div', { className: 'upload-file-size' }, sizeStr)),
+    locked
+      ? el('div', { className: 'upload-file-status' }, f.status === 'processing' ? 'Processing\u2026' : '')
+      : el('button', { className: 'btn-link upload-file-remove',
+          onClick: () => removeFile(f.id) }, 'Remove'));
+}
+
+// External processing API stub. Replace the body when the real endpoint
+// is wired. The caller awaits this and expects { [datapoint_key]: value }
+// or {} for no extractions.
+//
+// When wired for real, this should:
+//   1. Build a multipart/form-data request from form.files
+//   2. POST to a backend route (e.g. /api/submissions/extract) which
+//      proxies to the external vendor
+//   3. Return the structured extraction object from the vendor's response
+async function processDocuments(files) {
+  // Stub — pretend to process. 1.5s feels like real work without being
+  // annoyingly slow during dev.
+  await new Promise(r => setTimeout(r, 1500));
+  // Returns empty object — no fields auto-filled. Once a real API is
+  // attached, this returns { 'litem.property.building_ded': 5000, ... }.
+  return {};
+}
+
+// Common terminal action for both "Process" and "Skip" paths. Creates
+// the submission via /api/submissions/start, optionally patches in
+// extracted data, stashes the extracted-field key set on global state
+// for the submission detail page to render highlights, and routes.
+async function createSubmissionAndContinue(form, rerender, extracted) {
+  form.creating = true; rerender();
+  try {
+    const res = await api('/api/submissions/start', {
+      method: 'POST',
+      body: {
+        effective_date: form.effective_date,
+        product_version_id: form.selectedProduct.product_version_id,
+      },
+    });
+    // If extraction returned any fields, patch them onto the submission.
+    // PUT /submissions/{id}/data is the existing data-update endpoint.
+    const extractedKeys = Object.keys(extracted || {});
+    if (extractedKeys.length > 0) {
+      try {
+        await api(`/api/submissions/${res.submission_id}/data`, {
+          method: 'PUT',
+          body: { data: extracted },
+        });
+      } catch (e) {
+        // Non-fatal: the submission exists, we just couldn't pre-fill it.
+        // Broker will see the form blank instead of pre-populated.
+        toast('Submission created, but auto-fill failed. You can fill the form manually.', 'warn');
+      }
+    }
+    // Stash the auto-filled keys for the detail page to highlight,
+    // tagged with this submission's id so the highlights don't leak
+    // onto unrelated submissions the broker views afterward.
+    state.extractedFields = new Set(extractedKeys);
+    state.extractedFieldsForSubmissionId = res.submission_id;
+    toast('Submission created', 'ok');
+    state.view = 'submissions'; state.subView = res.submission_id;
+    loadSubmission(res.submission_id);
+  } catch (e) {
+    form.creating = false;
+    rerender();
+  }
 }
 
 function productIcon(product) {
