@@ -146,6 +146,7 @@
   .login-wrap { min-height: 100vh; display: flex; flex-direction: column; }
   .login-shell { flex: 1; display: grid; grid-template-columns: 1.1fr 1fr; background: var(--paper); }
   .login-left {
+    position: relative; overflow: hidden;
     background: var(--navy);
     background-image:
       radial-gradient(circle at 20% 30%, rgba(103,151,238,0.15), transparent 55%),
@@ -154,7 +155,11 @@
     padding: 64px 72px;
     display: flex; flex-direction: column; justify-content: center;
   }
-  .login-brand-wordmark { display: flex; flex-direction: column; gap: 8px; }
+  .login-canvas {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    display: block; pointer-events: none;
+  }
+  .login-brand-wordmark { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 8px; }
   .login-brand-wordmark img { max-width: 220px; }
   .login-brand-sub {
     font-size: 0.68rem; font-weight: 500; letter-spacing: 0.22em;
@@ -2855,16 +2860,196 @@ function loginView() {
     el('div', { className: 'login-shell' }, loginLeft(), loginRight()));
 }
 
+// ─── Login canvas backdrop ───────────────────────────────────────────
+// Animated node-network on the navy left panel, in the spirit of the
+// website hero. Quiet field of muted points drifting on slow vectors,
+// connecting via thin lines when within range, with a small set of
+// accent nodes pulsing in brand blue as visual punctuation. Sized to
+// the parent panel (not the viewport) so it cooperates with the 1.1fr
+// grid column. DPR-aware. Respects prefers-reduced-motion.
+function mountLoginCanvas(host) {
+  const canvas = document.createElement('canvas');
+  canvas.className = 'login-canvas';
+  canvas.setAttribute('aria-hidden', 'true');
+  host.appendChild(canvas);
+
+  const ctx = canvas.getContext('2d');
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Tunables — kept here so they're easy to nudge.
+  const NODE_DENSITY = 0.00009;     // nodes per px² of panel area
+  const ACCENT_RATIO = 0.12;        // ~12% of nodes are accent (pulsing blue)
+  const LINK_DIST = 150;            // px — max distance two nodes will draw a line
+  const LINK_DIST_SQ = LINK_DIST * LINK_DIST;
+  const SPEED = 0.12;               // base px/frame drift speed
+  const PULSE_PERIOD = 4200;        // ms for one full accent pulse cycle
+
+  // Colors. Lines are barely-there structure; default nodes are the
+  // muted login-hero text color used as soft points; accents are full
+  // brand blue. Hex stays separate from rgba so we can vary alpha.
+  const LINE_RGB = '103, 151, 238';        // var(--blue)
+  const NODE_RGB = '184, 196, 217';        // existing #b8c4d9 muted blue
+  const ACCENT_RGB = '103, 151, 238';      // var(--blue)
+
+  let nodes = [];
+  let width = 0, height = 0, dpr = 1;
+  let rafId = null;
+  let startTs = performance.now();
+
+  function rebuildNodes() {
+    const target = Math.max(20, Math.round(width * height * NODE_DENSITY));
+    nodes = [];
+    for (let i = 0; i < target; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      nodes.push({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        vx: Math.cos(angle) * SPEED * (0.5 + Math.random()),
+        vy: Math.sin(angle) * SPEED * (0.5 + Math.random()),
+        accent: Math.random() < ACCENT_RATIO,
+        phase: Math.random() * PULSE_PERIOD, // stagger pulses
+      });
+    }
+  }
+
+  function resize() {
+    const rect = host.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    width = rect.width;
+    height = rect.height;
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    canvas.style.width = width + 'px';
+    canvas.style.height = height + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    rebuildNodes();
+  }
+
+  function draw(ts) {
+    const elapsed = ts - startTs;
+    ctx.clearRect(0, 0, width, height);
+
+    // Step 1: advance positions, wrap at edges
+    for (const n of nodes) {
+      n.x += n.vx;
+      n.y += n.vy;
+      if (n.x < -10) n.x = width + 10;
+      else if (n.x > width + 10) n.x = -10;
+      if (n.y < -10) n.y = height + 10;
+      else if (n.y > height + 10) n.y = -10;
+    }
+
+    // Step 2: links — draw lines between any two nodes within range,
+    // with opacity falling off with distance. Done before nodes so the
+    // dots sit on top of the web rather than getting cut by it.
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const a = nodes[i], b = nodes[j];
+        const dx = a.x - b.x, dy = a.y - b.y;
+        const distSq = dx * dx + dy * dy;
+        if (distSq > LINK_DIST_SQ) continue;
+        const dist = Math.sqrt(distSq);
+        // 0 at LINK_DIST, ~0.22 at zero distance — quiet web
+        const alpha = (1 - dist / LINK_DIST) * 0.22;
+        ctx.strokeStyle = `rgba(${LINE_RGB}, ${alpha})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+    }
+
+    // Step 3: nodes. Default nodes are static-radius soft points.
+    // Accent nodes get a sine-pulsing inner dot plus a faint outer
+    // ring at lower opacity, giving a slow heartbeat without
+    // overpowering the wordmark.
+    for (const n of nodes) {
+      if (n.accent) {
+        const t = ((elapsed + n.phase) % PULSE_PERIOD) / PULSE_PERIOD;
+        // 0.45 → 1.0 → 0.45 over the cycle
+        const pulse = 0.45 + 0.55 * (0.5 - 0.5 * Math.cos(t * Math.PI * 2));
+        ctx.fillStyle = `rgba(${ACCENT_RGB}, ${0.55 * pulse + 0.25})`;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, 1.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = `rgba(${ACCENT_RGB}, ${0.18 * pulse})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, 5 + pulse * 3, 0, Math.PI * 2);
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = `rgba(${NODE_RGB}, 0.5)`;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, 1.3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    rafId = requestAnimationFrame(draw);
+  }
+
+  function start() {
+    resize();
+    if (reduceMotion) {
+      // Single static frame, no loop
+      draw(performance.now());
+      cancelAnimationFrame(rafId);
+      rafId = null;
+      return;
+    }
+    rafId = requestAnimationFrame(draw);
+  }
+
+  // ResizeObserver tracks the panel itself (not just the viewport),
+  // which matters because the login-left column responds to the grid
+  // breakpoint at 900px and any sidebar width changes.
+  const ro = new ResizeObserver(() => {
+    resize();
+    if (reduceMotion) draw(performance.now());
+  });
+  ro.observe(host);
+
+  // Pause when the tab is hidden — saves a meaningful chunk of CPU
+  // for a page that often sits open in a background tab.
+  const visHandler = () => {
+    if (document.hidden) {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = null;
+    } else if (!reduceMotion && rafId === null) {
+      rafId = requestAnimationFrame(draw);
+    }
+  };
+  document.addEventListener('visibilitychange', visHandler);
+
+  start();
+
+  // Return a cleanup handle in case we ever route away from login
+  // without a full page reload (currently we don't — login uses
+  // location.reload — but better to be tidy than leak a RAF loop).
+  return () => {
+    if (rafId) cancelAnimationFrame(rafId);
+    ro.disconnect();
+    document.removeEventListener('visibilitychange', visHandler);
+    canvas.remove();
+  };
+}
+
 function loginLeft() {
-  // Calm branded panel — wordmark + "Broker Portal" subtitle, nothing
-  // else. The form on the right is the real content; this panel just
-  // confirms "you're in the right place." Marketing copy belongs on
+  // Calm branded panel — wordmark + "Broker Portal" subtitle on top of
+  // the animated node-network backdrop. Marketing copy belongs on
   // altruisgroup.com, not on a login screen the broker has already
-  // chosen to visit.
-  return el('div', { className: 'login-left' },
+  // chosen to visit; the canvas does the atmospheric work that the
+  // copy used to.
+  const left = el('div', { className: 'login-left' },
     el('div', { className: 'login-brand-wordmark' },
       brandWordmark('white', 46),
       el('div', { className: 'login-brand-sub' }, 'Broker Portal')));
+  // Defer mount so the element is in the DOM and has a measurable
+  // bounding rect before the canvas tries to size itself.
+  queueMicrotask(() => mountLoginCanvas(left));
+  return left;
 }
 
 function loginRight() {
