@@ -1506,6 +1506,32 @@
     letter-spacing: -0.005em;
   }
   .asset-card-chip.done { background: var(--ok-soft); color: var(--ok); }
+  .multiselect {
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 8px 0;
+  }
+  .multiselect-option {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  .multiselect-option input[type="checkbox"] {
+    width: 16px; height: 16px;
+    accent-color: var(--blue);
+  }
+  .asset-card-remove {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 50%;
+    color: var(--ink-mute); font-size: 0.95rem; line-height: 1;
+    cursor: pointer; transition: background 120ms, color 120ms;
+    user-select: none;
+  }
+  .asset-card-remove:hover {
+    background: var(--err-soft); color: var(--err);
+  }
+  .btn-sm {
+    font-size: 0.85rem; padding: 6px 12px;
+  }
   .asset-card-chevron {
     font-size: 1rem; color: var(--mute); transition: transform 0.2s var(--ease);
     width: 20px; text-align: center;
@@ -2978,7 +3004,7 @@ function unwrapForInput(v) {
 //
 // Auth and config still call the real backend — login still works.
 
-const SEED_STORAGE_KEY = 'altruis_seed_v2';
+const SEED_STORAGE_KEY = 'altruis_seed_v3';
 
 // Seed bootstrap. Hardcoded base data. Persisted snapshot in localStorage
 // supersedes this on subsequent loads so edits survive page reloads.
@@ -3017,15 +3043,16 @@ const SEED_BASE = (() => {
         insured_name: 'Acme Self Storage',
         data: {
           'insured.name': 'Acme Self Storage',
-          'insured.dba': 'Acme Storage',
-          'insured.address_street': '4400 Forest Hill Blvd',
-          'insured.address_city': 'West Palm Beach',
-          'insured.address_state': 'FL',
-          'insured.address_zip': '33415',
-          'insured.years_in_business': 8,
-          'policy.effective_date': daysFromNow(28).slice(0, 10),
-          'policy.term_months': 12,
-          'litem.property.locations': 12,
+          'app.effective_date': daysFromNow(28).slice(0, 10),
+          'app.named_insured_structure': 'Limited Liability Company',
+          'app.renewal_status': false,
+          'app.additional_insured_status': false,
+          'app.exclusions_status': false,
+          'app.claims_history_flag': false,
+          // Limits & coverages partially filled
+          'app.GL_limits': '$1,000,000 / $2,000,000 / $2,000,000',
+          'app.SDLL_limit': '$50,000',
+          structures: [],
         },
       },
 
@@ -3039,40 +3066,96 @@ const SEED_BASE = (() => {
         insured_name: 'Riverside Storage Group',
         data: {
           'insured.name': 'Riverside Storage Group',
-          'insured.fein': '58-1234567',
-          'insured.address_street': '2100 NW 13th St',
-          'insured.address_city': 'Gainesville',
-          'insured.address_state': 'FL',
-          'insured.address_zip': '32609',
-          'insured.years_in_business': 14,
-          'insured.contact_name': 'Sarah Mitchell',
-          'insured.contact_email': 'sarah@riversidestorage.com',
-          'insured.contact_phone': '352-555-0142',
-          'policy.effective_date': daysFromNow(35).slice(0, 10),
-          'policy.term_months': 12,
-          'policy.prior_carrier': 'Liberty Mutual',
-          'policy.prior_premium': 32400,
-          'litem.property.locations': 8,
-          'litem.property.total_units': 4200,
-          'litem.property.tiv': 14200000,
-          'litem.property.year_built_avg': 2008,
-          'litem.property.construction_type': 'masonry',
-          'litem.property.climate_controlled_pct': 60,
-          'litem.property.sprinklered': true,
-          'litem.property.gated_access': true,
-          'litem.property.surveillance': true,
-          'litem.property.fire_alarm': true,
-          'litem.property.building_ded': 5000,
-          'litem.general_liability.limits': '$1,000,000 / $2,000,000 / $2,000,000',
-          'litem.general_liability.sdll': 50000,
-          'litem.general_liability.cgll': 50000,
-          'litem.general_liability.sells_locks_boxes': true,
-          'litem.general_liability.tenant_insurance_program': true,
-          'litem.claims.last_5_years': 1,
-          'litem.claims.total_paid': 4200,
-          'litem.claims.largest_claim': 4200,
-          'optional.tria': true,
-          'optional.equipment_breakdown': true,
+          'app.effective_date': daysFromNow(35).slice(0, 10),
+          'app.named_insured_structure': 'Limited Liability Company',
+          'app.renewal_status': true,
+          'app.renewal_of_policy_num': 'LM-2025-RGS-44102',
+          'app.expiring_premium': 32400,
+          'app.additional_insured_status': false,
+          'app.exclusions_status': false,
+          'app.claims_history_flag': false,
+          'app.GL_limits': '$1,000,000 / $2,000,000 / $2,000,000',
+          'app.SDLL_limit': '$50,000',
+          'app.CGLL_limit': '$50,000',
+          'app.BI_days_limit': '180 Days',
+          'app.Extended_BI_days_limit': '60 Days',
+          'app.med_pay_limit': '$5,000',
+          'app.pollutantcleanuplim': '$10,000',
+          'app.increased_signs': false,
+          'app.increased_gatesandfences': false,
+          'app.increased_treesandshrubs': false,
+          'app.PapersandRecords': '$5,000',
+          'app.equipment_breakdown_status': true,
+          'app.EB_sublimit': '$50,000',
+          'app.cyber_status': false,
+          'app.EPLIstatus': false,
+          'app.tria_status': true,
+          'app.excess_status': false,
+          'app.commercial_auto_status': false,
+          'app.waterbackuplimit': '$50,000',
+          'app.aop_deductible': '$5,000',
+          'app.ex_wind_hail_status': false,
+          'app.wind_hail_ded_status': true,
+          'app.wind_hail_minimum_dollar': 25000,
+          structures: [
+            {
+              'app.location_number': 1, 'app.building_number': 1,
+              'app.location_address': '2100 NW 13th St, Gainesville, FL 32609',
+              'app.building_occupancy': ['Self Storage'],
+              'app.GLonlyStatus': false, 'app.blanketed_status': false,
+              'app.building_value': 2100000, 'app.square_footage': 28000,
+              'app.BPP_limit': 25000,
+              'app.construction_type': 'Masonry Non Combustible',
+              'app.roof_type': 'Single Ply Membrane', 'app.roof_geometry': 'Flat',
+              'app.open_sided_status': false, 'app.sprinklered_status': true,
+              'app.stories': 1, 'app.year_built': '2010',
+              'app.OL_2and3_Limit': 250000, 'app.annual_sales': 580000,
+              'app.ex_wind_status': false, 'app.windhailpercentage': 5,
+              'app.valuation_method': 'Replacement Cost',
+              'app.coinsurance_percentage': '90',
+              'app.surveillance_status': true, 'app.burglar_alarm': true,
+              'app.fire_alarm': true, 'app.fenced_status': true,
+              'app.automated_gate': true,
+            },
+            {
+              'app.location_number': 2, 'app.building_number': 1,
+              'app.location_address': '4825 NW 39th Ave, Gainesville, FL 32606',
+              'app.building_occupancy': ['Self Storage'],
+              'app.GLonlyStatus': false, 'app.blanketed_status': false,
+              'app.building_value': 1850000, 'app.square_footage': 24000,
+              'app.BPP_limit': 25000,
+              'app.construction_type': 'Masonry Non Combustible',
+              'app.roof_type': 'Single Ply Membrane', 'app.roof_geometry': 'Flat',
+              'app.open_sided_status': false, 'app.sprinklered_status': true,
+              'app.stories': 1, 'app.year_built': '2012',
+              'app.OL_2and3_Limit': 200000, 'app.annual_sales': 510000,
+              'app.ex_wind_status': false, 'app.windhailpercentage': 5,
+              'app.valuation_method': 'Replacement Cost',
+              'app.coinsurance_percentage': '90',
+              'app.surveillance_status': true, 'app.burglar_alarm': true,
+              'app.fire_alarm': true, 'app.fenced_status': true,
+              'app.automated_gate': true,
+            },
+            {
+              'app.location_number': 3, 'app.building_number': 1,
+              'app.location_address': '7820 NW 23rd Blvd, Gainesville, FL 32606',
+              'app.building_occupancy': ['Self Storage', 'Office'],
+              'app.GLonlyStatus': false, 'app.blanketed_status': false,
+              'app.building_value': 1950000, 'app.square_footage': 26000,
+              'app.BPP_limit': 50000,
+              'app.construction_type': 'Masonry Non Combustible',
+              'app.roof_type': 'Metal', 'app.roof_geometry': 'Gable',
+              'app.open_sided_status': false, 'app.sprinklered_status': true,
+              'app.stories': 1, 'app.year_built': '2007',
+              'app.OL_2and3_Limit': 225000, 'app.annual_sales': 540000,
+              'app.ex_wind_status': false, 'app.windhailpercentage': 5,
+              'app.valuation_method': 'Replacement Cost',
+              'app.coinsurance_percentage': '90',
+              'app.surveillance_status': true, 'app.burglar_alarm': true,
+              'app.fire_alarm': true, 'app.fenced_status': true,
+              'app.automated_gate': true,
+            },
+          ],
         },
       },
 
@@ -3086,43 +3169,120 @@ const SEED_BASE = (() => {
         insured_name: 'Sunshine Self Storage',
         data: {
           'insured.name': 'Sunshine Self Storage',
-          'insured.dba': 'Sunshine Storage of South Florida',
-          'insured.fein': '65-7821940',
-          'insured.address_street': '8500 SW 56th Ave',
-          'insured.address_city': 'Miami',
-          'insured.address_state': 'FL',
-          'insured.address_zip': '33143',
-          'insured.years_in_business': 22,
-          'insured.contact_name': 'Robert Chen',
-          'insured.contact_email': 'rchen@sunshinestorage.com',
-          'insured.contact_phone': '305-555-0188',
-          'policy.effective_date': daysFromNow(21).slice(0, 10),
-          'policy.term_months': 12,
-          'policy.prior_carrier': 'Travelers',
-          'policy.prior_premium': 47800,
-          'litem.property.locations': 21,
-          'litem.property.total_units': 11800,
-          'litem.property.tiv': 38500000,
-          'litem.property.year_built_avg': 2002,
-          'litem.property.construction_type': 'masonry',
-          'litem.property.climate_controlled_pct': 75,
-          'litem.property.sprinklered': true,
-          'litem.property.gated_access': true,
-          'litem.property.surveillance': true,
-          'litem.property.fire_alarm': true,
-          'litem.property.building_ded': 5000,
-          'litem.general_liability.limits': '$1,000,000 / $2,000,000 / $2,000,000',
-          'litem.general_liability.sdll': 100000,
-          'litem.general_liability.cgll': 100000,
-          'litem.general_liability.sells_locks_boxes': true,
-          'litem.general_liability.tenant_insurance_program': true,
-          'litem.claims.last_5_years': 2,
-          'litem.claims.total_paid': 18500,
-          'litem.claims.largest_claim': 12000,
-          'litem.claims.narrative': 'One slip-and-fall claim in 2023 ($12k); one tenant goods water-damage claim in 2024 ($6.5k). Both closed.',
-          'optional.tria': true,
-          'optional.equipment_breakdown': true,
-          'optional.cyber': true,
+          'app.effective_date': daysFromNow(21).slice(0, 10),
+          'app.named_insured_structure': 'Corporation',
+          'app.renewal_status': true,
+          'app.renewal_of_policy_num': 'TR-2025-SSS-78231',
+          'app.expiring_premium': 47800,
+          'app.additional_insured_status': true,
+          'app.exclusions_status': false,
+          'app.claims_history_flag': true,
+          'app.GL_limits': '$1,000,000 / $2,000,000 / $2,000,000',
+          'app.SDLL_limit': '$100,000',
+          'app.CGLL_limit': '$100,000',
+          'app.BI_days_limit': '365 Days',
+          'app.Extended_BI_days_limit': '180 Days',
+          'app.med_pay_limit': '$10,000',
+          'app.pollutantcleanuplim': '$25,000',
+          'app.increased_signs': true,
+          'app.increased_gatesandfences': true,
+          'app.increased_treesandshrubs': false,
+          'app.PapersandRecords': '$10,000',
+          'app.equipment_breakdown_status': true,
+          'app.EB_sublimit': '$100,000',
+          'app.cyber_status': true,
+          'app.cyber_limit': '$250,000',
+          'app.EPLIstatus': true,
+          'app.fulltimeemployees': 12,
+          'app.parttimeemployees': 4,
+          'app.EPLIagg': '$100,000',
+          'app.EPLIserp': false,
+          'app.tria_status': true,
+          'app.excess_status': false,
+          'app.commercial_auto_status': false,
+          'app.waterbackuplimit': '$100,000',
+          'app.aop_deductible': '$5,000',
+          'app.ex_wind_hail_status': false,
+          'app.wind_hail_ded_status': true,
+          'app.wind_hail_minimum_dollar': 25000,
+          structures: [
+            {
+              'app.location_number': 1, 'app.building_number': 1,
+              'app.location_address': '8500 SW 56th Ave, Miami, FL 33143',
+              'app.building_occupancy': ['Self Storage', 'Office'],
+              'app.GLonlyStatus': false, 'app.blanketed_status': false,
+              'app.building_value': 2400000, 'app.square_footage': 32000,
+              'app.BPP_limit': 75000,
+              'app.construction_type': 'Masonry Non Combustible',
+              'app.roof_type': 'Single Ply Membrane', 'app.roof_geometry': 'Flat',
+              'app.open_sided_status': false, 'app.sprinklered_status': true,
+              'app.stories': 2, 'app.year_built': '2003',
+              'app.OL_2and3_Limit': 300000, 'app.annual_sales': 720000,
+              'app.ex_wind_status': false, 'app.windhailpercentage': 5,
+              'app.valuation_method': 'Replacement Cost',
+              'app.coinsurance_percentage': '90',
+              'app.surveillance_status': true, 'app.burglar_alarm': true,
+              'app.fire_alarm': true, 'app.fenced_status': true,
+              'app.automated_gate': true,
+            },
+            {
+              'app.location_number': 2, 'app.building_number': 1,
+              'app.location_address': '14500 SW 88th St, Miami, FL 33186',
+              'app.building_occupancy': ['Self Storage'],
+              'app.GLonlyStatus': false, 'app.blanketed_status': false,
+              'app.building_value': 1800000, 'app.square_footage': 26000,
+              'app.BPP_limit': 25000,
+              'app.construction_type': 'Masonry Non Combustible',
+              'app.roof_type': 'Single Ply Membrane', 'app.roof_geometry': 'Flat',
+              'app.open_sided_status': false, 'app.sprinklered_status': true,
+              'app.stories': 1, 'app.year_built': '2005',
+              'app.OL_2and3_Limit': 200000, 'app.annual_sales': 480000,
+              'app.ex_wind_status': false, 'app.windhailpercentage': 5,
+              'app.valuation_method': 'Replacement Cost',
+              'app.coinsurance_percentage': '90',
+              'app.surveillance_status': true, 'app.burglar_alarm': true,
+              'app.fire_alarm': true, 'app.fenced_status': true,
+              'app.automated_gate': true,
+            },
+            {
+              'app.location_number': 3, 'app.building_number': 1,
+              'app.location_address': '5605 NW 167th St, Hialeah, FL 33015',
+              'app.building_occupancy': ['Self Storage'],
+              'app.GLonlyStatus': false, 'app.blanketed_status': false,
+              'app.building_value': 2100000, 'app.square_footage': 30000,
+              'app.BPP_limit': 25000,
+              'app.construction_type': 'Masonry Non Combustible',
+              'app.roof_type': 'Metal', 'app.roof_geometry': 'Flat',
+              'app.open_sided_status': false, 'app.sprinklered_status': true,
+              'app.stories': 1, 'app.year_built': '2001',
+              'app.OL_2and3_Limit': 225000, 'app.annual_sales': 510000,
+              'app.ex_wind_status': false, 'app.windhailpercentage': 5,
+              'app.valuation_method': 'Replacement Cost',
+              'app.coinsurance_percentage': '90',
+              'app.surveillance_status': true, 'app.burglar_alarm': true,
+              'app.fire_alarm': true, 'app.fenced_status': true,
+              'app.automated_gate': true,
+            },
+            {
+              'app.location_number': 4, 'app.building_number': 1,
+              'app.location_address': '12200 SW 152nd St, Miami, FL 33177',
+              'app.building_occupancy': ['Self Storage', 'Mercantile'],
+              'app.GLonlyStatus': false, 'app.blanketed_status': false,
+              'app.building_value': 2200000, 'app.square_footage': 31000,
+              'app.BPP_limit': 50000,
+              'app.construction_type': 'Masonry Non Combustible',
+              'app.roof_type': 'Single Ply Membrane', 'app.roof_geometry': 'Flat',
+              'app.open_sided_status': false, 'app.sprinklered_status': true,
+              'app.stories': 1, 'app.year_built': '1999',
+              'app.OL_2and3_Limit': 250000, 'app.annual_sales': 565000,
+              'app.ex_wind_status': false, 'app.windhailpercentage': 5,
+              'app.valuation_method': 'Replacement Cost',
+              'app.coinsurance_percentage': '90',
+              'app.surveillance_status': true, 'app.burglar_alarm': true,
+              'app.fire_alarm': true, 'app.fenced_status': true,
+              'app.automated_gate': true,
+            },
+          ],
         },
       },
 
@@ -3138,37 +3298,56 @@ const SEED_BASE = (() => {
         policy_id: 'pol-2001',
         data: {
           'insured.name': 'Mountain View Storage',
-          'insured.fein': '47-2901834',
-          'insured.address_street': '650 Powerline Rd',
-          'insured.address_city': 'Pompano Beach',
-          'insured.address_state': 'FL',
-          'insured.address_zip': '33069',
-          'insured.years_in_business': 5,
-          'insured.contact_name': 'Lisa Park',
-          'insured.contact_email': 'lpark@mountainviewstorage.com',
-          'insured.contact_phone': '954-555-0173',
-          'policy.effective_date': daysAgo(28).slice(0, 10),
-          'policy.term_months': 12,
-          'litem.property.locations': 5,
-          'litem.property.total_units': 2400,
-          'litem.property.tiv': 8900000,
-          'litem.property.year_built_avg': 2018,
-          'litem.property.construction_type': 'steel',
-          'litem.property.climate_controlled_pct': 100,
-          'litem.property.sprinklered': true,
-          'litem.property.gated_access': true,
-          'litem.property.surveillance': true,
-          'litem.property.fire_alarm': true,
-          'litem.property.building_ded': 2500,
-          'litem.general_liability.limits': '$1,000,000 / $2,000,000 / $2,000,000',
-          'litem.general_liability.sdll': 50000,
-          'litem.general_liability.cgll': 50000,
-          'litem.general_liability.sells_locks_boxes': true,
-          'litem.general_liability.tenant_insurance_program': false,
-          'litem.claims.last_5_years': 0,
-          'litem.claims.total_paid': 0,
-          'optional.tria': true,
-          'optional.equipment_breakdown': true,
+          'app.effective_date': daysAgo(28).slice(0, 10),
+          'app.named_insured_structure': 'Limited Liability Company',
+          'app.renewal_status': false,
+          'app.additional_insured_status': false,
+          'app.exclusions_status': false,
+          'app.claims_history_flag': false,
+          'app.GL_limits': '$1,000,000 / $2,000,000 / $2,000,000',
+          'app.SDLL_limit': '$50,000',
+          'app.CGLL_limit': '$50,000',
+          'app.BI_days_limit': '180 Days',
+          'app.Extended_BI_days_limit': '60 Days',
+          'app.med_pay_limit': '$5,000',
+          'app.pollutantcleanuplim': '$10,000',
+          'app.increased_signs': false,
+          'app.increased_gatesandfences': false,
+          'app.increased_treesandshrubs': false,
+          'app.PapersandRecords': '$5,000',
+          'app.equipment_breakdown_status': true,
+          'app.EB_sublimit': '$50,000',
+          'app.cyber_status': false,
+          'app.EPLIstatus': false,
+          'app.tria_status': true,
+          'app.excess_status': false,
+          'app.commercial_auto_status': false,
+          'app.waterbackuplimit': '$50,000',
+          'app.aop_deductible': '$2,500',
+          'app.ex_wind_hail_status': false,
+          'app.wind_hail_ded_status': true,
+          'app.wind_hail_minimum_dollar': 10000,
+          structures: [
+            {
+              'app.location_number': 1, 'app.building_number': 1,
+              'app.location_address': '650 Powerline Rd, Pompano Beach, FL 33069',
+              'app.building_occupancy': ['Self Storage'],
+              'app.GLonlyStatus': false, 'app.blanketed_status': false,
+              'app.building_value': 2200000, 'app.square_footage': 28000,
+              'app.BPP_limit': 25000,
+              'app.construction_type': 'Non Combustible',
+              'app.roof_type': 'Metal', 'app.roof_geometry': 'Flat',
+              'app.open_sided_status': false, 'app.sprinklered_status': true,
+              'app.stories': 2, 'app.year_built': '2018',
+              'app.OL_2and3_Limit': 250000, 'app.annual_sales': 480000,
+              'app.ex_wind_status': false, 'app.windhailpercentage': 5,
+              'app.valuation_method': 'Replacement Cost',
+              'app.coinsurance_percentage': '100',
+              'app.surveillance_status': true, 'app.burglar_alarm': true,
+              'app.fire_alarm': true, 'app.fenced_status': true,
+              'app.automated_gate': true,
+            },
+          ],
         },
       },
 
@@ -3184,15 +3363,22 @@ const SEED_BASE = (() => {
         decline_reason: 'Property within 1 mile of coastline \u2014 outside underwriting appetite for current wind season.',
         data: {
           'insured.name': 'Coastal Self Storage',
-          'insured.address_street': '305 Ocean Dr',
-          'insured.address_city': 'Vero Beach',
-          'insured.address_state': 'FL',
-          'insured.address_zip': '32963',
-          'insured.years_in_business': 11,
-          'policy.effective_date': daysFromNow(10).slice(0, 10),
-          'litem.property.locations': 2,
-          'litem.property.total_units': 850,
-          'litem.property.construction_type': 'wood_frame',
+          'app.effective_date': daysFromNow(10).slice(0, 10),
+          'app.named_insured_structure': 'Limited Liability Company',
+          'app.renewal_status': false,
+          'app.additional_insured_status': false,
+          'app.exclusions_status': false,
+          'app.claims_history_flag': false,
+          structures: [
+            {
+              'app.location_number': 1, 'app.building_number': 1,
+              'app.location_address': '305 Ocean Dr, Vero Beach, FL 32963',
+              'app.building_occupancy': ['Self Storage'],
+              'app.building_value': 950000, 'app.square_footage': 14000,
+              'app.construction_type': 'Frame',
+              'app.year_built': '1992', 'app.stories': 1,
+            },
+          ],
         },
       },
 
@@ -3208,28 +3394,29 @@ const SEED_BASE = (() => {
         additional_details: 'Broker reported insured chose competitor.',
         data: {
           'insured.name': 'Capitol Self Storage',
-          'insured.fein': '38-4501778',
-          'insured.address_street': '1200 Capital Cir SE',
-          'insured.address_city': 'Tallahassee',
-          'insured.address_state': 'FL',
-          'insured.address_zip': '32301',
-          'insured.years_in_business': 18,
-          'insured.contact_name': 'Marcus Johnson',
-          'insured.contact_email': 'mjohnson@capitolstorage.com',
-          'policy.effective_date': daysAgo(20).slice(0, 10),
-          'policy.term_months': 12,
-          'policy.prior_carrier': 'Nationwide',
-          'litem.property.locations': 15,
-          'litem.property.total_units': 7800,
-          'litem.property.tiv': 22000000,
-          'litem.property.year_built_avg': 1998,
-          'litem.property.construction_type': 'masonry',
-          'litem.property.sprinklered': true,
-          'litem.property.gated_access': true,
-          'litem.property.surveillance': true,
-          'litem.general_liability.limits': '$1,000,000 / $2,000,000 / $2,000,000',
-          'litem.general_liability.sdll': 50000,
-          'litem.general_liability.cgll': 50000,
+          'app.effective_date': daysAgo(20).slice(0, 10),
+          'app.named_insured_structure': 'Corporation',
+          'app.renewal_status': true,
+          'app.renewal_of_policy_num': 'NW-2024-CSS-29004',
+          'app.expiring_premium': 38500,
+          'app.additional_insured_status': false,
+          'app.exclusions_status': false,
+          'app.claims_history_flag': false,
+          'app.GL_limits': '$1,000,000 / $2,000,000 / $2,000,000',
+          'app.SDLL_limit': '$50,000',
+          'app.CGLL_limit': '$50,000',
+          'app.aop_deductible': '$5,000',
+          structures: [
+            {
+              'app.location_number': 1, 'app.building_number': 1,
+              'app.location_address': '1200 Capital Cir SE, Tallahassee, FL 32301',
+              'app.building_occupancy': ['Self Storage'],
+              'app.building_value': 1450000, 'app.square_footage': 22000,
+              'app.construction_type': 'Masonry Non Combustible',
+              'app.year_built': '1998', 'app.stories': 1,
+              'app.sprinklered_status': true,
+            },
+          ],
         },
       },
     ],
@@ -3332,239 +3519,226 @@ const SEED_BASE = (() => {
   };
 })();
 
-// Form schema generator. The submission detail page needs a structured
-// schema to render the application form. Output mirrors what Joshu's
-// /submission-status endpoint returns after normalization (see
-// backend/app/joshu/client_http.py::normalize_submission_status):
+// ═════════════════════════════════════════════════════════════════
+// FORM SCHEMA — Self Storage Commercial Package (Joshu product 3368)
+// ═════════════════════════════════════════════════════════════════
+// Schema mirrors Joshu's /submission-status response after normalization
+// (see backend/app/joshu/client_http.py::normalize_submission_status).
 //
-//   {
-//     fields: [{ code, label, section, section_label, section_order,
-//                type, required, visible, exists, value, options?,
-//                decimal_places? }, ...],
-//     sections: [{ code, label, order, visible_count, completed,
-//                  has_errors, condition_met }, ...],
-//     counters: { total, completed, validation_issues },
-//     has_errors: bool
-//   }
+// Field codes match the actual Joshu product schema verbatim
+// (app.effective_date, app.GL_limits, etc.) so when the real Joshu
+// integration goes live, the broker's existing entries map 1:1 to
+// real datapoints — no migration required.
 //
-// Each field is FLAT (not nested inside section.fields) and tagged with
-// its section code. The UI groups them by section.code at render time.
-//
-// The question set is product-flavored. Today we have one schema for
-// Self Storage Commercial Package. When other products land in seed,
-// branch on submission.product_version_id.
-function seedFormSchemaForSubmission(submission) {
-  const data = submission.data || {};
-  const v = (k) => data[k] !== undefined ? data[k] : null;
-  const has = (k) => data[k] !== undefined && data[k] !== null && data[k] !== '';
+// Sections (in display order):
+//   1. Basic Information     — effective date, named insured structure, renewal flag, etc.
+//   2. Limits and Coverages  — GL/SDLL/CGLL limits, coverages with conditional sub-fields
+//   3. Deductibles           — AOP, wind/hail
+//   4. Locations & Structures (asset section) — array; broker creates one entry per building
+//   5. Underwriter Only      — fields the carrier completes (read-only for broker but visible)
+//   6. Exclusions            — conditional on app.exclusions_status=1
 
-  // Field definitions in display order. `section` tags each field
-  // with its parent section's code so the UI can group them. The
-  // `section` codes match the sections array below.
-  const FIELD_DEFS = [
-    // ── Insured information ───────────────────────────────────────
-    { code: 'insured.name', label: 'Legal name of insured',
-      section: 'insured', type: 'text', required: true },
-    { code: 'insured.dba', label: 'DBA / trade name',
-      section: 'insured', type: 'text', required: false },
-    { code: 'insured.fein', label: 'FEIN',
-      section: 'insured', type: 'text', required: true,
-      placeholder: 'XX-XXXXXXX' },
-    { code: 'insured.years_in_business', label: 'Years in business',
-      section: 'insured', type: 'number', required: true, decimal_places: 0 },
-    { code: 'insured.address_street', label: 'Street address',
-      section: 'insured', type: 'text', required: true },
-    { code: 'insured.address_city', label: 'City',
-      section: 'insured', type: 'text', required: true },
-    { code: 'insured.address_state', label: 'State',
-      section: 'insured', type: 'text', required: true,
-      options: US_STATE_OPTIONS },
-    { code: 'insured.address_zip', label: 'ZIP code',
-      section: 'insured', type: 'text', required: true },
-    { code: 'insured.contact_name', label: 'Primary contact name',
-      section: 'insured', type: 'text', required: true },
-    { code: 'insured.contact_email', label: 'Contact email',
-      section: 'insured', type: 'text', required: true,
-      format: 'EmailAddress' },
-    { code: 'insured.contact_phone', label: 'Contact phone',
-      section: 'insured', type: 'text', required: false },
+// ── Application section schema definitions ───────────────────────
+// Each section is a flat list of field definitions. `condition` is a
+// Joshu-style expression evaluated against current data values to
+// show/hide the field (e.g. "app.renewal_status=1"). Sections themselves
+// can also be conditional — Exclusions only shows when its trigger fires.
+const APP_SCHEMA = {
+  sections: [
+    { code: 'basic_information',  label: 'Basic Information',     order: 0, condition: null },
+    { code: 'limits_coverages',   label: 'Limits and Coverages',  order: 1, condition: null },
+    { code: 'deductibles',        label: 'Deductibles',           order: 2, condition: null },
+    { code: 'structures',         label: 'Locations & Structures', order: 3, condition: null, is_asset: true, asset_collection: 'app.structures' },
+    { code: 'underwriter_only',   label: 'Underwriter Only',      order: 4, condition: null, is_underwriter: true },
+    { code: 'exclusions',         label: 'Exclusions',            order: 5, condition: 'app.exclusions_status=1' },
+  ],
 
-    // ── Policy details ────────────────────────────────────────────
-    { code: 'policy.effective_date', label: 'Requested effective date',
-      section: 'policy', type: 'date', required: true },
-    { code: 'policy.term_months', label: 'Policy term',
-      section: 'policy', type: 'number', required: true, decimal_places: 0,
+  // Basic Information
+  basic_information: [
+    { code: 'app.effective_date', label: 'Effective Date', type: 'date', required: true },
+    { code: 'app.named_insured_structure', label: 'Named Insured Structure', type: 'text', required: true,
       options: [
-        { value: 12, display: '12 months' },
-        { value: 6, display: '6 months' },
-        { value: 3, display: '3 months' },
+        { value: 'Sole Proprietorship', display: 'Sole Proprietorship' },
+        { value: 'Partnership', display: 'Partnership' },
+        { value: 'Corporation', display: 'Corporation' },
+        { value: 'Limited Liability Company', display: 'Limited Liability Company' },
+        { value: 'Other', display: 'Other' },
       ] },
-    { code: 'policy.prior_carrier', label: 'Prior carrier',
-      section: 'policy', type: 'text', required: false },
-    { code: 'policy.prior_premium', label: 'Prior annual premium',
-      section: 'policy', type: 'monetary', required: false, decimal_places: 0 },
+    { code: 'app.renewal_status', label: 'Renewal?', type: 'boolean', required: true },
+    { code: 'app.renewal_of_policy_num', label: 'Renewal of Policy Number', type: 'text', required: true,
+      condition: 'app.renewal_status=1' },
+    { code: 'app.expiring_premium', label: 'Expiring Premium', type: 'monetary', required: false, decimal_places: 0 },
+    { code: 'app.additional_insured_status', label: 'Additional Insureds?', type: 'boolean', required: true },
+    { code: 'app.exclusions_status', label: 'Exclusions?', type: 'boolean', required: true },
+    { code: 'app.claims_history_flag', label: 'Claims History Flagged?', type: 'boolean', required: true },
+  ],
 
-    // ── Property & locations ──────────────────────────────────────
-    { code: 'litem.property.locations', label: 'Number of locations',
-      section: 'property', type: 'number', required: true, decimal_places: 0 },
-    { code: 'litem.property.total_units', label: 'Total storage units (all locations)',
-      section: 'property', type: 'number', required: true, decimal_places: 0 },
-    { code: 'litem.property.tiv', label: 'Total insured value (buildings + BPP)',
-      section: 'property', type: 'monetary', required: true, decimal_places: 0 },
-    { code: 'litem.property.year_built_avg', label: 'Average year built',
-      section: 'property', type: 'number', required: false, decimal_places: 0 },
-    { code: 'litem.property.construction_type', label: 'Predominant construction type',
-      section: 'property', type: 'text', required: true,
+  // Limits and Coverages
+  limits_coverages: [
+    { code: 'app.GL_limits', label: 'General Liability Limits', type: 'text', required: true,
       options: [
-        { value: 'masonry', display: 'Masonry' },
-        { value: 'steel', display: 'Steel / metal frame' },
-        { value: 'wood_frame', display: 'Wood frame' },
-        { value: 'mixed', display: 'Mixed construction' },
+        { value: '$1,000,000 / $2,000,000 / $2,000,000', display: '$1,000,000 / $2,000,000 / $2,000,000' },
+        { value: '$2,000,000 / $4,000,000 / $4,000,000', display: '$2,000,000 / $4,000,000 / $4,000,000' },
       ] },
-    { code: 'litem.property.climate_controlled_pct', label: '% of units climate-controlled',
-      section: 'property', type: 'number', required: false, decimal_places: 0 },
-    { code: 'litem.property.sprinklered', label: 'Buildings sprinklered',
-      section: 'property', type: 'boolean', required: true },
-    { code: 'litem.property.gated_access', label: '24/7 gated access',
-      section: 'property', type: 'boolean', required: true },
-    { code: 'litem.property.surveillance', label: 'Video surveillance system',
-      section: 'property', type: 'boolean', required: true },
-    { code: 'litem.property.fire_alarm', label: 'Central station fire alarm',
-      section: 'property', type: 'boolean', required: false },
-    { code: 'litem.property.building_ded', label: 'Property deductible',
-      section: 'property', type: 'number', required: true, decimal_places: 0,
+    { code: 'app.SDLL_limit', label: 'Sales and Disposal Legal Liability Limit', type: 'text', required: true,
+      options: ['$5,000','$10,000','$25,000','$50,000','$100,000','$300,000','$500,000','$1,000,000'].map(v => ({ value: v, display: v })) },
+    { code: 'app.CGLL_limit', label: "Customer's Goods Legal Liability Limits", type: 'text', required: true,
+      options: ['$5,000','$10,000','$25,000','$50,000','$100,000','$300,000','$500,000','$1,000,000'].map(v => ({ value: v, display: v })) },
+    { code: 'app.BI_days_limit', label: 'Business Income and Extra Expense Limit', type: 'text', required: true,
+      options: ['120 Days','180 Days','270 Days','365 Days','730 Days'].map(v => ({ value: v, display: v })) },
+    { code: 'app.Extended_BI_days_limit', label: 'Extended Business Income and Extra Expense Limit', type: 'text', required: true,
+      options: ['60 Days','90 Days','120 Days','180 Days','270 Days','365 Days','730 Days'].map(v => ({ value: v, display: v })) },
+    { code: 'app.med_pay_limit', label: 'Medical Payments Limit', type: 'text', required: true,
+      options: ['$5,000','$10,000','$15,000'].map(v => ({ value: v, display: v })) },
+    { code: 'app.pollutantcleanuplim', label: 'Pollutant Clean Up and Removal Coverage Limit', type: 'text', required: true,
+      options: ['$10,000','$25,000','$50,000'].map(v => ({ value: v, display: v })) },
+    { code: 'app.increased_signs', label: 'Increased Signs Limit?', type: 'boolean', required: true },
+    { code: 'app.increased_gatesandfences', label: 'Increased Gates and Fences Limit?', type: 'boolean', required: true },
+    { code: 'app.increased_treesandshrubs', label: 'Increased Trees and Shrubs Limit?', type: 'boolean', required: true },
+    { code: 'app.PapersandRecords', label: 'Valuable Papers and Records', type: 'text', required: true,
+      options: ['$2,500','$5,000','$10,000','$25,000'].map(v => ({ value: v, display: v })) },
+    { code: 'app.equipment_breakdown_status', label: 'Equipment Breakdown?', type: 'boolean', required: true },
+    { code: 'app.EB_sublimit', label: 'Equipment Breakdown Sublimit', type: 'text', required: true,
+      options: ['$25,000','$50,000','$100,000','$250,000'].map(v => ({ value: v, display: v })),
+      condition: 'equipment_breakdown_status=1' },
+    { code: 'app.cyber_status', label: 'Cyber?', type: 'boolean', required: true },
+    { code: 'app.cyber_limit', label: 'Cyber Aggregate Limit?', type: 'text', required: true,
+      options: ['$50,000','$100,000','$250,000','$500,000','$1,000,000'].map(v => ({ value: v, display: v })),
+      condition: 'cyber_status=1' },
+    { code: 'app.EPLIstatus', label: 'EPLI?', type: 'boolean', required: true },
+    { code: 'app.fulltimeemployees', label: 'Number of Employees - Full Time', type: 'number', required: true, decimal_places: 0,
+      condition: 'EPLIstatus=1' },
+    { code: 'app.parttimeemployees', label: 'Number of Employees - Part Time', type: 'number', required: true, decimal_places: 0,
+      condition: 'EPLIstatus=1' },
+    { code: 'app.EPLIagg', label: 'EPLI Aggregate Limit', type: 'text', required: true,
+      options: ['$50,000','$100,000','$250,000'].map(v => ({ value: v, display: v })),
+      condition: 'EPLIstatus=1' },
+    { code: 'app.EPLIserp', label: 'Supplemental Extended Reporting Period (SERP)?', type: 'boolean', required: true,
+      condition: 'EPLIstatus=1' },
+    { code: 'app.tria_status', label: 'TRIA?', type: 'boolean', required: true },
+    { code: 'app.excess_status', label: 'Excess?', type: 'boolean', required: true },
+    { code: 'app.commercial_auto_status', label: 'Commercial Autos?', type: 'boolean', required: true },
+    { code: 'app.PPT_count', label: 'Number of Personal Passenger Transport Vehicles', type: 'number', required: true, decimal_places: 0,
+      condition: 'commercial_auto_status=1' },
+    { code: 'app.light_truck_count', label: 'Number of Light Trucks', type: 'number', required: true, decimal_places: 0,
+      condition: 'commercial_auto_status=1' },
+    { code: 'app.medium_truck_count', label: 'Number of Medium Trucks', type: 'number', required: true, decimal_places: 0,
+      condition: 'commercial_auto_status=1' },
+    { code: 'app.heavy_truck_count', label: 'Number Heavy Trucks', type: 'number', required: true, decimal_places: 0,
+      condition: 'commercial_auto_status=1' },
+    { code: 'app.waterbackuplimit', label: 'Water Backup and Overflow Limit', type: 'text', required: false,
+      options: ['$50,000','$100,000'].map(v => ({ value: v, display: v })) },
+  ],
+
+  // Deductibles
+  deductibles: [
+    { code: 'app.aop_deductible', label: 'Property AOP Deductible', type: 'text', required: true,
+      options: ['$500','$1,000','$2,500','$5,000','$10,000','$25,000','$50,000','$75,000'].map(v => ({ value: v, display: v })) },
+    { code: 'app.ex_wind_hail_status', label: 'Wind/Hail Exclusion', type: 'boolean', required: true },
+    { code: 'app.wind_hail_ded_status', label: 'Wind / Hail Deductibles?', type: 'boolean', required: true },
+    { code: 'app.wind_hail_minimum_dollar', label: 'Wind / Hail Deductible - Minimum $ Per Occurrence', type: 'monetary', required: true, decimal_places: 0,
+      condition: 'app.wind_hail_ded_status=1' },
+  ],
+
+  // Underwriter Only
+  underwriter_only: [
+    { code: 'app.different_valuation_status', label: 'Different Valuation Methods or Coinsurance %', type: 'boolean', required: true },
+    { code: 'app.competitor_premium', label: 'Competitor / Target Premium', type: 'monetary', required: false, decimal_places: 0 },
+    { code: 'app.stop_loss_status', label: 'Stop Loss Form Applies?', type: 'boolean', required: true },
+    { code: 'app.SLtaxstate', label: 'SL Tax State', type: 'text', required: true, options: 'US_STATES' },
+    { code: 'app.SLtaxmunicipality_total', label: 'SL Tax: Municipality Tax $ Amount', type: 'monetary', required: true, decimal_places: 0,
+      condition: 'app.SLtaxstate="KY"' },
+    { code: 'app.ag_enhancement_status', label: 'Altruis Group Enhancement Status', type: 'boolean', required: true },
+    { code: 'app.RoofACVstatus', label: 'Roof ACV Form Applies?', type: 'boolean', required: true },
+  ],
+
+  // Exclusions (whole section conditional on exclusions_status=1)
+  exclusions: [
+    { code: 'app.operations_exclusions', label: 'Ongoing Operations Exclusions?', type: 'text', required: true },
+  ],
+};
+
+// Per-structure field schema. Each structure (asset entry) has its own
+// instance of these fields, scoped by asset index. The UI groups them
+// into three subsections via the heading labels below.
+const STRUCTURE_SCHEMA = {
+  headings: [
+    { after_idx: -1,                     label: 'Building Basic Information' },
+    { code: 'app.LRO_status',            label: 'Additional Coverages' },     // marker — see UI logic
+    { code: 'app.surveillance_status',   label: 'Security Features' },
+  ],
+  fields: [
+    // Building Basic Information
+    { code: 'app.location_number', label: 'Location Number', type: 'number', required: true, decimal_places: 0 },
+    { code: 'app.location_address', label: 'Location Address', type: 'location', required: true },
+    { code: 'app.building_number', label: 'Building Number', type: 'number', required: true, decimal_places: 0 },
+    { code: 'app.building_occupancy', label: 'Occupancy Description', type: 'multiselect', required: true,
+      options: ['Self Storage','Office','Mercantile','Car Wash','Other'].map(v => ({ value: v, display: v })) },
+    { code: 'app.GLonlyStatus', label: 'GL Only?', type: 'boolean', required: true },
+    { code: 'app.blanketed_status', label: 'Blanketed Status', type: 'boolean', required: true },
+    { code: 'app.building_count', label: 'Number of Buildings', type: 'number', required: false, decimal_places: 0,
+      condition: 'blanketed_status=1' },
+    { code: 'app.building_value', label: 'Building TIV', type: 'monetary', required: true, decimal_places: 0 },
+    { code: 'app.square_footage', label: 'Square Footage', type: 'number', required: true, decimal_places: 0 },
+    { code: 'app.BPP_limit', label: 'Business Personal Property', type: 'monetary', required: true, decimal_places: 0 },
+    { code: 'app.construction_type', label: 'Construction Type', type: 'text', required: true,
+      options: ['Frame','Masonry Joisted','Non Combustible','Masonry Non Combustible','Modified Fire Resistive','Fire Resistive','Vacant Land'].map(v => ({ value: v, display: v })) },
+    { code: 'app.roof_type', label: 'Roof Type', type: 'text', required: false,
+      options: ['Asphalt','Tile','Metal','Single Ply Membrane','Other'].map(v => ({ value: v, display: v })) },
+    { code: 'app.roof_geometry', label: 'Roof Geometry', type: 'text', required: false,
+      options: ['Gable','Hip','Flat','Other'].map(v => ({ value: v, display: v })) },
+    { code: 'app.open_sided_status', label: 'Open Sides?', type: 'boolean', required: true },
+    { code: 'app.sprinklered_status', label: 'Sprinklered?', type: 'boolean', required: true },
+    { code: 'app.stories', label: 'Number of Stories', type: 'number', required: true, decimal_places: 0 },
+    { code: 'app.year_built', label: 'Year Built', type: 'text', required: true },
+    { code: 'app.OL_2and3_Limit', label: 'Ordinance and Law Coverage 2 and 3 Limit', type: 'monetary', required: true, decimal_places: 0 },
+    { code: 'app.annual_sales', label: 'Annual Sales', type: 'monetary', required: true, decimal_places: 0 },
+    { code: 'app.ex_wind_status', label: 'Ex-Wind/Hail?', type: 'boolean', required: true },
+    { code: 'app.windhailpercentage', label: 'Windstorm and Hail % Deductible', type: 'number', required: true, decimal_places: 0 },
+    { code: 'app.wind_hail_dollar_figure', label: 'Wind / Hail Deductible - per building $', type: 'monetary', required: false, decimal_places: 0 },
+    { code: 'app.valuation_method', label: 'Valuation Method', type: 'text', required: true,
+      options: ['Replacement Cost','Actual Cash Value','Replacement Cost with Agreed Value'].map(v => ({ value: v, display: v })) },
+    { code: 'app.coinsurance_percentage', label: 'Coinsurance %', type: 'text', required: true,
+      options: ['100','90','80','0'].map(v => ({ value: v, display: v + '%' })) },
+
+    // Additional Coverages
+    { code: 'app.LRO_status', label: 'LRO Exposure?', type: 'boolean', required: false },
+    { code: 'app.LRO_description', label: "Lessor's Risk Only (LRO) Description", type: 'text', required: false,
       options: [
-        { value: 1000, display: '$1,000' },
-        { value: 2500, display: '$2,500' },
-        { value: 5000, display: '$5,000' },
-        { value: 10000, display: '$10,000' },
-        { value: 25000, display: '$25,000' },
-        { value: 50000, display: '$50,000' },
-        { value: 75000, display: '$75,000' },
-      ] },
+        'Bank / Office / Mercantile (lessee)',
+        'Bank / Office / Mercantile (Insured)',
+        'Parking / Shopping centers (maintained by insured)',
+        'Parking / Shopping centers (maintained by lessee)',
+        'LRO - retail gas or oil supply stations',
+        'Car Washes',
+        'Self Service - Car Washes',
+        'Dwelling',
+      ].map(v => ({ value: v, display: v })),
+      condition: 'LRO_status=1' },
+    { code: 'app.LRO_square_footage', label: "Lessor's Risk Only (LRO) Square Footage", type: 'number', required: false, decimal_places: 0,
+      condition: 'LRO_status=1 AND LRO_description IN (Bank / Office / Mercantile (lessee),Bank / Office / Mercantile (Insured),Parking / Shopping centers (maintained by insured),Parking / Shopping centers (maintained by lessee))' },
+    { code: 'app.LRO_sales', label: "Lessor's Risk Only (LRO) Sales", type: 'monetary', required: false, decimal_places: 0,
+      condition: 'LRO_status=1 AND LRO_description IN (LRO - retail gas or oil supply stations,Car Washes,Self Service - Car Washes)' },
+    { code: 'app.vacant_land_acreage', label: 'Vacant Land Acreage', type: 'number', required: false, decimal_places: 2 },
 
-    // ── General Liability ─────────────────────────────────────────
-    { code: 'litem.general_liability.limits', label: 'GL limits (per occ / agg / products-completed)',
-      section: 'liability', type: 'text', required: true,
-      options: [
-        { value: '$1,000,000 / $2,000,000 / $2,000,000', display: '$1M / $2M / $2M' },
-        { value: '$2,000,000 / $4,000,000 / $4,000,000', display: '$2M / $4M / $4M' },
-      ] },
-    { code: 'litem.general_liability.sdll', label: 'Sale & disposal of lien limit (SDLL)',
-      section: 'liability', type: 'monetary', required: true, decimal_places: 0,
-      options: [
-        { value: 5000, display: '$5,000' },
-        { value: 10000, display: '$10,000' },
-        { value: 25000, display: '$25,000' },
-        { value: 50000, display: '$50,000' },
-        { value: 100000, display: '$100,000' },
-        { value: 300000, display: '$300,000' },
-        { value: 500000, display: '$500,000' },
-        { value: 1000000, display: '$1,000,000' },
-      ] },
-    { code: 'litem.general_liability.cgll', label: 'Customer goods legal liability (CGLL)',
-      section: 'liability', type: 'monetary', required: true, decimal_places: 0,
-      options: [
-        { value: 5000, display: '$5,000' },
-        { value: 10000, display: '$10,000' },
-        { value: 25000, display: '$25,000' },
-        { value: 50000, display: '$50,000' },
-        { value: 100000, display: '$100,000' },
-        { value: 300000, display: '$300,000' },
-        { value: 500000, display: '$500,000' },
-        { value: 1000000, display: '$1,000,000' },
-      ] },
-    { code: 'litem.general_liability.sells_locks_boxes', label: 'Sells locks, boxes, or moving supplies',
-      section: 'liability', type: 'boolean', required: false },
-    { code: 'litem.general_liability.tenant_insurance_program', label: 'Offers a tenant insurance program',
-      section: 'liability', type: 'boolean', required: false },
+    // Security Features
+    { code: 'app.surveillance_status', label: 'Video surveillance / monitoring', type: 'boolean', required: false },
+    { code: 'app.burglar_alarm', label: 'Burglar Alarm', type: 'boolean', required: false },
+    { code: 'app.fire_alarm', label: 'Fire Alarm', type: 'boolean', required: false },
+    { code: 'app.sprinkler_maintenance_plan', label: 'Sprinkler system maintenance plan', type: 'boolean', required: false },
+    { code: 'app.fenced_status', label: 'Fully fenced?', type: 'boolean', required: false },
+    { code: 'app.automated_gate', label: 'Automated gate?', type: 'boolean', required: false },
+    { code: 'app.loc_level_signs', label: 'Location Level Signs Limits', type: 'text', required: false,
+      condition: 'app.increased_signs=1' },
+    { code: 'app.loc_level_fences', label: 'Location Level Fences', type: 'text', required: false,
+      condition: 'app.increased_gatesandfences=1' },
+    { code: 'app.loc_level_shrubs', label: 'Location Level Shrubs', type: 'text', required: false,
+      condition: 'app.increased_treesandshrubs=1' },
+    { code: 'app.site_mod', label: 'Site Specific Modification', type: 'number', required: false, decimal_places: 4 },
+  ],
+};
 
-    // ── Claims history ────────────────────────────────────────────
-    { code: 'litem.claims.last_5_years', label: 'Number of claims in last 5 years',
-      section: 'claims', type: 'number', required: true, decimal_places: 0 },
-    { code: 'litem.claims.total_paid', label: 'Total claims paid (last 5 years)',
-      section: 'claims', type: 'monetary', required: false, decimal_places: 0 },
-    { code: 'litem.claims.largest_claim', label: 'Largest single claim amount',
-      section: 'claims', type: 'monetary', required: false, decimal_places: 0 },
-    { code: 'litem.claims.narrative', label: 'Claim narrative / details',
-      section: 'claims', type: 'text', required: false },
-
-    // ── Optional coverages ────────────────────────────────────────
-    { code: 'optional.tria', label: 'TRIA / Terrorism (auto-included, opt-out at bind)',
-      section: 'optional', type: 'boolean', required: false },
-    { code: 'optional.epli', label: 'Employment practices liability (EPLI)',
-      section: 'optional', type: 'boolean', required: false },
-    { code: 'optional.cyber', label: 'Cyber liability',
-      section: 'optional', type: 'boolean', required: false },
-    { code: 'optional.equipment_breakdown', label: 'Equipment breakdown',
-      section: 'optional', type: 'boolean', required: false },
-    { code: 'optional.pollution', label: 'Pollution liability',
-      section: 'optional', type: 'boolean', required: false },
-    { code: 'optional.mold', label: 'Mold / fungus coverage',
-      section: 'optional', type: 'boolean', required: false },
-  ];
-
-  const SECTION_DEFS = [
-    { code: 'insured',   label: 'Insured information', order: 0 },
-    { code: 'policy',    label: 'Policy details',      order: 1 },
-    { code: 'property',  label: 'Property & locations', order: 2 },
-    { code: 'liability', label: 'General liability',   order: 3 },
-    { code: 'claims',    label: 'Claims history',      order: 4 },
-    { code: 'optional',  label: 'Optional coverages',  order: 5 },
-  ];
-
-  // Build the flat fields array. Tag each field with its section's
-  // human label and order, fill in the value from the submission's
-  // data dict, mark visible/exists true.
-  const fields = FIELD_DEFS.map(def => {
-    const sectionInfo = SECTION_DEFS.find(s => s.code === def.section);
-    return {
-      ...def,
-      section_label: sectionInfo.label,
-      section_order: sectionInfo.order,
-      asset_idx: 0,
-      visible: true,
-      exists: true,
-      value: v(def.code),
-      validation_error: null,
-    };
-  });
-
-  // Build sections array with completion counts.
-  const sections = SECTION_DEFS.map(def => {
-    const sectionFields = fields.filter(f => f.section === def.code);
-    const completed = sectionFields.filter(f => has(f.code)).length;
-    return {
-      code: def.code,
-      label: def.label,
-      order: def.order,
-      visible_count: sectionFields.length,
-      field_count: sectionFields.length,
-      completed,
-      has_errors: false,
-      condition_met: true,
-    };
-  });
-
-  const totalVisible = sections.reduce((acc, s) => acc + s.visible_count, 0);
-  const totalCompleted = sections.reduce((acc, s) => acc + s.completed, 0);
-
-  return {
-    fields,
-    sections,
-    counters: {
-      total: totalVisible,
-      completed: totalCompleted,
-      validation_issues: 0,
-      non_retryable_validation_issues: 0,
-    },
-    has_errors: false,
-  };
-}
-
-// US state dropdown options for the address state field. Defined once
-// at module scope so all generated schemas share the same array
-// reference (good for === comparisons in select option matching).
+// US states list — used by app.SLtaxstate
 const US_STATE_OPTIONS = [
   { value: 'AL', display: 'Alabama' }, { value: 'AK', display: 'Alaska' },
   { value: 'AZ', display: 'Arizona' }, { value: 'AR', display: 'Arkansas' },
@@ -3594,9 +3768,227 @@ const US_STATE_OPTIONS = [
   { value: 'DC', display: 'District of Columbia' },
 ];
 
-// localStorage-backed mutable seed state. Loaded on first access; written
-// back on every mutation. Reset by clearing localStorage or calling
-// resetSeedDb().
+// Evaluate a Joshu-style condition expression against the current data
+// values. Supports the patterns actually used in the schema:
+//   * "code=value"                   → equality (numbers stringify, booleans become 0/1)
+//   * "code=\"value\""               → quoted literal equality
+//   * "expr1 AND expr2"              → boolean and
+//   * "expr1 OR expr2"               → boolean or
+//   * "code IN (a,b,c)"              → membership (custom shorthand for the LRO clauses)
+// Codes can appear with or without the "app." prefix; we normalize.
+//
+// Returns true if the field should be visible.
+function evalCondition(condition, data) {
+  if (!condition) return true;
+  // Trim whitespace, strip outer parens iteratively
+  let expr = condition.trim();
+  while (expr.startsWith('(') && expr.endsWith(')')) {
+    expr = expr.slice(1, -1).trim();
+  }
+  // Split on top-level AND/OR (no nested parens at this point — schema is flat)
+  const lower = expr.toLowerCase();
+  const andIdx = topLevelOp(expr, ' AND ');
+  if (andIdx >= 0) {
+    return evalCondition(expr.slice(0, andIdx), data) && evalCondition(expr.slice(andIdx + 5), data);
+  }
+  const orIdx = topLevelOp(expr, ' OR ');
+  if (orIdx >= 0) {
+    return evalCondition(expr.slice(0, orIdx), data) || evalCondition(expr.slice(orIdx + 4), data);
+  }
+  // Atomic comparison: code OP value
+  // Match "code IN (a,b,c)"
+  const inMatch = expr.match(/^([\w.]+)\s+IN\s+\((.*)\)$/);
+  if (inMatch) {
+    const code = inMatch[1];
+    const list = inMatch[2].split(',').map(s => s.trim());
+    const v = readDataValue(code, data);
+    return list.includes(String(v));
+  }
+  // Match "code=value" or "code=\"value\"" — also tolerates "code[]=value"
+  const eqMatch = expr.match(/^([\w.]+)(?:\[\])?\s*=\s*(.*)$/);
+  if (eqMatch) {
+    const code = eqMatch[1];
+    let target = eqMatch[2].trim();
+    if (target.startsWith('"') && target.endsWith('"')) target = target.slice(1, -1);
+    const v = readDataValue(code, data);
+    if (target === '1' && (v === true || v === 1 || v === '1')) return true;
+    if (target === '0' && (v === false || v === 0 || v === '0' || v === null || v === undefined)) return true;
+    return String(v) === target;
+  }
+  // Unknown form → fail open (show the field)
+  return true;
+}
+
+function topLevelOp(expr, op) {
+  // Find an AND/OR operator at paren-depth 0
+  let depth = 0;
+  for (let i = 0; i + op.length <= expr.length; i++) {
+    const c = expr[i];
+    if (c === '(') depth++;
+    else if (c === ')') depth--;
+    if (depth === 0 && expr.slice(i, i + op.length) === op) return i;
+  }
+  return -1;
+}
+
+function readDataValue(code, data) {
+  // Try code as-is, then with "app." prefix, then without
+  if (code in data) return data[code];
+  if (('app.' + code) in data) return data['app.' + code];
+  if (code.startsWith('app.') && code.slice(4) in data) return data[code.slice(4)];
+  return null;
+}
+
+// Form schema generator. Builds the flat normalized schema the UI
+// expects, sourced from APP_SCHEMA above plus the structures asset.
+//
+// Output mirrors what /api/submissions/{id}/form returns from Joshu
+// after normalization. Field shape:
+//   { code, label, section, section_label, section_order,
+//     type, required, visible, exists, value, options?,
+//     decimal_places?, asset_idx, item? }
+//
+// Sections shape:
+//   { code, label, order, visible_count, completed,
+//     has_errors, condition_met, is_asset?, is_underwriter? }
+function seedFormSchemaForSubmission(submission) {
+  const data = submission.data || {};
+  const has = (k) => data[k] !== undefined && data[k] !== null && data[k] !== '';
+  const v = (k) => data[k] !== undefined ? data[k] : null;
+
+  const fields = [];
+  const sectionsOut = [];
+
+  for (const sec of APP_SCHEMA.sections) {
+    const condMet = evalCondition(sec.condition, data);
+
+    if (sec.is_asset) {
+      // Structures section — handled separately below; emit a section
+      // header only (fields are per-asset and added in a second pass).
+      sectionsOut.push({
+        code: sec.code, label: sec.label, order: sec.order,
+        visible_count: 0, field_count: 0, completed: 0,
+        has_errors: false, condition_met: condMet,
+        is_asset: true, asset_collection: sec.asset_collection,
+      });
+      continue;
+    }
+
+    const sectionFields = APP_SCHEMA[sec.code] || [];
+    let visibleCount = 0;
+    let completed = 0;
+
+    for (const def of sectionFields) {
+      const fieldVisible = condMet && evalCondition(def.condition, data);
+      const opts = def.options === 'US_STATES' ? US_STATE_OPTIONS : def.options;
+      fields.push({
+        code: def.code,
+        label: def.label,
+        section: sec.code,
+        section_label: sec.label,
+        section_order: sec.order,
+        asset_idx: 0,
+        type: def.type,
+        required: def.required || false,
+        visible: fieldVisible,
+        exists: true,
+        value: v(def.code),
+        options: opts || null,
+        decimal_places: def.decimal_places,
+        validation_error: null,
+      });
+      if (fieldVisible) {
+        visibleCount++;
+        if (has(def.code)) completed++;
+      }
+    }
+
+    sectionsOut.push({
+      code: sec.code, label: sec.label, order: sec.order,
+      visible_count: visibleCount, field_count: visibleCount, completed,
+      has_errors: false, condition_met: condMet,
+      is_underwriter: !!sec.is_underwriter,
+    });
+  }
+
+  // ── Structures asset section ───────────────────────────────────
+  // Each structure is a separate group rendered as an asset card.
+  // Field codes get a per-asset suffix in the canonical Joshu form
+  // ("app.structures[0].app.location_number"), but for storage we
+  // use a flat path `structures[i].<code>` as a JS key.
+  const structures = data['structures'] || [];
+  const structuresSection = sectionsOut.find(s => s.code === 'structures');
+  if (structuresSection) {
+    structuresSection.asset_count = structures.length;
+    let totalSV = 0, totalSC = 0;
+    structures.forEach((entry, idx) => {
+      for (const def of STRUCTURE_SCHEMA.fields) {
+        const flatCode = `structures[${idx}].${def.code}`;
+        const condMet = evalCondition(def.condition, { ...data, ...entry });
+        const opts = def.options === 'US_STATES' ? US_STATE_OPTIONS : def.options;
+        fields.push({
+          code: flatCode,
+          original_code: def.code,
+          label: def.label,
+          section: 'structures',
+          section_label: 'Locations & Structures',
+          section_order: structuresSection.order,
+          asset_idx: idx,
+          type: def.type,
+          required: def.required || false,
+          visible: condMet,
+          exists: true,
+          value: entry[def.code] !== undefined ? entry[def.code] : null,
+          options: opts || null,
+          decimal_places: def.decimal_places,
+          validation_error: null,
+        });
+        if (condMet) {
+          totalSV++;
+          if (entry[def.code] !== undefined && entry[def.code] !== null && entry[def.code] !== '') totalSC++;
+        }
+      }
+    });
+    structuresSection.visible_count = totalSV;
+    structuresSection.field_count = totalSV;
+    structuresSection.completed = totalSC;
+    structuresSection.is_empty_asset_shell = structures.length === 0;
+  }
+
+  const totalVisible = sectionsOut.reduce((acc, s) => acc + s.visible_count, 0);
+  const totalCompleted = sectionsOut.reduce((acc, s) => acc + s.completed, 0);
+
+  return {
+    fields,
+    sections: sectionsOut,
+    counters: {
+      total: totalVisible,
+      completed: totalCompleted,
+      validation_issues: 0,
+      non_retryable_validation_issues: 0,
+    },
+    has_errors: false,
+  };
+}
+
+// Derive peril addresses from the unique addresses across all
+// structures. This is what populates app.PerilsScoringAddresses
+// (read-only in the UI; the rater needs it for catastrophe scoring).
+function derivePerilAddresses(data) {
+  const structs = data['structures'] || [];
+  const seen = new Set();
+  const out = [];
+  for (const s of structs) {
+    const addr = s['app.location_address'];
+    if (!addr) continue;
+    const key = typeof addr === 'string' ? addr : JSON.stringify(addr);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(addr);
+  }
+  return out;
+}
+
 let _seedDb = null;
 function seedDb() {
   if (_seedDb) return _seedDb;
@@ -3657,9 +4049,22 @@ async function seedApi(path, opts = {}) {
   if (m && method === 'PUT') {
     const sub = db.submissions.find(s => String(s.id) === m[1]);
     if (!sub) throw new Error('Submission not found');
-    // Body is a flat {code: value} dict (matching the real backend's
-    // PUT /submissions/{id}/data shape). Merge directly into sub.data.
-    sub.data = { ...(sub.data || {}), ...(body || {}) };
+    // Body is a flat {code: value} dict. Top-level keys merge into
+    // sub.data directly. Structure-scoped keys (structures[N].app.X)
+    // unflatten back into the structures array, mutating in place.
+    sub.data = sub.data || {};
+    sub.data.structures = sub.data.structures || [];
+    for (const [code, val] of Object.entries(body || {})) {
+      const sm = code.match(/^structures\[(\d+)\]\.(.+)$/);
+      if (sm) {
+        const idx = parseInt(sm[1], 10);
+        const fieldCode = sm[2];
+        if (!sub.data.structures[idx]) sub.data.structures[idx] = {};
+        sub.data.structures[idx][fieldCode] = val;
+      } else {
+        sub.data[code] = val;
+      }
+    }
     sub.modified_at = new Date().toISOString();
     if (body && body['insured.name']) sub.insured_name = body['insured.name'];
     saveSeedDb();
@@ -5449,16 +5854,32 @@ function submissionMainCard(s) {
                     : (isEditing
                         ? `${activeSection.completed} of ${activeSection.visible_count} fields complete`
                         : '')),
-          // Expand/Collapse-all row for asset sections
-          isMultiAsset
+          // Asset-section controls: Add button is always visible while
+          // editing; Expand/Collapse only shows for 2+ assets.
+          isEditing && activeSection.is_asset
             ? el('div', { className: 'asset-controls' },
-                el('button', { className: 'btn-sm-ghost',
-                  onClick: () => { expandAllAssets(activeSection.code, displayedGroups); render(); }
-                }, 'Expand all'),
-                el('button', { className: 'btn-sm-ghost',
-                  onClick: () => { collapseAllAssets(activeSection.code); render(); }
-                }, 'Collapse all'))
-            : null),
+                isMultiAsset
+                  ? el('button', { className: 'btn-sm-ghost',
+                      onClick: () => { expandAllAssets(activeSection.code, displayedGroups); render(); }
+                    }, 'Expand all')
+                  : null,
+                isMultiAsset
+                  ? el('button', { className: 'btn-sm-ghost',
+                      onClick: () => { collapseAllAssets(activeSection.code); render(); }
+                    }, 'Collapse all')
+                  : null,
+                el('button', { className: 'btn btn-primary btn-sm',
+                  onClick: () => addStructure() },
+                  `+ Add ${inferAssetNoun(activeSection, 1).toLowerCase()}`))
+            : isMultiAsset
+              ? el('div', { className: 'asset-controls' },
+                  el('button', { className: 'btn-sm-ghost',
+                    onClick: () => { expandAllAssets(activeSection.code, displayedGroups); render(); }
+                  }, 'Expand all'),
+                  el('button', { className: 'btn-sm-ghost',
+                    onClick: () => { collapseAllAssets(activeSection.code); render(); }
+                  }, 'Collapse all'))
+              : null),
 
         // Body: asset cards, empty-state card, or flat form grid
         activeSection.is_empty_asset_shell
@@ -5467,7 +5888,13 @@ function submissionMainCard(s) {
               el('div', { className: 'empty-asset-title' },
                 `No ${inferAssetNoun(activeSection, 2).toLowerCase()} added yet`),
               el('div', { className: 'empty-asset-desc' },
-                `${inferAssetNoun(activeSection, 2)} will appear here once you add them to this submission.`))
+                `${inferAssetNoun(activeSection, 2)} will appear here once you add them to this submission.`),
+              isEditing
+                ? el('button', { className: 'btn btn-primary',
+                    style: { marginTop: '20px' },
+                    onClick: () => addStructure() },
+                    `+ Add ${inferAssetNoun(activeSection, 1).toLowerCase()}`)
+                : null)
           : activeFields.length === 0
             ? el('div', { className: 'empty', style: { marginTop: '20px' } },
               el('p', {}, 'No fields in this section are currently visible.'))
@@ -5822,6 +6249,102 @@ function isAssetExpanded(sectionCode, idx) {
   return state.expandedAssets[sectionCode]?.has(idx) || false;
 }
 
+// ──────────────────────────────────────────────────────────────
+// Structure CRUD — add/remove structure entries from a submission
+// ──────────────────────────────────────────────────────────────
+// In seed mode, structures live as a JS array on submission.data
+// (key 'structures'). Adding writes a new empty structure object,
+// assigns the next location_number / building_number, persists,
+// then refreshes the form schema so the UI shows the new entry.
+//
+// When real Joshu lands, swap the in-memory array mutation for a
+// proper asset-create call. The UI surface stays the same.
+function addStructure() {
+  const sub = state.selectedSubmission;
+  if (!sub) return;
+
+  // Where the structures array lives depends on whether this is a
+  // demo submission (lives on state.demoSubmission) or a seed-backed
+  // submission (lives in seedDb's submissions array).
+  let dataObj;
+  let persist;
+  if (sub.id === 'demo' && state.demoSubmission) {
+    dataObj = state.demoSubmission.data = state.demoSubmission.data || {};
+    persist = () => { /* demo doesn't persist */ };
+  } else {
+    const db = seedDb();
+    const seedSub = db.submissions.find(s => String(s.id) === String(sub.id));
+    if (!seedSub) return;
+    dataObj = seedSub.data = seedSub.data || {};
+    persist = () => saveSeedDb();
+  }
+
+  const structs = dataObj['structures'] = dataObj['structures'] || [];
+  // Auto-assign location_number = max + 1, building_number = 1.
+  // Broker can edit both. This keeps numbering monotonic and
+  // predictable; if the broker has 3 buildings at one location they
+  // can change building_number after the fact.
+  const maxLoc = structs.reduce((m, s) => Math.max(m, s['app.location_number'] || 0), 0);
+  const newStruct = {
+    'app.location_number': maxLoc + 1,
+    'app.building_number': 1,
+    'app.building_occupancy': ['Self Storage'],
+  };
+  structs.push(newStruct);
+  persist();
+
+  // Reload the active submission so the form re-derives its schema
+  // with the new structure included. We also reset the selectedSubmission
+  // so the structure card-grouping picks up the new entry.
+  if (sub.id === 'demo') {
+    loadSubmission('demo');
+  } else {
+    loadSubmission(sub.id);
+  }
+  // Auto-expand the new entry so the broker sees the empty form
+  // immediately and can start filling it.
+  const newIdx = structs.length - 1;
+  if (!state.expandedAssets['structures']) state.expandedAssets['structures'] = new Set();
+  state.expandedAssets['structures'].add(newIdx);
+
+  toast(`Added structure ${maxLoc + 1}`, 'ok');
+}
+
+function removeStructure(idx) {
+  const sub = state.selectedSubmission;
+  if (!sub) return;
+  if (!confirm('Remove this structure? Any data entered for it will be lost.')) return;
+
+  let dataObj;
+  let persist;
+  if (sub.id === 'demo' && state.demoSubmission) {
+    dataObj = state.demoSubmission.data = state.demoSubmission.data || {};
+    persist = () => {};
+  } else {
+    const db = seedDb();
+    const seedSub = db.submissions.find(s => String(s.id) === String(sub.id));
+    if (!seedSub) return;
+    dataObj = seedSub.data = seedSub.data || {};
+    persist = () => saveSeedDb();
+  }
+
+  const structs = dataObj['structures'] || [];
+  if (idx < 0 || idx >= structs.length) return;
+  structs.splice(idx, 1);
+  persist();
+
+  // Reload to refresh the schema. Clear expanded state for the now-
+  // removed index — otherwise expanded set may have a stale idx that
+  // points to a different entry.
+  state.expandedAssets['structures'] = new Set();
+  if (sub.id === 'demo') {
+    loadSubmission('demo');
+  } else {
+    loadSubmission(sub.id);
+  }
+  toast('Structure removed', 'ok');
+}
+
 // Render a single collapsible asset card
 // ──────────────────────────────────────────────────────────────
 // Asset numbering and broker-lock helpers
@@ -5958,7 +6481,19 @@ function renderAssetCard(section, group, isEditing, displayLabelOverride, titleO
     isEditing
       ? el('div', { className: 'asset-card-meta' },
           el('span', { className: `asset-card-chip ${pct === 100 ? 'done' : ''}` },
-            `${group.completed}/${group.total}`))
+            `${group.completed}/${group.total}`),
+          // Remove button — span instead of button (we're already inside a
+          // button element for the toggle), uses pointer events with
+          // stopPropagation to avoid expanding/collapsing the card.
+          section.code === 'structures'
+            ? el('span', { className: 'asset-card-remove',
+                onClick: (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  removeStructure(group.idx);
+                },
+                title: 'Remove this structure' }, '\u00d7')
+            : null)
       : null,
     el('div', { className: 'asset-card-chevron' }, isOpen ? '\u2303' : '\u2304'));
 
@@ -7292,6 +7827,30 @@ function renderFieldInput(field, value, locked = false) {
       el('span', { className: 'toggle-label' }, checked ? 'Yes' : 'No'));
   }
 
+  // ── Multiselect: array-typed field with options (broker picks 1+)
+  // Used by Joshu Array<Text> datapoints like app.building_occupancy.
+  // Value is stored as an array of strings; we render as a checkbox group.
+  if (field.type === 'multiselect' && field.options) {
+    const arrayVal = Array.isArray(cleanValue) ? cleanValue : (cleanValue ? [cleanValue] : []);
+    if (locked) {
+      if (arrayVal.length === 0) return lockedValueEl('');
+      return lockedValueEl(arrayVal.join(', '));
+    }
+    return el('div', { className: 'multiselect' },
+      ...field.options.map(opt => {
+        const checked = arrayVal.includes(opt.value);
+        return el('label', { className: 'multiselect-option' },
+          el('input', { type: 'checkbox', checked,
+            onChange: (e) => {
+              const next = e.target.checked
+                ? [...arrayVal, opt.value]
+                : arrayVal.filter(v => v !== opt.value);
+              onChange(next);
+            } }),
+          el('span', {}, opt.display || opt.value));
+      }));
+  }
+
   // ── Slider: Number/Monetary with 3+ numeric options
   if (field.options && field.options.length >= 3 &&
       (field.type === 'number' || field.type === 'monetary')) {
@@ -7728,6 +8287,26 @@ async function saveDirtyData() {
   const dirty = state.submissionDirty;
   if (!Object.keys(dirty).length) return;
 
+  // Helper: apply a flat dirty dict to a target data object,
+  // unflattening structure-scoped keys (`structures[N].app.X`)
+  // back into the structures array. Returns the target unchanged.
+  // Mutates target in place.
+  const applyDirty = (target, dirtyDict) => {
+    target.structures = target.structures || [];
+    for (const [code, val] of Object.entries(dirtyDict)) {
+      const m = code.match(/^structures\[(\d+)\]\.(.+)$/);
+      if (m) {
+        const idx = parseInt(m[1], 10);
+        const fieldCode = m[2];
+        if (!target.structures[idx]) target.structures[idx] = {};
+        target.structures[idx][fieldCode] = val;
+      } else {
+        target[code] = val;
+      }
+    }
+    return target;
+  };
+
   // Demo submission: save in-memory only, never persists. Updates the
   // form schema's field values so the UI stays in sync with what the
   // broker typed, then shows the same "saved" indicator as a real save.
@@ -7735,7 +8314,8 @@ async function saveDirtyData() {
     state.submissionSaving = 'saving';
     render();
     if (state.demoSubmission) {
-      state.demoSubmission.data = { ...(state.demoSubmission.data || {}), ...dirty };
+      state.demoSubmission.data = state.demoSubmission.data || {};
+      applyDirty(state.demoSubmission.data, dirty);
       state.demoSubmission.modified_at = new Date().toISOString();
     }
     if (state.submissionForm) {
