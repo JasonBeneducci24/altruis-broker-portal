@@ -1261,6 +1261,7 @@
   .badge-processing,
   .badge-quoteindication, .badge-quotestoreedit { background: var(--info-soft); color: var(--info); }
   .badge-submitted, .badge-quotepublished, .badge-binderpublished { background: var(--info-soft); color: var(--info); }
+  .badge-pendingdecision { background: var(--info-soft); color: var(--info); }
   .badge-future, .badge-coverageactive, .badge-active, .badge-ready,
   .badge-issued, .badge-bound { background: var(--ok-soft); color: var(--ok-deep, var(--ok)); }
   .badge-declined, .badge-quotedeclined, .badge-binderdeclined, .badge-canceled, .badge-error { background: var(--err-soft); color: var(--err); }
@@ -2867,6 +2868,15 @@ async function api(path, opts = {}) {
 
 function statusBadge(s) {
   if (!s) return el('span', { className: 'badge badge-incomplete' }, '—');
+  // Submitted and Pending both mean "broker sent it, awaiting underwriter
+  // decision" from the broker's perspective. Joshu distinguishes them
+  // technically (Pending = system processing the post-submit; Submitted
+  // = sitting in UW queue) but the broker doesn't care — both are the
+  // same wait state. Unify them into a single label and class so list
+  // filters, lifecycle bars, dashboard counts all read consistently.
+  if (s === 'Submitted' || s === 'Pending') {
+    return el('span', { className: 'badge badge-pendingdecision' }, 'Pending Decision');
+  }
   return el('span', { className: `badge badge-${s.toLowerCase()}` }, s);
 }
 
@@ -4501,7 +4511,7 @@ function renderRecentActivity(allSubs) {
         renderRecentFilter('recentStatus', [
           { value: 'all',         label: 'All statuses' },
           { value: 'incomplete',  label: 'Incomplete' },
-          { value: 'submitted',   label: 'Submitted' },
+          { value: 'submitted',   label: 'Pending Decision' },
           { value: 'declined',    label: 'Declined' },
           { value: 'bound',       label: 'Bound' },
         ]),
@@ -4791,7 +4801,7 @@ function submissionsListView() {
       el('div', { className: 'tabs' },
         filterTab('all', 'All', counts.all),
         filterTab('drafts', 'Drafts', counts.drafts),
-        filterTab('submitted', 'Submitted', counts.submitted),
+        filterTab('submitted', 'Pending Decision', counts.submitted),
         filterTab('declined', 'Declined', counts.declined)),
       el('div', { className: 'search-box' },
         el('input', { type: 'search',
