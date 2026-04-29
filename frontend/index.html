@@ -2321,8 +2321,8 @@
   }
   .upload-dropzone-inner {
     display: flex; flex-direction: column; align-items: center; gap: 10px;
-    pointer-events: none;
   }
+  .upload-dropzone-inner > * { pointer-events: none; }
   .upload-dropzone-icon {
     width: 40px; height: 40px;
     color: var(--blue);
@@ -3370,9 +3370,7 @@ function sidebar() {
   return el('aside', { className: 'sidebar' },
     el('div', { className: 'brand-mark' },
       brandWordmark('white', 36),
-      el('div', { className: 'brand-mark-row' },
-        el('div', { className: 'brand-mark-sub' }, 'Broker Portal'),
-        renderEnvBadge())),
+      el('div', { className: 'brand-mark-sub' }, 'Broker Portal')),
 
     // Persistent primary CTA — most important broker action,
     // available from every view.
@@ -7668,7 +7666,9 @@ function renderUploadStep(form, rerender) {
 function uploadDropZone(form, onFilesAdded, rerender) {
   const dz = el('div', { className: 'upload-dropzone' });
 
-  // Visual + text — split out for the dragover state hover.
+  // Visual + text — pointer-events on children handled in CSS so drag
+  // events propagate cleanly to the dz container regardless of where
+  // inside the box the cursor lands.
   const inner = el('div', { className: 'upload-dropzone-inner' },
     el('div', { className: 'upload-dropzone-icon' },
       // Inline cloud-arrow-up SVG, sized via CSS
@@ -7681,6 +7681,7 @@ function uploadDropZone(form, onFilesAdded, rerender) {
         svg.setAttribute('stroke-width', '1.5');
         svg.setAttribute('stroke-linecap', 'round');
         svg.setAttribute('stroke-linejoin', 'round');
+        svg.style.pointerEvents = 'none';
         const p1 = document.createElementNS(ns, 'path');
         p1.setAttribute('d', 'M7 18a4 4 0 01-.4-7.978 6 6 0 0111.6-1.778 4.5 4.5 0 011.8 8.756');
         const p2 = document.createElementNS(ns, 'path');
@@ -7693,11 +7694,7 @@ function uploadDropZone(form, onFilesAdded, rerender) {
 
   dz.appendChild(inner);
 
-  // Hidden file input — clicking the dropzone triggers it. The input
-  // has to be a child so it can be programmatically .click()-ed without
-  // window focus issues, but its own click event must NOT bubble back
-  // up to the dz click handler — that would re-fire input.click() in
-  // a loop on some browsers and dismiss the picker.
+  // Hidden file input for click-to-browse fallback.
   const input = document.createElement('input');
   input.type = 'file';
   input.multiple = true;
@@ -7707,7 +7704,7 @@ function uploadDropZone(form, onFilesAdded, rerender) {
     if (e.target.files && e.target.files.length > 0) {
       onFilesAdded(Array.from(e.target.files));
     }
-    e.target.value = '';   // reset so re-uploading the same file fires onChange again
+    e.target.value = '';
   });
   input.addEventListener('click', (e) => e.stopPropagation());
   dz.appendChild(input);
@@ -7717,33 +7714,59 @@ function uploadDropZone(form, onFilesAdded, rerender) {
     input.click();
   });
 
-  // HTML5 drag-and-drop requires preventDefault on BOTH dragenter and
-  // dragover for a drop to be accepted. Skipping dragenter is a common
-  // oversight that silently makes drops fail in Firefox and some
-  // Chromium versions — the dz becomes a "no-drop" target.
+  // Global drop prevention — without this, dropping a file ANYWHERE on
+  // the page outside the dropzone will trigger the browser's default
+  // behavior of navigating to / opening the file. With it, drops
+  // outside the dropzone are silently ignored. Setting these on the
+  // window means we don't have to wonder which element is intercepting.
+  // Idempotent — checking a flag on window so we only attach once even
+  // if uploadDropZone is mounted multiple times.
+  if (!window.__altruisDragGuard) {
+    window.__altruisDragGuard = true;
+    window.addEventListener('dragover', (e) => { e.preventDefault(); }, false);
+    window.addEventListener('drop', (e) => { e.preventDefault(); }, false);
+    console.log('[upload] global drag guard installed');
+  }
+
+  // Drag-and-drop handlers on the dropzone itself. Logging is left in
+  // place during this debug round so devtools console will show
+  // exactly which events fire when the user drags. Once drag-drop is
+  // confirmed working we can pull the console.log lines.
   dz.addEventListener('dragenter', (e) => {
     e.preventDefault();
+    e.stopPropagation();
+    console.log('[upload] dragenter');
     if (form.processing || form.creating) return;
     dz.classList.add('upload-dropzone-active');
   });
   dz.addEventListener('dragover', (e) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'copy';
+    e.stopPropagation();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
     if (form.processing || form.creating) return;
-    dz.classList.add('upload-dropzone-active');
+    if (!dz.classList.contains('upload-dropzone-active')) {
+      console.log('[upload] dragover (entered active state)');
+      dz.classList.add('upload-dropzone-active');
+    }
   });
   dz.addEventListener('dragleave', (e) => {
-    // dragleave fires when crossing into a child element too. Only
-    // remove the active state if we're actually leaving the dropzone.
-    if (e.target === dz) {
+    // Only clear active state when leaving the dropzone entirely, not
+    // when crossing into a child. Test: relatedTarget is the element
+    // we're entering — if it's null or not a descendant of dz, we've
+    // left for real.
+    if (!dz.contains(e.relatedTarget)) {
+      console.log('[upload] dragleave (true exit)');
       dz.classList.remove('upload-dropzone-active');
     }
   });
   dz.addEventListener('drop', (e) => {
     e.preventDefault();
+    e.stopPropagation();
+    console.log('[upload] drop fired, files:',
+      e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length);
     dz.classList.remove('upload-dropzone-active');
     if (form.processing || form.creating) return;
-    const files = Array.from(e.dataTransfer.files || []);
+    const files = Array.from((e.dataTransfer && e.dataTransfer.files) || []);
     if (files.length > 0) onFilesAdded(files);
   });
 
