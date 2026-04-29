@@ -2978,7 +2978,7 @@ function unwrapForInput(v) {
 //
 // Auth and config still call the real backend — login still works.
 
-const SEED_STORAGE_KEY = 'altruis_seed_v1';
+const SEED_STORAGE_KEY = 'altruis_seed_v2';
 
 // Seed bootstrap. Hardcoded base data. Persisted snapshot in localStorage
 // supersedes this on subsequent loads so edits survive page reloads.
@@ -3017,8 +3017,14 @@ const SEED_BASE = (() => {
         insured_name: 'Acme Self Storage',
         data: {
           'insured.name': 'Acme Self Storage',
-          'insured.address': '4400 Forest Hill Blvd, West Palm Beach, FL 33415',
+          'insured.dba': 'Acme Storage',
+          'insured.address_street': '4400 Forest Hill Blvd',
+          'insured.address_city': 'West Palm Beach',
+          'insured.address_state': 'FL',
+          'insured.address_zip': '33415',
+          'insured.years_in_business': 8,
           'policy.effective_date': daysFromNow(28).slice(0, 10),
+          'policy.term_months': 12,
           'litem.property.locations': 12,
         },
       },
@@ -3033,10 +3039,40 @@ const SEED_BASE = (() => {
         insured_name: 'Riverside Storage Group',
         data: {
           'insured.name': 'Riverside Storage Group',
-          'insured.address': '2100 NW 13th St, Gainesville, FL 32609',
+          'insured.fein': '58-1234567',
+          'insured.address_street': '2100 NW 13th St',
+          'insured.address_city': 'Gainesville',
+          'insured.address_state': 'FL',
+          'insured.address_zip': '32609',
+          'insured.years_in_business': 14,
+          'insured.contact_name': 'Sarah Mitchell',
+          'insured.contact_email': 'sarah@riversidestorage.com',
+          'insured.contact_phone': '352-555-0142',
           'policy.effective_date': daysFromNow(35).slice(0, 10),
+          'policy.term_months': 12,
+          'policy.prior_carrier': 'Liberty Mutual',
+          'policy.prior_premium': 32400,
           'litem.property.locations': 8,
+          'litem.property.total_units': 4200,
           'litem.property.tiv': 14200000,
+          'litem.property.year_built_avg': 2008,
+          'litem.property.construction_type': 'masonry',
+          'litem.property.climate_controlled_pct': 60,
+          'litem.property.sprinklered': true,
+          'litem.property.gated_access': true,
+          'litem.property.surveillance': true,
+          'litem.property.fire_alarm': true,
+          'litem.property.building_ded': 5000,
+          'litem.general_liability.limits': '$1,000,000 / $2,000,000 / $2,000,000',
+          'litem.general_liability.sdll': 50000,
+          'litem.general_liability.cgll': 50000,
+          'litem.general_liability.sells_locks_boxes': true,
+          'litem.general_liability.tenant_insurance_program': true,
+          'litem.claims.last_5_years': 1,
+          'litem.claims.total_paid': 4200,
+          'litem.claims.largest_claim': 4200,
+          'optional.tria': true,
+          'optional.equipment_breakdown': true,
         },
       },
 
@@ -3050,14 +3086,43 @@ const SEED_BASE = (() => {
         insured_name: 'Sunshine Self Storage',
         data: {
           'insured.name': 'Sunshine Self Storage',
-          'insured.address': '8500 SW 56th Ave, Miami, FL 33143',
+          'insured.dba': 'Sunshine Storage of South Florida',
+          'insured.fein': '65-7821940',
+          'insured.address_street': '8500 SW 56th Ave',
+          'insured.address_city': 'Miami',
+          'insured.address_state': 'FL',
+          'insured.address_zip': '33143',
+          'insured.years_in_business': 22,
+          'insured.contact_name': 'Robert Chen',
+          'insured.contact_email': 'rchen@sunshinestorage.com',
+          'insured.contact_phone': '305-555-0188',
           'policy.effective_date': daysFromNow(21).slice(0, 10),
+          'policy.term_months': 12,
+          'policy.prior_carrier': 'Travelers',
+          'policy.prior_premium': 47800,
           'litem.property.locations': 21,
+          'litem.property.total_units': 11800,
           'litem.property.tiv': 38500000,
+          'litem.property.year_built_avg': 2002,
+          'litem.property.construction_type': 'masonry',
+          'litem.property.climate_controlled_pct': 75,
+          'litem.property.sprinklered': true,
+          'litem.property.gated_access': true,
+          'litem.property.surveillance': true,
+          'litem.property.fire_alarm': true,
           'litem.property.building_ded': 5000,
           'litem.general_liability.limits': '$1,000,000 / $2,000,000 / $2,000,000',
           'litem.general_liability.sdll': 100000,
           'litem.general_liability.cgll': 100000,
+          'litem.general_liability.sells_locks_boxes': true,
+          'litem.general_liability.tenant_insurance_program': true,
+          'litem.claims.last_5_years': 2,
+          'litem.claims.total_paid': 18500,
+          'litem.claims.largest_claim': 12000,
+          'litem.claims.narrative': 'One slip-and-fall claim in 2023 ($12k); one tenant goods water-damage claim in 2024 ($6.5k). Both closed.',
+          'optional.tria': true,
+          'optional.equipment_breakdown': true,
+          'optional.cyber': true,
         },
       },
 
@@ -3073,14 +3138,37 @@ const SEED_BASE = (() => {
         policy_id: 'pol-2001',
         data: {
           'insured.name': 'Mountain View Storage',
-          'insured.address': '650 Powerline Rd, Pompano Beach, FL 33069',
+          'insured.fein': '47-2901834',
+          'insured.address_street': '650 Powerline Rd',
+          'insured.address_city': 'Pompano Beach',
+          'insured.address_state': 'FL',
+          'insured.address_zip': '33069',
+          'insured.years_in_business': 5,
+          'insured.contact_name': 'Lisa Park',
+          'insured.contact_email': 'lpark@mountainviewstorage.com',
+          'insured.contact_phone': '954-555-0173',
           'policy.effective_date': daysAgo(28).slice(0, 10),
+          'policy.term_months': 12,
           'litem.property.locations': 5,
+          'litem.property.total_units': 2400,
           'litem.property.tiv': 8900000,
+          'litem.property.year_built_avg': 2018,
+          'litem.property.construction_type': 'steel',
+          'litem.property.climate_controlled_pct': 100,
+          'litem.property.sprinklered': true,
+          'litem.property.gated_access': true,
+          'litem.property.surveillance': true,
+          'litem.property.fire_alarm': true,
           'litem.property.building_ded': 2500,
           'litem.general_liability.limits': '$1,000,000 / $2,000,000 / $2,000,000',
           'litem.general_liability.sdll': 50000,
           'litem.general_liability.cgll': 50000,
+          'litem.general_liability.sells_locks_boxes': true,
+          'litem.general_liability.tenant_insurance_program': false,
+          'litem.claims.last_5_years': 0,
+          'litem.claims.total_paid': 0,
+          'optional.tria': true,
+          'optional.equipment_breakdown': true,
         },
       },
 
@@ -3096,9 +3184,15 @@ const SEED_BASE = (() => {
         decline_reason: 'Property within 1 mile of coastline \u2014 outside underwriting appetite for current wind season.',
         data: {
           'insured.name': 'Coastal Self Storage',
-          'insured.address': '305 Ocean Dr, Vero Beach, FL 32963',
+          'insured.address_street': '305 Ocean Dr',
+          'insured.address_city': 'Vero Beach',
+          'insured.address_state': 'FL',
+          'insured.address_zip': '32963',
+          'insured.years_in_business': 11,
           'policy.effective_date': daysFromNow(10).slice(0, 10),
           'litem.property.locations': 2,
+          'litem.property.total_units': 850,
+          'litem.property.construction_type': 'wood_frame',
         },
       },
 
@@ -3114,10 +3208,28 @@ const SEED_BASE = (() => {
         additional_details: 'Broker reported insured chose competitor.',
         data: {
           'insured.name': 'Capitol Self Storage',
-          'insured.address': '1200 Capital Cir SE, Tallahassee, FL 32301',
+          'insured.fein': '38-4501778',
+          'insured.address_street': '1200 Capital Cir SE',
+          'insured.address_city': 'Tallahassee',
+          'insured.address_state': 'FL',
+          'insured.address_zip': '32301',
+          'insured.years_in_business': 18,
+          'insured.contact_name': 'Marcus Johnson',
+          'insured.contact_email': 'mjohnson@capitolstorage.com',
           'policy.effective_date': daysAgo(20).slice(0, 10),
+          'policy.term_months': 12,
+          'policy.prior_carrier': 'Nationwide',
           'litem.property.locations': 15,
+          'litem.property.total_units': 7800,
           'litem.property.tiv': 22000000,
+          'litem.property.year_built_avg': 1998,
+          'litem.property.construction_type': 'masonry',
+          'litem.property.sprinklered': true,
+          'litem.property.gated_access': true,
+          'litem.property.surveillance': true,
+          'litem.general_liability.limits': '$1,000,000 / $2,000,000 / $2,000,000',
+          'litem.general_liability.sdll': 50000,
+          'litem.general_liability.cgll': 50000,
         },
       },
     ],
@@ -3221,43 +3333,106 @@ const SEED_BASE = (() => {
 })();
 
 // Form schema generator. The submission detail page needs a structured
-// schema to render the application form. For seed mode, we generate a
-// product-flavored schema based on the submission's product_version_id
-// and seed in the data values from the submission record.
+// schema to render the application form. Output mirrors what Joshu's
+// /submission-status endpoint returns after normalization (see
+// backend/app/joshu/client_http.py::normalize_submission_status):
 //
-// Schema shape mirrors what /api/submissions/{id}/form returns from
-// Joshu (sections + fields), simplified to ~15 fields total. Enough
-// to exercise the edit/save flow without reproducing the full Joshu
-// application.
+//   {
+//     fields: [{ code, label, section, section_label, section_order,
+//                type, required, visible, exists, value, options?,
+//                decimal_places? }, ...],
+//     sections: [{ code, label, order, visible_count, completed,
+//                  has_errors, condition_met }, ...],
+//     counters: { total, completed, validation_issues },
+//     has_errors: bool
+//   }
+//
+// Each field is FLAT (not nested inside section.fields) and tagged with
+// its section code. The UI groups them by section.code at render time.
+//
+// The question set is product-flavored. Today we have one schema for
+// Self Storage Commercial Package. When other products land in seed,
+// branch on submission.product_version_id.
 function seedFormSchemaForSubmission(submission) {
   const data = submission.data || {};
-  const v = (k, dflt) => data[k] !== undefined ? data[k] : (dflt ?? null);
-  const fields = [
-    { code: 'insured.name', label: 'Insured name', type: 'text',
-      value: v('insured.name'), required: true },
-    { code: 'insured.address', label: 'Mailing address', type: 'text',
-      value: v('insured.address'), required: true },
-    { code: 'insured.contact_name', label: 'Primary contact', type: 'text',
-      value: v('insured.contact_name'), required: false },
-    { code: 'insured.contact_email', label: 'Contact email', type: 'text',
-      value: v('insured.contact_email'), required: false },
-    { code: 'policy.effective_date', label: 'Effective date', type: 'date',
-      value: v('policy.effective_date'), required: true },
+  const v = (k) => data[k] !== undefined ? data[k] : null;
+  const has = (k) => data[k] !== undefined && data[k] !== null && data[k] !== '';
+
+  // Field definitions in display order. `section` tags each field
+  // with its parent section's code so the UI can group them. The
+  // `section` codes match the sections array below.
+  const FIELD_DEFS = [
+    // ── Insured information ───────────────────────────────────────
+    { code: 'insured.name', label: 'Legal name of insured',
+      section: 'insured', type: 'text', required: true },
+    { code: 'insured.dba', label: 'DBA / trade name',
+      section: 'insured', type: 'text', required: false },
+    { code: 'insured.fein', label: 'FEIN',
+      section: 'insured', type: 'text', required: true,
+      placeholder: 'XX-XXXXXXX' },
+    { code: 'insured.years_in_business', label: 'Years in business',
+      section: 'insured', type: 'number', required: true, decimal_places: 0 },
+    { code: 'insured.address_street', label: 'Street address',
+      section: 'insured', type: 'text', required: true },
+    { code: 'insured.address_city', label: 'City',
+      section: 'insured', type: 'text', required: true },
+    { code: 'insured.address_state', label: 'State',
+      section: 'insured', type: 'text', required: true,
+      options: US_STATE_OPTIONS },
+    { code: 'insured.address_zip', label: 'ZIP code',
+      section: 'insured', type: 'text', required: true },
+    { code: 'insured.contact_name', label: 'Primary contact name',
+      section: 'insured', type: 'text', required: true },
+    { code: 'insured.contact_email', label: 'Contact email',
+      section: 'insured', type: 'text', required: true,
+      format: 'EmailAddress' },
+    { code: 'insured.contact_phone', label: 'Contact phone',
+      section: 'insured', type: 'text', required: false },
+
+    // ── Policy details ────────────────────────────────────────────
+    { code: 'policy.effective_date', label: 'Requested effective date',
+      section: 'policy', type: 'date', required: true },
+    { code: 'policy.term_months', label: 'Policy term',
+      section: 'policy', type: 'number', required: true, decimal_places: 0,
+      options: [
+        { value: 12, display: '12 months' },
+        { value: 6, display: '6 months' },
+        { value: 3, display: '3 months' },
+      ] },
+    { code: 'policy.prior_carrier', label: 'Prior carrier',
+      section: 'policy', type: 'text', required: false },
+    { code: 'policy.prior_premium', label: 'Prior annual premium',
+      section: 'policy', type: 'monetary', required: false, decimal_places: 0 },
+
+    // ── Property & locations ──────────────────────────────────────
     { code: 'litem.property.locations', label: 'Number of locations',
-      type: 'number', value: v('litem.property.locations'),
-      required: true, decimal_places: 0 },
-    { code: 'litem.property.tiv', label: 'Total insured value',
-      type: 'monetary', value: v('litem.property.tiv'),
-      required: true, decimal_places: 0 },
+      section: 'property', type: 'number', required: true, decimal_places: 0 },
+    { code: 'litem.property.total_units', label: 'Total storage units (all locations)',
+      section: 'property', type: 'number', required: true, decimal_places: 0 },
+    { code: 'litem.property.tiv', label: 'Total insured value (buildings + BPP)',
+      section: 'property', type: 'monetary', required: true, decimal_places: 0 },
     { code: 'litem.property.year_built_avg', label: 'Average year built',
-      type: 'number', value: v('litem.property.year_built_avg'),
-      required: false, decimal_places: 0 },
-    { code: 'litem.property.sprinklered', label: 'Sprinklered',
-      type: 'boolean', value: v('litem.property.sprinklered'),
-      required: false },
+      section: 'property', type: 'number', required: false, decimal_places: 0 },
+    { code: 'litem.property.construction_type', label: 'Predominant construction type',
+      section: 'property', type: 'text', required: true,
+      options: [
+        { value: 'masonry', display: 'Masonry' },
+        { value: 'steel', display: 'Steel / metal frame' },
+        { value: 'wood_frame', display: 'Wood frame' },
+        { value: 'mixed', display: 'Mixed construction' },
+      ] },
+    { code: 'litem.property.climate_controlled_pct', label: '% of units climate-controlled',
+      section: 'property', type: 'number', required: false, decimal_places: 0 },
+    { code: 'litem.property.sprinklered', label: 'Buildings sprinklered',
+      section: 'property', type: 'boolean', required: true },
+    { code: 'litem.property.gated_access', label: '24/7 gated access',
+      section: 'property', type: 'boolean', required: true },
+    { code: 'litem.property.surveillance', label: 'Video surveillance system',
+      section: 'property', type: 'boolean', required: true },
+    { code: 'litem.property.fire_alarm', label: 'Central station fire alarm',
+      section: 'property', type: 'boolean', required: false },
     { code: 'litem.property.building_ded', label: 'Property deductible',
-      type: 'number', value: v('litem.property.building_ded'),
-      required: true,
+      section: 'property', type: 'number', required: true, decimal_places: 0,
       options: [
         { value: 1000, display: '$1,000' },
         { value: 2500, display: '$2,500' },
@@ -3267,42 +3442,157 @@ function seedFormSchemaForSubmission(submission) {
         { value: 50000, display: '$50,000' },
         { value: 75000, display: '$75,000' },
       ] },
-    { code: 'litem.general_liability.limits', label: 'GL limits',
-      type: 'text', value: v('litem.general_liability.limits'),
-      required: true,
+
+    // ── General Liability ─────────────────────────────────────────
+    { code: 'litem.general_liability.limits', label: 'GL limits (per occ / agg / products-completed)',
+      section: 'liability', type: 'text', required: true,
       options: [
-        { value: '$1,000,000 / $2,000,000 / $2,000,000', display: '1M / 2M / 2M' },
-        { value: '$2,000,000 / $4,000,000 / $4,000,000', display: '2M / 4M / 4M' },
+        { value: '$1,000,000 / $2,000,000 / $2,000,000', display: '$1M / $2M / $2M' },
+        { value: '$2,000,000 / $4,000,000 / $4,000,000', display: '$2M / $4M / $4M' },
       ] },
-    { code: 'litem.general_liability.sdll', label: 'SDLL coverage limit',
-      type: 'monetary', value: v('litem.general_liability.sdll'),
-      required: false, decimal_places: 0 },
-    { code: 'litem.general_liability.cgll', label: 'CGLL coverage limit',
-      type: 'monetary', value: v('litem.general_liability.cgll'),
-      required: false, decimal_places: 0 },
-    { code: 'litem.claims.last_5_years', label: 'Claims in last 5 years',
-      type: 'number', value: v('litem.claims.last_5_years'),
-      required: false, decimal_places: 0 },
-    { code: 'litem.claims.total_paid', label: 'Total paid claims',
-      type: 'monetary', value: v('litem.claims.total_paid'),
-      required: false, decimal_places: 0 },
+    { code: 'litem.general_liability.sdll', label: 'Sale & disposal of lien limit (SDLL)',
+      section: 'liability', type: 'monetary', required: true, decimal_places: 0,
+      options: [
+        { value: 5000, display: '$5,000' },
+        { value: 10000, display: '$10,000' },
+        { value: 25000, display: '$25,000' },
+        { value: 50000, display: '$50,000' },
+        { value: 100000, display: '$100,000' },
+        { value: 300000, display: '$300,000' },
+        { value: 500000, display: '$500,000' },
+        { value: 1000000, display: '$1,000,000' },
+      ] },
+    { code: 'litem.general_liability.cgll', label: 'Customer goods legal liability (CGLL)',
+      section: 'liability', type: 'monetary', required: true, decimal_places: 0,
+      options: [
+        { value: 5000, display: '$5,000' },
+        { value: 10000, display: '$10,000' },
+        { value: 25000, display: '$25,000' },
+        { value: 50000, display: '$50,000' },
+        { value: 100000, display: '$100,000' },
+        { value: 300000, display: '$300,000' },
+        { value: 500000, display: '$500,000' },
+        { value: 1000000, display: '$1,000,000' },
+      ] },
+    { code: 'litem.general_liability.sells_locks_boxes', label: 'Sells locks, boxes, or moving supplies',
+      section: 'liability', type: 'boolean', required: false },
+    { code: 'litem.general_liability.tenant_insurance_program', label: 'Offers a tenant insurance program',
+      section: 'liability', type: 'boolean', required: false },
+
+    // ── Claims history ────────────────────────────────────────────
+    { code: 'litem.claims.last_5_years', label: 'Number of claims in last 5 years',
+      section: 'claims', type: 'number', required: true, decimal_places: 0 },
+    { code: 'litem.claims.total_paid', label: 'Total claims paid (last 5 years)',
+      section: 'claims', type: 'monetary', required: false, decimal_places: 0 },
+    { code: 'litem.claims.largest_claim', label: 'Largest single claim amount',
+      section: 'claims', type: 'monetary', required: false, decimal_places: 0 },
+    { code: 'litem.claims.narrative', label: 'Claim narrative / details',
+      section: 'claims', type: 'text', required: false },
+
+    // ── Optional coverages ────────────────────────────────────────
+    { code: 'optional.tria', label: 'TRIA / Terrorism (auto-included, opt-out at bind)',
+      section: 'optional', type: 'boolean', required: false },
+    { code: 'optional.epli', label: 'Employment practices liability (EPLI)',
+      section: 'optional', type: 'boolean', required: false },
+    { code: 'optional.cyber', label: 'Cyber liability',
+      section: 'optional', type: 'boolean', required: false },
+    { code: 'optional.equipment_breakdown', label: 'Equipment breakdown',
+      section: 'optional', type: 'boolean', required: false },
+    { code: 'optional.pollution', label: 'Pollution liability',
+      section: 'optional', type: 'boolean', required: false },
+    { code: 'optional.mold', label: 'Mold / fungus coverage',
+      section: 'optional', type: 'boolean', required: false },
   ];
 
-  const sections = [
-    { code: 'insured', name: 'Insured information',
-      fields: fields.filter(f => f.code.startsWith('insured.')) },
-    { code: 'policy', name: 'Policy details',
-      fields: fields.filter(f => f.code.startsWith('policy.')) },
-    { code: 'property', name: 'Property',
-      fields: fields.filter(f => f.code.startsWith('litem.property.')) },
-    { code: 'liability', name: 'Liability coverage',
-      fields: fields.filter(f => f.code.startsWith('litem.general_liability.')) },
-    { code: 'claims', name: 'Claims history',
-      fields: fields.filter(f => f.code.startsWith('litem.claims.')) },
-  ].map(s => ({ ...s, visible_count: s.fields.length }));
+  const SECTION_DEFS = [
+    { code: 'insured',   label: 'Insured information', order: 0 },
+    { code: 'policy',    label: 'Policy details',      order: 1 },
+    { code: 'property',  label: 'Property & locations', order: 2 },
+    { code: 'liability', label: 'General liability',   order: 3 },
+    { code: 'claims',    label: 'Claims history',      order: 4 },
+    { code: 'optional',  label: 'Optional coverages',  order: 5 },
+  ];
 
-  return { fields, sections };
+  // Build the flat fields array. Tag each field with its section's
+  // human label and order, fill in the value from the submission's
+  // data dict, mark visible/exists true.
+  const fields = FIELD_DEFS.map(def => {
+    const sectionInfo = SECTION_DEFS.find(s => s.code === def.section);
+    return {
+      ...def,
+      section_label: sectionInfo.label,
+      section_order: sectionInfo.order,
+      asset_idx: 0,
+      visible: true,
+      exists: true,
+      value: v(def.code),
+      validation_error: null,
+    };
+  });
+
+  // Build sections array with completion counts.
+  const sections = SECTION_DEFS.map(def => {
+    const sectionFields = fields.filter(f => f.section === def.code);
+    const completed = sectionFields.filter(f => has(f.code)).length;
+    return {
+      code: def.code,
+      label: def.label,
+      order: def.order,
+      visible_count: sectionFields.length,
+      field_count: sectionFields.length,
+      completed,
+      has_errors: false,
+      condition_met: true,
+    };
+  });
+
+  const totalVisible = sections.reduce((acc, s) => acc + s.visible_count, 0);
+  const totalCompleted = sections.reduce((acc, s) => acc + s.completed, 0);
+
+  return {
+    fields,
+    sections,
+    counters: {
+      total: totalVisible,
+      completed: totalCompleted,
+      validation_issues: 0,
+      non_retryable_validation_issues: 0,
+    },
+    has_errors: false,
+  };
 }
+
+// US state dropdown options for the address state field. Defined once
+// at module scope so all generated schemas share the same array
+// reference (good for === comparisons in select option matching).
+const US_STATE_OPTIONS = [
+  { value: 'AL', display: 'Alabama' }, { value: 'AK', display: 'Alaska' },
+  { value: 'AZ', display: 'Arizona' }, { value: 'AR', display: 'Arkansas' },
+  { value: 'CA', display: 'California' }, { value: 'CO', display: 'Colorado' },
+  { value: 'CT', display: 'Connecticut' }, { value: 'DE', display: 'Delaware' },
+  { value: 'FL', display: 'Florida' }, { value: 'GA', display: 'Georgia' },
+  { value: 'HI', display: 'Hawaii' }, { value: 'ID', display: 'Idaho' },
+  { value: 'IL', display: 'Illinois' }, { value: 'IN', display: 'Indiana' },
+  { value: 'IA', display: 'Iowa' }, { value: 'KS', display: 'Kansas' },
+  { value: 'KY', display: 'Kentucky' }, { value: 'LA', display: 'Louisiana' },
+  { value: 'ME', display: 'Maine' }, { value: 'MD', display: 'Maryland' },
+  { value: 'MA', display: 'Massachusetts' }, { value: 'MI', display: 'Michigan' },
+  { value: 'MN', display: 'Minnesota' }, { value: 'MS', display: 'Mississippi' },
+  { value: 'MO', display: 'Missouri' }, { value: 'MT', display: 'Montana' },
+  { value: 'NE', display: 'Nebraska' }, { value: 'NV', display: 'Nevada' },
+  { value: 'NH', display: 'New Hampshire' }, { value: 'NJ', display: 'New Jersey' },
+  { value: 'NM', display: 'New Mexico' }, { value: 'NY', display: 'New York' },
+  { value: 'NC', display: 'North Carolina' }, { value: 'ND', display: 'North Dakota' },
+  { value: 'OH', display: 'Ohio' }, { value: 'OK', display: 'Oklahoma' },
+  { value: 'OR', display: 'Oregon' }, { value: 'PA', display: 'Pennsylvania' },
+  { value: 'RI', display: 'Rhode Island' }, { value: 'SC', display: 'South Carolina' },
+  { value: 'SD', display: 'South Dakota' }, { value: 'TN', display: 'Tennessee' },
+  { value: 'TX', display: 'Texas' }, { value: 'UT', display: 'Utah' },
+  { value: 'VT', display: 'Vermont' }, { value: 'VA', display: 'Virginia' },
+  { value: 'WA', display: 'Washington' }, { value: 'WV', display: 'West Virginia' },
+  { value: 'WI', display: 'Wisconsin' }, { value: 'WY', display: 'Wyoming' },
+  { value: 'DC', display: 'District of Columbia' },
+];
 
 // localStorage-backed mutable seed state. Loaded on first access; written
 // back on every mutation. Reset by clearing localStorage or calling
