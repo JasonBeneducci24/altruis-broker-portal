@@ -1395,14 +1395,25 @@
      Header sits on the cream page background; nested building cards
      sit on white inside, connected by a subtle left rail. */
   .location-group {
-    margin-top: 4px;
-    margin-bottom: 4px;
+    background: var(--white);
+    border: 1px solid var(--line-2);
+    border-radius: var(--radius-md);
+    margin-bottom: 18px;
+    padding: 18px 20px 20px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04),
+                0 4px 12px rgba(15, 23, 42, 0.06);
+    transition: box-shadow 200ms var(--ease);
+  }
+  .location-group:hover {
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05),
+                0 6px 18px rgba(15, 23, 42, 0.08);
   }
   .location-group-head {
-    display: flex; align-items: center; justify-content: space-between;
+    display: flex; align-items: flex-start; justify-content: space-between;
     gap: 16px;
-    padding: 10px 4px 6px;
-    margin-bottom: 8px;
+    padding: 0 0 14px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--line-2);
   }
   .location-group-head-text {
     flex: 1; min-width: 0;
@@ -1415,36 +1426,42 @@
     margin-bottom: 4px;
   }
   .location-group-address {
-    font-size: 0.95rem;
+    font-size: 1rem;
     font-weight: 500;
     color: var(--navy, var(--ink));
-    letter-spacing: -0.005em;
+    letter-spacing: -0.01em;
   }
   .location-group-pill {
     background: var(--blue-tint);
     color: var(--blue-deep);
     font-size: 0.72rem;
-    font-weight: 500;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
     padding: 4px 10px;
     border-radius: var(--radius-pill);
     flex-shrink: 0;
     white-space: nowrap;
   }
-  /* Nested cards inside a location group — connected by a left rail
-     to make the parent-child relationship visible. */
-  .location-group-buildings {
-    display: flex; flex-direction: column; gap: 6px;
-    padding-left: 18px;
-    border-left: 2px solid var(--line);
-    margin-left: 4px;
+  .location-group-pill.is-blanketed {
+    background: #FEF9C3;
+    color: #92400E;
   }
-  /* Make nested cards slightly less heavy so the parent header reads
-     as the dominant element. */
+  /* Nested building cards inside a location card. No left rail since the
+     location card itself provides the visual containment. Slightly tighter
+     spacing than top-level since they're already within a card. */
+  .location-group-buildings {
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  /* Building cards inside a location have a soft inner background to
+     differentiate from the location card's white surface. */
   .location-group-buildings .asset-card {
-    border-color: var(--line-2);
+    border-color: var(--line);
+    background: var(--paper-warm, #FAF7F2);
   }
   .location-group-buildings .asset-card.open {
     border-color: var(--blue-100);
+    background: var(--white);
   }
 
   .asset-card {
@@ -1771,6 +1788,122 @@
   }
   .slider-tick:hover { color: var(--navy); }
   .slider-tick.active { color: var(--blue); font-weight: 500; }
+
+  /* ── Segmented control — for short option lists (3-5 options) ── */
+  .segmented {
+    display: inline-flex;
+    background: var(--paper-warm, #F4F0E9);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    padding: 3px;
+    flex-wrap: wrap;
+    gap: 2px;
+  }
+  .segmented-option {
+    border: none;
+    background: transparent;
+    padding: 7px 14px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--ink-mute);
+    cursor: pointer;
+    border-radius: calc(var(--radius-md) - 4px);
+    transition: background 120ms, color 120ms;
+    white-space: nowrap;
+    letter-spacing: -0.005em;
+  }
+  .segmented-option:hover {
+    color: var(--ink);
+  }
+  .segmented-option.active {
+    background: var(--white);
+    color: var(--blue-deep, var(--blue));
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  }
+
+  /* ── Card picker — for important binary/few-option choices like GL Limits ── */
+  .card-picker {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+  }
+  .card-picker-option {
+    position: relative;
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--white);
+    padding: 18px 16px;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 120ms, background 120ms;
+  }
+  .card-picker-option:hover {
+    border-color: var(--blue-100);
+    background: var(--blue-50);
+  }
+  .card-picker-option.active {
+    border-color: var(--blue);
+    background: var(--blue-50);
+  }
+  .card-picker-check {
+    position: absolute; top: 10px; right: 12px;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--blue); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.72rem; font-weight: 600;
+    opacity: 0;
+    transition: opacity 120ms;
+  }
+  .card-picker-option.active .card-picker-check { opacity: 1; }
+  .card-picker-value {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--navy, var(--ink));
+    letter-spacing: -0.01em;
+  }
+  .card-picker-subtitle {
+    font-size: 0.8rem;
+    color: var(--ink-mute);
+    margin-top: 4px;
+  }
+
+  /* ── Card grid — multi-column visual picker for things like construction type ── */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+  }
+  .card-grid-option {
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--white);
+    padding: 14px 10px;
+    cursor: pointer;
+    text-align: center;
+    transition: border-color 120ms, background 120ms;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    min-height: 70px;
+    justify-content: center;
+  }
+  .card-grid-option:hover {
+    border-color: var(--blue-100);
+    background: var(--blue-50);
+  }
+  .card-grid-option.active {
+    border-color: var(--blue);
+    background: var(--blue-50);
+  }
+  .card-grid-icon {
+    font-size: 1.4rem;
+    line-height: 1;
+  }
+  .card-grid-label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--navy, var(--ink));
+    line-height: 1.3;
+  }
 
   /* Boolean toggle switch */
   .toggle {
@@ -3004,7 +3137,7 @@ function unwrapForInput(v) {
 //
 // Auth and config still call the real backend — login still works.
 
-const SEED_STORAGE_KEY = 'altruis_seed_v3';
+const SEED_STORAGE_KEY = 'altruis_seed_v6';
 
 // Seed bootstrap. Hardcoded base data. Persisted snapshot in localStorage
 // supersedes this on subsequent loads so edits survive page reloads.
@@ -3226,6 +3359,25 @@ const SEED_BASE = (() => {
               'app.automated_gate': true,
             },
             {
+              'app.location_number': 1, 'app.building_number': 2,
+              'app.location_address': '8500 SW 56th Ave, Miami, FL 33143',
+              'app.building_occupancy': ['Self Storage'],
+              'app.GLonlyStatus': false,
+              'app.building_value': 1650000, 'app.square_footage': 22000,
+              'app.BPP_limit': 25000,
+              'app.construction_type': 'Masonry Non Combustible',
+              'app.roof_type': 'Single Ply Membrane', 'app.roof_geometry': 'Flat',
+              'app.open_sided_status': false, 'app.sprinklered_status': true,
+              'app.stories': 1, 'app.year_built': '2010',
+              'app.OL_2and3_Limit': 200000, 'app.annual_sales': 480000,
+              'app.ex_wind_status': false, 'app.windhailpercentage': 5,
+              'app.valuation_method': 'Replacement Cost',
+              'app.coinsurance_percentage': '90',
+              'app.surveillance_status': true, 'app.burglar_alarm': true,
+              'app.fire_alarm': true, 'app.fenced_status': true,
+              'app.automated_gate': true,
+            },
+            {
               'app.location_number': 2, 'app.building_number': 1,
               'app.location_address': '14500 SW 88th St, Miami, FL 33186',
               'app.building_occupancy': ['Self Storage'],
@@ -3411,10 +3563,17 @@ const SEED_BASE = (() => {
               'app.location_number': 1, 'app.building_number': 1,
               'app.location_address': '1200 Capital Cir SE, Tallahassee, FL 32301',
               'app.building_occupancy': ['Self Storage'],
-              'app.building_value': 1450000, 'app.square_footage': 22000,
+              'app.building_count': 8,
+              'app.building_value': 12000000, 'app.square_footage': 145000,
               'app.construction_type': 'Masonry Non Combustible',
               'app.year_built': '1998', 'app.stories': 1,
               'app.sprinklered_status': true,
+              'app.BPP_limit': 100000,
+              'app.OL_2and3_Limit': 1500000, 'app.annual_sales': 2400000,
+              'app.valuation_method': 'Replacement Cost',
+              'app.coinsurance_percentage': '90',
+              'app.surveillance_status': true, 'app.fenced_status': true,
+              'app.automated_gate': true,
             },
           ],
         },
@@ -3538,6 +3697,47 @@ const SEED_BASE = (() => {
 //   5. Underwriter Only      — fields the carrier completes (read-only for broker but visible)
 //   6. Exclusions            — conditional on app.exclusions_status=1
 
+// Fields the broker should never see. These are tagged `source: Underwriter`
+// in the Joshu YAML — the carrier underwriter fills them in during their
+// own review workflow, after the broker has submitted. We filter them out
+// of the schema generator entirely so they never render in the broker
+// portal. (Exception: the entire Underwriter Only and Exclusions sections
+// are also removed from the section list since they have no broker-source
+// fields once filtered.)
+//
+// When real Joshu integration goes live, the portal can use the
+// authenticated user's role to decide whether to apply this filter — for
+// now, all viewers are brokers, so the filter always applies.
+const UNDERWRITER_SOURCE_FIELDS = new Set([
+  // Application sections
+  'app.exclusions_status',
+  'app.pollutantcleanuplim',
+  'app.fulltimeemployees',
+  'app.parttimeemployees',
+  'app.EPLIagg',
+  'app.EPLIserp',
+  'app.ex_wind_hail_status',
+  'app.wind_hail_ded_status',
+  'app.wind_hail_minimum_dollar',
+  'app.different_valuation_status',
+  'app.competitor_premium',
+  'app.stop_loss_status',
+  'app.SLtaxstate',
+  'app.SLtaxmunicipality_total',
+  'app.ag_enhancement_status',
+  'app.RoofACVstatus',
+  'app.operations_exclusions',
+  // Asset sections
+  'app.GLonlyStatus',
+  'app.roof_type',
+  'app.windhailpercentage',
+  'app.wind_hail_dollar_figure',
+  'app.site_mod',
+  'app.PerilsScoringAddress',
+  'app.addtl_insured_loc',
+  'app.enhanced_lim_loc',
+]);
+
 // ── Application section schema definitions ───────────────────────
 // Each section is a flat list of field definitions. `condition` is a
 // Joshu-style expression evaluated against current data values to
@@ -3549,19 +3749,18 @@ const APP_SCHEMA = {
     { code: 'limits_coverages',   label: 'Limits and Coverages',  order: 1, condition: null },
     { code: 'deductibles',        label: 'Deductibles',           order: 2, condition: null },
     { code: 'structures',         label: 'Locations & Structures', order: 3, condition: null, is_asset: true, asset_collection: 'app.structures' },
-    { code: 'underwriter_only',   label: 'Underwriter Only',      order: 4, condition: null, is_underwriter: true },
-    { code: 'exclusions',         label: 'Exclusions',            order: 5, condition: 'app.exclusions_status=1' },
   ],
 
   // Basic Information
   basic_information: [
     { code: 'app.effective_date', label: 'Effective Date', type: 'date', required: true },
     { code: 'app.named_insured_structure', label: 'Named Insured Structure', type: 'text', required: true,
+      widget: 'segmented',
       options: [
-        { value: 'Sole Proprietorship', display: 'Sole Proprietorship' },
+        { value: 'Sole Proprietorship', display: 'Sole Prop' },
         { value: 'Partnership', display: 'Partnership' },
         { value: 'Corporation', display: 'Corporation' },
-        { value: 'Limited Liability Company', display: 'Limited Liability Company' },
+        { value: 'Limited Liability Company', display: 'LLC' },
         { value: 'Other', display: 'Other' },
       ] },
     { code: 'app.renewal_status', label: 'Renewal?', type: 'boolean', required: true },
@@ -3576,33 +3775,43 @@ const APP_SCHEMA = {
   // Limits and Coverages
   limits_coverages: [
     { code: 'app.GL_limits', label: 'General Liability Limits', type: 'text', required: true,
+      widget: 'card_picker',
       options: [
-        { value: '$1,000,000 / $2,000,000 / $2,000,000', display: '$1,000,000 / $2,000,000 / $2,000,000' },
-        { value: '$2,000,000 / $4,000,000 / $4,000,000', display: '$2,000,000 / $4,000,000 / $4,000,000' },
+        { value: '$1,000,000 / $2,000,000 / $2,000,000', display: '$1M / $2M / $2M', subtitle: 'Per occurrence / aggregate / products-completed' },
+        { value: '$2,000,000 / $4,000,000 / $4,000,000', display: '$2M / $4M / $4M', subtitle: 'Per occurrence / aggregate / products-completed' },
       ] },
     { code: 'app.SDLL_limit', label: 'Sales and Disposal Legal Liability Limit', type: 'text', required: true,
+      widget: 'slider_text',
       options: ['$5,000','$10,000','$25,000','$50,000','$100,000','$300,000','$500,000','$1,000,000'].map(v => ({ value: v, display: v })) },
     { code: 'app.CGLL_limit', label: "Customer's Goods Legal Liability Limits", type: 'text', required: true,
+      widget: 'slider_text',
       options: ['$5,000','$10,000','$25,000','$50,000','$100,000','$300,000','$500,000','$1,000,000'].map(v => ({ value: v, display: v })) },
     { code: 'app.BI_days_limit', label: 'Business Income and Extra Expense Limit', type: 'text', required: true,
+      widget: 'slider_text',
       options: ['120 Days','180 Days','270 Days','365 Days','730 Days'].map(v => ({ value: v, display: v })) },
     { code: 'app.Extended_BI_days_limit', label: 'Extended Business Income and Extra Expense Limit', type: 'text', required: true,
+      widget: 'slider_text',
       options: ['60 Days','90 Days','120 Days','180 Days','270 Days','365 Days','730 Days'].map(v => ({ value: v, display: v })) },
     { code: 'app.med_pay_limit', label: 'Medical Payments Limit', type: 'text', required: true,
+      widget: 'segmented',
       options: ['$5,000','$10,000','$15,000'].map(v => ({ value: v, display: v })) },
     { code: 'app.pollutantcleanuplim', label: 'Pollutant Clean Up and Removal Coverage Limit', type: 'text', required: true,
+      widget: 'segmented',
       options: ['$10,000','$25,000','$50,000'].map(v => ({ value: v, display: v })) },
     { code: 'app.increased_signs', label: 'Increased Signs Limit?', type: 'boolean', required: true },
     { code: 'app.increased_gatesandfences', label: 'Increased Gates and Fences Limit?', type: 'boolean', required: true },
     { code: 'app.increased_treesandshrubs', label: 'Increased Trees and Shrubs Limit?', type: 'boolean', required: true },
     { code: 'app.PapersandRecords', label: 'Valuable Papers and Records', type: 'text', required: true,
+      widget: 'slider_text',
       options: ['$2,500','$5,000','$10,000','$25,000'].map(v => ({ value: v, display: v })) },
     { code: 'app.equipment_breakdown_status', label: 'Equipment Breakdown?', type: 'boolean', required: true },
     { code: 'app.EB_sublimit', label: 'Equipment Breakdown Sublimit', type: 'text', required: true,
+      widget: 'slider_text',
       options: ['$25,000','$50,000','$100,000','$250,000'].map(v => ({ value: v, display: v })),
       condition: 'equipment_breakdown_status=1' },
     { code: 'app.cyber_status', label: 'Cyber?', type: 'boolean', required: true },
     { code: 'app.cyber_limit', label: 'Cyber Aggregate Limit?', type: 'text', required: true,
+      widget: 'slider_text',
       options: ['$50,000','$100,000','$250,000','$500,000','$1,000,000'].map(v => ({ value: v, display: v })),
       condition: 'cyber_status=1' },
     { code: 'app.EPLIstatus', label: 'EPLI?', type: 'boolean', required: true },
@@ -3611,6 +3820,7 @@ const APP_SCHEMA = {
     { code: 'app.parttimeemployees', label: 'Number of Employees - Part Time', type: 'number', required: true, decimal_places: 0,
       condition: 'EPLIstatus=1' },
     { code: 'app.EPLIagg', label: 'EPLI Aggregate Limit', type: 'text', required: true,
+      widget: 'segmented',
       options: ['$50,000','$100,000','$250,000'].map(v => ({ value: v, display: v })),
       condition: 'EPLIstatus=1' },
     { code: 'app.EPLIserp', label: 'Supplemental Extended Reporting Period (SERP)?', type: 'boolean', required: true,
@@ -3627,12 +3837,14 @@ const APP_SCHEMA = {
     { code: 'app.heavy_truck_count', label: 'Number Heavy Trucks', type: 'number', required: true, decimal_places: 0,
       condition: 'commercial_auto_status=1' },
     { code: 'app.waterbackuplimit', label: 'Water Backup and Overflow Limit', type: 'text', required: false,
+      widget: 'segmented',
       options: ['$50,000','$100,000'].map(v => ({ value: v, display: v })) },
   ],
 
   // Deductibles
   deductibles: [
     { code: 'app.aop_deductible', label: 'Property AOP Deductible', type: 'text', required: true,
+      widget: 'slider_text',
       options: ['$500','$1,000','$2,500','$5,000','$10,000','$25,000','$50,000','$75,000'].map(v => ({ value: v, display: v })) },
     { code: 'app.ex_wind_hail_status', label: 'Wind/Hail Exclusion', type: 'boolean', required: true },
     { code: 'app.wind_hail_ded_status', label: 'Wind / Hail Deductibles?', type: 'boolean', required: true },
@@ -3675,17 +3887,28 @@ const STRUCTURE_SCHEMA = {
     { code: 'app.building_occupancy', label: 'Occupancy Description', type: 'multiselect', required: true,
       options: ['Self Storage','Office','Mercantile','Car Wash','Other'].map(v => ({ value: v, display: v })) },
     { code: 'app.GLonlyStatus', label: 'GL Only?', type: 'boolean', required: true },
-    { code: 'app.blanketed_status', label: 'Blanketed Status', type: 'boolean', required: true },
-    { code: 'app.building_count', label: 'Number of Buildings', type: 'number', required: false, decimal_places: 0,
-      condition: 'blanketed_status=1' },
+    { code: 'app.building_count', label: 'Number of Buildings (at this address)', type: 'number',
+      required: false, decimal_places: 0,
+      help_text: 'Enter the number of buildings represented by this entry. Use 1 for an individual building. Use a higher number when this entry represents multiple buildings under a blanket policy at the same address.' },
     { code: 'app.building_value', label: 'Building TIV', type: 'monetary', required: true, decimal_places: 0 },
     { code: 'app.square_footage', label: 'Square Footage', type: 'number', required: true, decimal_places: 0 },
     { code: 'app.BPP_limit', label: 'Business Personal Property', type: 'monetary', required: true, decimal_places: 0 },
     { code: 'app.construction_type', label: 'Construction Type', type: 'text', required: true,
-      options: ['Frame','Masonry Joisted','Non Combustible','Masonry Non Combustible','Modified Fire Resistive','Fire Resistive','Vacant Land'].map(v => ({ value: v, display: v })) },
+      widget: 'card_grid',
+      options: [
+        { value: 'Frame', display: 'Frame', icon: '\ud83d\udd28' },
+        { value: 'Masonry Joisted', display: 'Masonry Joisted', icon: '\ud83e\uddf1' },
+        { value: 'Non Combustible', display: 'Non Combustible', icon: '\ud83d\udee1\ufe0f' },
+        { value: 'Masonry Non Combustible', display: 'Masonry Non Combustible', icon: '\ud83c\udfdb\ufe0f' },
+        { value: 'Modified Fire Resistive', display: 'Modified Fire Resistive', icon: '\ud83d\udd25' },
+        { value: 'Fire Resistive', display: 'Fire Resistive', icon: '\u26a1' },
+        { value: 'Vacant Land', display: 'Vacant Land', icon: '\ud83c\udf3e' },
+      ] },
     { code: 'app.roof_type', label: 'Roof Type', type: 'text', required: false,
+      widget: 'segmented',
       options: ['Asphalt','Tile','Metal','Single Ply Membrane','Other'].map(v => ({ value: v, display: v })) },
     { code: 'app.roof_geometry', label: 'Roof Geometry', type: 'text', required: false,
+      widget: 'segmented',
       options: ['Gable','Hip','Flat','Other'].map(v => ({ value: v, display: v })) },
     { code: 'app.open_sided_status', label: 'Open Sides?', type: 'boolean', required: true },
     { code: 'app.sprinklered_status', label: 'Sprinklered?', type: 'boolean', required: true },
@@ -3697,8 +3920,14 @@ const STRUCTURE_SCHEMA = {
     { code: 'app.windhailpercentage', label: 'Windstorm and Hail % Deductible', type: 'number', required: true, decimal_places: 0 },
     { code: 'app.wind_hail_dollar_figure', label: 'Wind / Hail Deductible - per building $', type: 'monetary', required: false, decimal_places: 0 },
     { code: 'app.valuation_method', label: 'Valuation Method', type: 'text', required: true,
-      options: ['Replacement Cost','Actual Cash Value','Replacement Cost with Agreed Value'].map(v => ({ value: v, display: v })) },
+      widget: 'segmented',
+      options: [
+        { value: 'Replacement Cost', display: 'Replacement Cost' },
+        { value: 'Actual Cash Value', display: 'ACV' },
+        { value: 'Replacement Cost with Agreed Value', display: 'RC w/ Agreed Value' },
+      ] },
     { code: 'app.coinsurance_percentage', label: 'Coinsurance %', type: 'text', required: true,
+      widget: 'segmented',
       options: ['100','90','80','0'].map(v => ({ value: v, display: v + '%' })) },
 
     // Additional Coverages
@@ -3879,6 +4108,8 @@ function seedFormSchemaForSubmission(submission) {
     let completed = 0;
 
     for (const def of sectionFields) {
+      // Skip underwriter-source fields — broker should never see them.
+      if (UNDERWRITER_SOURCE_FIELDS.has(def.code)) continue;
       const fieldVisible = condMet && evalCondition(def.condition, data);
       const opts = def.options === 'US_STATES' ? US_STATE_OPTIONS : def.options;
       fields.push({
@@ -3923,6 +4154,9 @@ function seedFormSchemaForSubmission(submission) {
     let totalSV = 0, totalSC = 0;
     structures.forEach((entry, idx) => {
       for (const def of STRUCTURE_SCHEMA.fields) {
+        // Same filter as the application sections — UW-source fields
+        // are filled in by the carrier, not the broker.
+        if (UNDERWRITER_SOURCE_FIELDS.has(def.code)) continue;
         const flatCode = `structures[${idx}].${def.code}`;
         const condMet = evalCondition(def.condition, { ...data, ...entry });
         const opts = def.options === 'US_STATES' ? US_STATE_OPTIONS : def.options;
@@ -6110,18 +6344,34 @@ function groupAssetsByLocation(assetGroups) {
         return a.idx - b.idx;
       });
 
-      // Derive blanketed status for the location:
-      // If ANY building in the group has blanketed_status=true, the
-      // whole location is considered blanketed. (In practice all
-      // buildings at a blanketed location should match, but we tolerate
-      // inconsistency here and surface the "is blanketed" answer.)
-      const isBlanketed = sorted.some(a => {
-        const bField = a.fields.find(f => {
-          const c = (f.code || '').toLowerCase();
-          return c === 'blanketed_status' || c.endsWith('.blanketed_status');
+      // Derive blanketed status from the data the broker enters:
+      //
+      //   • >1 structure at this address → individual buildings, NOT blanketed
+      //     (regardless of building_count — broker has split them out)
+      //   • 1 structure with building_count > 1 → BLANKETED
+      //     (one entry representing multiple buildings at one address)
+      //   • 1 structure with building_count == 1 (or empty) → standard single
+      //     building, not blanketed
+      //
+      // We deliberately don't read app.blanketed_status from the fields
+      // anymore — that's an underwriter-source datapoint that brokers
+      // never set. The status is purely derived from the structure shape.
+      const readBuildingCount = (a) => {
+        const f = a.fields.find(ff => {
+          const c = (ff.code || '').toLowerCase();
+          return c === 'building_count' || c.endsWith('.building_count');
         });
-        return bField && isTruthyBool(unwrapForInput(bField.value));
-      });
+        if (!f) return null;
+        const v = unwrapForInput(f.value);
+        if (v == null || v === '') return null;
+        const n = parseInt(v, 10);
+        return isNaN(n) ? null : n;
+      };
+      let isBlanketed = false;
+      if (sorted.length === 1) {
+        const bc = readBuildingCount(sorted[0]);
+        if (bc != null && bc > 1) isBlanketed = true;
+      }
 
       return {
         locationNumber: locNum,
@@ -6419,10 +6669,40 @@ function renderLocationGroupWrapper(section, locationGroup, isEditing) {
   const { locationNumber, address, assets, isBlanketed } = locationGroup;
   const buildingCount = assets.length;
 
-  const buildingNoun = buildingCount === 1 ? 'building' : 'buildings';
-  const eyebrow = locationNumber != null
-    ? `Location ${locationNumber} \u2014 ${buildingCount} ${buildingNoun}`
-    : `${buildingCount} ${buildingNoun} (no location number)`;
+  // Eyebrow text — three flavors:
+  //   • Blanketed: count comes from app.building_count on the single
+  //     structure (the broker entered "12" buildings under one entry).
+  //     Calling this "1 building" would be misleading; it's one record
+  //     covering many physical buildings.
+  //   • Multi-building: count = number of asset cards (broker added
+  //     individual structure rows, all sharing one address).
+  //   • Single building: standard label.
+  let eyebrow;
+  if (isBlanketed) {
+    // Blanketed locations always have exactly one structure entry by
+    // definition (multiple structures at one address means individual
+    // buildings, not blanketed). Read building_count from that entry.
+    const bcField = assets[0]?.fields.find(f => {
+      const tail = (f.original_code || f.code || '').toLowerCase();
+      return tail.endsWith('building_count');
+    });
+    const blanketedBuildings = bcField && bcField.value != null && bcField.value !== ''
+      ? parseInt(bcField.value, 10) : null;
+    if (blanketedBuildings && blanketedBuildings > 1) {
+      eyebrow = locationNumber != null
+        ? `Location ${locationNumber} \u2014 Blanketed (${blanketedBuildings} buildings under blanket)`
+        : `Blanketed (${blanketedBuildings} buildings under blanket)`;
+    } else {
+      eyebrow = locationNumber != null
+        ? `Location ${locationNumber} \u2014 Blanketed`
+        : `Blanketed location`;
+    }
+  } else {
+    const buildingNoun = buildingCount === 1 ? 'building' : 'buildings';
+    eyebrow = locationNumber != null
+      ? `Location ${locationNumber} \u2014 ${buildingCount} ${buildingNoun}`
+      : `${buildingCount} ${buildingNoun} (no location number)`;
+  }
 
   return el('div', { className: 'location-group' },
     // Header
@@ -6433,15 +6713,20 @@ function renderLocationGroupWrapper(section, locationGroup, isEditing) {
           ? el('div', { className: 'location-group-address' }, address)
           : null),
       isBlanketed
-        ? el('div', { className: 'location-group-pill' }, 'Blanketed')
+        ? el('div', { className: 'location-group-pill is-blanketed' }, 'Blanketed')
         : null),
-    // Nested building cards — title is "Building N" since the location
-    // address is already shown above, no need to repeat.
+    // Nested building cards. Title differs by case:
+    //   • Blanketed: "Blanketed structures" (one card represents many
+    //     buildings; calling it "Building 1" would be wrong)
+    //   • Single building: "Building 1" (or whatever building_number is)
+    //   • Multi-building: "Building N" with N from building_number
     el('div', { className: 'location-group-buildings' },
       ...assets.map((asset, i) => {
         const displayLabel = buildingDisplayIndex(locationGroup, asset, i);
         const bldgNum = readBuildingNumber(asset) ?? (i + 1);
-        const titleOverride = `Building ${bldgNum}`;
+        const titleOverride = isBlanketed
+          ? 'Blanketed structures'
+          : `Building ${bldgNum}`;
         return renderAssetCard(section, asset, isEditing, displayLabel, titleOverride);
       })));
 }
@@ -7849,6 +8134,50 @@ function renderFieldInput(field, value, locked = false) {
             } }),
           el('span', {}, opt.display || opt.value));
       }));
+  }
+
+  // ── Explicit widget overrides ──────────────────────────────
+  // Schema can specify `widget` to force a particular UI: 'segmented'
+  // (chip row), 'card_picker' (side-by-side cards), 'slider_text' (slider
+  // for monotonic text-valued options like "$5,000" / "$10,000"), or
+  // 'card_grid' (n-column grid of cards). These render in EDIT mode only;
+  // locked mode falls through to the standard locked-value display.
+  if (field.options && field.options.length > 0 && !locked) {
+    if (field.widget === 'segmented') {
+      return el('div', { className: 'segmented' },
+        ...field.options.map(opt => el('button', {
+          type: 'button',
+          className: `segmented-option ${String(cleanValue) === String(opt.value) ? 'active' : ''}`,
+          onClick: () => onChange(opt.value),
+        }, opt.display || opt.value)));
+    }
+    if (field.widget === 'card_picker') {
+      return el('div', { className: 'card-picker' },
+        ...field.options.map(opt => el('button', {
+          type: 'button',
+          className: `card-picker-option ${String(cleanValue) === String(opt.value) ? 'active' : ''}`,
+          onClick: () => onChange(opt.value),
+        },
+          el('div', { className: 'card-picker-check' }, '\u2713'),
+          el('div', { className: 'card-picker-value' }, opt.display || opt.value),
+          opt.subtitle ? el('div', { className: 'card-picker-subtitle' }, opt.subtitle) : null)));
+    }
+    if (field.widget === 'card_grid') {
+      return el('div', { className: 'card-grid' },
+        ...field.options.map(opt => el('button', {
+          type: 'button',
+          className: `card-grid-option ${String(cleanValue) === String(opt.value) ? 'active' : ''}`,
+          onClick: () => onChange(opt.value),
+        },
+          opt.icon ? el('div', { className: 'card-grid-icon' }, opt.icon) : null,
+          el('div', { className: 'card-grid-label' }, opt.display || opt.value))));
+    }
+    if (field.widget === 'slider_text') {
+      // Slider for text-valued options (e.g. "$5,000", "120 Days").
+      // Reuses renderSlider but on a synthesized field where `type` is
+      // marked numeric so the slider machinery treats indexes the right way.
+      return renderSlider(field, cleanValue, onChange);
+    }
   }
 
   // ── Slider: Number/Monetary with 3+ numeric options
