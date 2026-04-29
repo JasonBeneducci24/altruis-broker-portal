@@ -2302,6 +2302,47 @@
   /* ─────────── Detail layout ─────────── */
   .detail-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
 
+  /* ─────────── Variation form ─────────── */
+  .variation-grid { display: flex; flex-direction: column; gap: 12px; }
+  .variation-row {
+    display: grid; grid-template-columns: minmax(200px, 1fr) 2fr;
+    gap: 24px; padding: 14px 16px;
+    border: 1px solid var(--line); border-radius: var(--radius-md);
+    background: var(--white);
+    transition: border-color 120ms, background 120ms;
+  }
+  .variation-row-changed {
+    border-color: var(--blue); background: var(--blue-50);
+  }
+  .variation-row-label { display: flex; flex-direction: column; gap: 4px; }
+  .variation-row-name { font-weight: 500; font-size: 0.95rem; color: var(--ink); }
+  .variation-row-help { font-size: 0.78rem; color: var(--ink-mute); line-height: 1.4; }
+  .variation-row-badge {
+    display: inline-block; align-self: flex-start;
+    font-size: 0.68rem; font-weight: 500; letter-spacing: 0.04em;
+    padding: 2px 8px; border-radius: var(--radius-pill);
+    background: var(--blue); color: #fff;
+  }
+  .variation-row-control { display: flex; align-items: flex-start; }
+  .variation-row-control select {
+    width: 100%; padding: 10px 14px;
+    border: 1px solid var(--line); border-radius: var(--radius-md);
+    background: var(--white); font-size: 0.92rem; color: var(--ink);
+  }
+  .variation-row-control select:focus {
+    outline: none; border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(103, 151, 238, 0.15);
+  }
+  .variation-multi {
+    display: flex; flex-direction: column; gap: 8px; width: 100%;
+  }
+  .variation-checkbox {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 0; cursor: pointer;
+    font-size: 0.92rem; color: var(--ink);
+  }
+  .variation-checkbox input { margin: 0; }
+
   .kv-list dt {
     font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase;
     color: var(--ink-mute); margin-top: 16px; font-weight: 600;
@@ -2811,6 +2852,16 @@ const state = {
   activeAsset: null,           // { section, idx }  for right-sidebar scroll-link highlighting
   selectedQuote: null,
   selectedPolicy: null,
+  // Variation form state — for the "Create variation" inline panel on
+  // a quote detail page. Closed by default. When opened, `values` is
+  // seeded from the parent quote via variationDefaultsFromQuote().
+  variationForm: {
+    open: false,
+    parentQuoteId: null,
+    values: {},
+    submitting: false,
+    error: null,
+  },
   // Dashboard filter
   filter: { tab: 'all', search: '' },
   // Dashboard local UI state
@@ -3884,6 +3935,134 @@ function recentSubmissionRow(s) {
         ? el('div', { className: 'recent-row-time' }, updatedRelative)
         : null,
       el('div', { className: 'recent-row-status' }, statusBadge(s.status))));
+}
+
+// ═════════════════════════════════════════════════════════════════
+// QUOTE VARIATION SCHEMA
+// ═════════════════════════════════════════════════════════════════
+// Defines the whitelist of parameters a broker can change to spawn a
+// new quote variation without voiding existing versions. Anything NOT
+// in this schema falls under the "out-of-scope edit" path (the existing
+// "Edit & Resubmit" flow on the submission), which voids prior quotes.
+//
+// This schema drives the variation form UI directly. To change which
+// fields are variation-eligible, edit this schema — no UI changes
+// needed. Each field has:
+//   key      — Joshu reference tag (sent as the data point key in the API payload)
+//   label    — Broker-facing label
+//   type     — 'select' | 'multi'
+//   options  — for select/multi, array of { value, label }
+//   help     — optional broker-facing helper text
+//
+// Reference tags and allowed-value lists below are lifted from Joshu's
+// Line Item Parameter configs (Property building_ded, GL limits, SDLL,
+// CGLL — see Apr 2026 screenshots). When Joshu's allowed values change,
+// update them here.
+//
+// NOTE: GL limits is stored as the formatted display string in Joshu
+// ("$1,000,000 / $2,000,000 / $2,000,000"), not as a structured object.
+// We preserve that exact format so payloads to Joshu round-trip cleanly.
+//
+// Optional coverages catalog is still placeholder — pending a list of
+// the actual storage-program optional endorsements with their reference
+// tags. Replace when available.
+const VARIATION_SCHEMA = [
+  {
+    key: 'litem.property.building_ded',
+    label: 'Property deductible',
+    type: 'select',
+    help: 'Wind/hail and named-storm deductibles are set by underwriting and not adjustable here.',
+    options: [
+      { value: 1000,  label: '$1,000' },
+      { value: 2500,  label: '$2,500' },
+      { value: 5000,  label: '$5,000' },
+      { value: 10000, label: '$10,000' },
+      { value: 25000, label: '$25,000' },
+      { value: 50000, label: '$50,000' },
+      { value: 75000, label: '$75,000' },
+    ],
+  },
+  {
+    key: 'litem.general_liability.limits',
+    label: 'GL limits',
+    type: 'select',
+    options: [
+      { value: '$1,000,000 / $2,000,000 / $2,000,000',
+        label: '$1M occurrence / $2M aggregate / $2M products-completed' },
+      { value: '$2,000,000 / $4,000,000 / $4,000,000',
+        label: '$2M occurrence / $4M aggregate / $4M products-completed' },
+    ],
+  },
+  {
+    key: 'litem.general_liability.sdll',
+    label: 'SDLL coverage limit',
+    type: 'select',
+    help: 'Sale & Disposal Legal Liability — covers exposure from lien-sale auction process.',
+    options: [
+      { value: 5000,    label: '$5,000' },
+      { value: 10000,   label: '$10,000' },
+      { value: 25000,   label: '$25,000' },
+      { value: 50000,   label: '$50,000' },
+      { value: 100000,  label: '$100,000' },
+      { value: 300000,  label: '$300,000' },
+      { value: 500000,  label: '$500,000' },
+      { value: 1000000, label: '$1,000,000' },
+    ],
+  },
+  {
+    key: 'litem.general_liability.cgll',
+    label: 'CGLL coverage limit',
+    type: 'select',
+    help: 'Customer Goods Legal Liability — insured\u2019s liability for tenant property damage.',
+    options: [
+      { value: 5000,    label: '$5,000' },
+      { value: 10000,   label: '$10,000' },
+      { value: 25000,   label: '$25,000' },
+      { value: 50000,   label: '$50,000' },
+      { value: 100000,  label: '$100,000' },
+      { value: 300000,  label: '$300,000' },
+      { value: 500000,  label: '$500,000' },
+      { value: 1000000, label: '$1,000,000' },
+    ],
+  },
+  {
+    key: 'optional_coverages',
+    label: 'Optional coverages',
+    type: 'multi',
+    help: 'TRIA is included on all quotes by default — opt-out happens at bind, not here. The catalog below is placeholder pending the real optional-coverage list.',
+    options: [
+      { value: 'equipment_breakdown',     label: 'Equipment breakdown' },
+      { value: 'sewer_drain_backup',      label: 'Sewer & drain backup' },
+      { value: 'ordinance_law',           label: 'Ordinance & law' },
+      { value: 'signs',                   label: 'Outdoor signs' },
+      { value: 'business_income',         label: 'Business income' },
+      { value: 'pollution_liability',     label: 'Pollution liability' },
+      { value: 'employee_dishonesty',     label: 'Employee dishonesty' },
+    ],
+  },
+];
+
+// Helper: extract the current variation-relevant values from a quote,
+// to seed the variation form when the broker clicks "Create variation."
+// Falls back to schema defaults (first option) where the quote doesn't
+// carry the field — should rarely happen in practice but keeps the form
+// from rendering empty selects.
+function variationDefaultsFromQuote(quote) {
+  const data = (quote && quote.data) || {};
+  const out = {};
+  for (const field of VARIATION_SCHEMA) {
+    const v = data[field.key];
+    if (v != null) {
+      out[field.key] = v;
+    } else if (field.type === 'multi') {
+      out[field.key] = [];
+    } else if (field.options && field.options.length > 0) {
+      out[field.key] = field.options[0].value;
+    } else {
+      out[field.key] = null;
+    }
+  }
+  return out;
 }
 
 // ═════════════════════════════════════════════════════════════════
@@ -6755,7 +6934,13 @@ function quotesListView() {
 }
 
 async function loadQuote(id) {
-  state.selectedQuote = null; render();
+  state.selectedQuote = null;
+  // Reset variation form when navigating to a different quote — keeps
+  // form state from leaking across quotes.
+  state.variationForm = {
+    open: false, parentQuoteId: null, values: {}, submitting: false, error: null,
+  };
+  render();
   try {
     const q = await api(`/api/quotes/${id}`);
     const docs = await api(`/api/documents?quote_id=${q.id}`).catch(() => ({ items: [] }));
@@ -6812,7 +6997,181 @@ function quoteDetailView() {
             el('dt', {}, 'Status'), el('dd', {}, statusBadge(q.status)),
             el('dt', {}, 'Submission'), el('dd', { className: 'mono' }, q.submission_id),
             el('dt', {}, 'Expires'), el('dd', {}, fmtDate(q.quote_expires_at)),
-            el('dt', {}, 'Created'), el('dd', {}, fmtDateTime(q.created_at)))))));
+            el('dt', {}, 'Created'), el('dd', {}, fmtDateTime(q.created_at))))),
+
+    quoteVariationCard(q));
+}
+
+// ─── Quote variation card ─────────────────────────────────────────
+// Renders an inline panel below the quote detail allowing the broker
+// to spawn a new quote variation. Closed by default; expands on click
+// of the "Create variation" button. Form is driven entirely by
+// VARIATION_SCHEMA (see top of submissions section).
+//
+// Submit currently calls POST /api/quotes/{id}/variations which is
+// behind a backend kill switch — the frontend handles the "not yet
+// enabled" response gracefully and shows the broker a clear message
+// rather than a generic error.
+function quoteVariationCard(q) {
+  const vf = state.variationForm;
+  const isThisQuote = vf.open && vf.parentQuoteId === q.id;
+
+  if (!isThisQuote) {
+    return el('div', { className: 'card', style: { marginTop: '20px' } },
+      el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+        el('div', {},
+          el('div', { className: 'eyebrow' }, 'Variations'),
+          el('h3', { style: { marginTop: '4px' } }, 'Adjust terms without re-underwriting'),
+          el('p', { style: { color: 'var(--ink-mute)', fontSize: '0.88rem', marginTop: '4px' } },
+            'Change deductible, GL limits, SDLL/CGLL, or optional coverages to spawn a new quote version. The original quote stays valid.')),
+        el('button', { className: 'btn btn-primary',
+          onClick: () => {
+            state.variationForm = {
+              open: true,
+              parentQuoteId: q.id,
+              values: variationDefaultsFromQuote(q),
+              submitting: false,
+              error: null,
+            };
+            render();
+          } },
+          'Create variation')));
+  }
+
+  // Form is open for this quote — render the schema-driven inputs.
+  const onChange = (key, value) => {
+    state.variationForm.values[key] = value;
+    state.variationForm.error = null;
+    render();
+  };
+
+  return el('div', { className: 'card', style: { marginTop: '20px' } },
+    el('div', { className: 'eyebrow' }, 'New variation'),
+    el('h3', { style: { marginTop: '4px' } },
+      `Variation of Quote #${q.id}`),
+    el('p', { style: { color: 'var(--ink-mute)', fontSize: '0.88rem', marginTop: '4px', marginBottom: '20px' } },
+      'Defaults match the parent quote. Changed fields are highlighted. Submitting creates a new sibling quote — the parent stays bindable.'),
+
+    el('div', { className: 'variation-grid' },
+      ...VARIATION_SCHEMA.map(field => variationField(field, vf.values, q.data || {}, onChange))),
+
+    vf.error
+      ? el('div', { className: 'login-err', style: { marginTop: '16px' } }, vf.error)
+      : null,
+
+    el('div', { style: { display: 'flex', gap: '10px', marginTop: '20px', justifyContent: 'flex-end' } },
+      el('button', { className: 'btn btn-secondary',
+        disabled: vf.submitting,
+        onClick: () => {
+          state.variationForm = {
+            open: false, parentQuoteId: null, values: {}, submitting: false, error: null,
+          };
+          render();
+        } }, 'Cancel'),
+      el('button', { className: 'btn btn-primary',
+        disabled: vf.submitting,
+        onClick: () => submitVariation(q) },
+        vf.submitting ? 'Submitting…' : 'Create variation')));
+}
+
+// Renders a single variation form field per its schema entry.
+// `parentData` is the data object from the parent quote — used to
+// detect when a value has been changed from parent and apply a
+// highlight to the field row.
+function variationField(field, values, parentData, onChange) {
+  const current = values[field.key];
+  const parent = parentData[field.key];
+  const changed = !valuesEqual(current, parent);
+
+  const rowClass = `variation-row ${changed ? 'variation-row-changed' : ''}`;
+
+  let control;
+  if (field.type === 'select') {
+    control = el('select', {
+      value: String(current ?? ''),
+      onChange: (e) => {
+        // Coerce back to the option's original type. Options can hold
+        // numbers (deductibles, limits) or strings (GL limits format).
+        const optionValue = field.options.find(o => String(o.value) === e.target.value)?.value;
+        onChange(field.key, optionValue);
+      },
+    },
+      ...field.options.map(o =>
+        el('option', { value: String(o.value), selected: String(o.value) === String(current) ? '' : null },
+          o.label)));
+  } else if (field.type === 'multi') {
+    const selected = Array.isArray(current) ? current : [];
+    control = el('div', { className: 'variation-multi' },
+      ...field.options.map(o => {
+        const checked = selected.includes(o.value);
+        return el('label', { className: 'variation-checkbox' },
+          el('input', {
+            type: 'checkbox',
+            checked: checked ? '' : null,
+            onChange: (e) => {
+              const next = e.target.checked
+                ? [...selected, o.value]
+                : selected.filter(v => v !== o.value);
+              onChange(field.key, next);
+            },
+          }),
+          el('span', {}, o.label));
+      }));
+  } else {
+    control = el('div', {}, `(unsupported field type: ${field.type})`);
+  }
+
+  return el('div', { className: rowClass },
+    el('div', { className: 'variation-row-label' },
+      el('div', { className: 'variation-row-name' }, field.label),
+      changed ? el('span', { className: 'variation-row-badge' }, 'Changed') : null,
+      field.help ? el('div', { className: 'variation-row-help' }, field.help) : null),
+    el('div', { className: 'variation-row-control' }, control));
+}
+
+function valuesEqual(a, b) {
+  if (a === b) return true;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false;
+    const sa = [...a].sort(), sb = [...b].sort();
+    return sa.every((v, i) => v === sb[i]);
+  }
+  return String(a) === String(b);
+}
+
+async function submitVariation(parentQuote) {
+  state.variationForm.submitting = true;
+  state.variationForm.error = null;
+  render();
+  try {
+    const result = await api(`/api/quotes/${parentQuote.id}/variations`, {
+      method: 'POST',
+      body: JSON.stringify({ overrides: state.variationForm.values }),
+    });
+    // Success — the new quote ID comes back. Navigate to it.
+    state.variationForm = {
+      open: false, parentQuoteId: null, values: {}, submitting: false, error: null,
+    };
+    if (result && result.id) {
+      state.subView = result.id;
+      loadQuote(result.id);
+    } else {
+      // Fallback: refresh the submission so the new quote shows up in
+      // the quote list.
+      state.view = 'submissions';
+      state.subView = parentQuote.submission_id;
+      loadSubmission(parentQuote.submission_id);
+    }
+  } catch (e) {
+    // The kill switch returns a structured error from the backend.
+    // Surface a friendly message rather than a stack trace.
+    const msg = (e && e.message) || 'Variation creation failed.';
+    state.variationForm.submitting = false;
+    state.variationForm.error = msg.includes('not_ready')
+      ? 'Variation creation is not yet enabled in this environment. Wiring is in place — awaiting auth resolution before going live.'
+      : `Could not create variation: ${msg}`;
+    render();
+  }
 }
 
 function premRow(label, val) {

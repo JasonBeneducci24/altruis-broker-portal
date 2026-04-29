@@ -208,6 +208,22 @@ class JoshuClientBase(ABC):
     async def update_quote_status(self, token: str, quote_id: str | int, status: str) -> Quote:
         """Broker uses this to publish a quote → binder → coverage active."""
 
+    @abstractmethod
+    async def create_quote_variation(
+        self,
+        token: str,
+        *,
+        parent_quote_id: int,
+        parent_submission_id: int,
+        overrides: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Spawn a sibling quote with the parent submission's data plus
+        broker overrides on a whitelist of fields. Old quotes remain valid."""
+
+    @abstractmethod
+    async def close_quote(self, token: str, quote_id: int) -> dict[str, Any]:
+        """Close/void a quote. Quote remains in history but no longer bindable."""
+
     # ---------- Documents ----------
     @abstractmethod
     async def list_documents(

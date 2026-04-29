@@ -110,6 +110,8 @@ _ENABLE_UPDATE_SUBMISSION = True        # PUT /submissions/{id} (status change)
 _ENABLE_CREATE_POLICY = False           # POST /policies — DISABLED: 3 prod leaks confirmed JWT-scope routing
 _ENABLE_CREATE_TRANSACTION = False      # POST /transactions — DISABLED: ditto, awaiting auth fix
 _ENABLE_UPDATE_QUOTE = False            # PUT /quotes/{id} (publish/bind)
+_ENABLE_CREATE_QUOTE_VARIATION = False  # POST /quotes — variation flow (Stage 2). DISABLED until auth resolved.
+_ENABLE_CLOSE_QUOTE = False             # PUT /quotes/{id} (close/void). DISABLED until auth resolved.
 
 
 class HttpClientNotReadyError(RuntimeError):
@@ -2344,6 +2346,53 @@ class HttpJoshuClient(JoshuClientBase):
     async def update_quote_status(self, token, quote_id: int, status: str) -> Quote:
         self._assert_test_mode_for_write()
         raise _not_ready("update_quote_status")
+
+    async def create_quote_variation(
+        self,
+        token: str,
+        *,
+        parent_quote_id: int,
+        parent_submission_id: int,
+        overrides: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Spawn a sibling quote with the parent submission's data overlaid
+        with the broker's variation overrides.
+
+        Mechanically in Joshu this is a NEW quote request against the parent
+        submission with a small set of data points changed (the variation
+        whitelist — see frontend VARIATION_SCHEMA). Old quotes on the same
+        submission remain valid; the new quote is a sibling, not a derivative.
+        Joshu doesn't model variation lineage natively — the relationship is
+        carried in our portal-side metadata (parent_quote_id) only.
+
+        DISABLED until the auth blocker is resolved. The real call shape is
+        not yet pinned down without Joshu API docs in hand; the intent of
+        this stub is to lock in the *interface* the frontend depends on, so
+        UI work can proceed in parallel with the auth fix.
+        """
+        self._assert_test_mode_for_write()
+        if not _ENABLE_CREATE_QUOTE_VARIATION:
+            raise _not_ready("create_quote_variation")
+        # Real implementation TBD — the request shape will be confirmed once
+        # we have a test-scoped token and can probe Joshu's quote-create API.
+        # Likely: POST /quotes with submission_id ref + a payload of overridden
+        # data points keyed by their litem.* reference tags.
+        raise _not_ready("create_quote_variation \u2014 implementation pending Joshu API confirmation")
+
+    async def close_quote(self, token: str, quote_id: int) -> dict[str, Any]:
+        """Close (void) a quote. Used when a broker rejects all variations of
+        an out-of-scope edit and wants the prior quote off the table.
+
+        In Joshu terms this is a status transition to a closed/withdrawn
+        state — not a hard delete. The quote remains visible in history
+        but no longer eligible for binding.
+
+        DISABLED until the auth blocker is resolved.
+        """
+        self._assert_test_mode_for_write()
+        if not _ENABLE_CLOSE_QUOTE:
+            raise _not_ready("close_quote")
+        raise _not_ready("close_quote \u2014 implementation pending Joshu API confirmation")
 
     # ------------------------------------------------------------------
     # Documents

@@ -554,6 +554,42 @@ class MockJoshuClient(JoshuClientBase):
             q.modified_at = datetime.now(UTC)
             return q
 
+    async def create_quote_variation(
+        self,
+        token,
+        *,
+        parent_quote_id: int,
+        parent_submission_id: int,
+        overrides,
+    ):
+        """Mock: clones the parent quote, applies overrides, returns the
+        new quote. Lineage isn't tracked in Joshu's data model so the mock
+        carries it on a `_parent_quote_id` field for the UI to use if it
+        wants to show variation relationships in mock mode.
+        """
+        async with self._lock:
+            parent = await self.get_quote(token, parent_quote_id)
+            new_quote = parent.model_copy(deep=True)
+            new_quote.id = max(self._data["quotes"].keys()) + 1
+            new_quote.created_at = datetime.now(UTC)
+            new_quote.modified_at = datetime.now(UTC)
+            self._data["quotes"][new_quote.id] = new_quote
+            existing_data = self._data.setdefault("quote_data", {}).get(parent_quote_id, {}).copy()
+            existing_data.update(overrides)
+            self._data["quote_data"][new_quote.id] = existing_data
+            return {
+                **new_quote.model_dump(mode="json"),
+                "data": existing_data,
+                "_parent_quote_id": parent_quote_id,
+            }
+
+    async def close_quote(self, token, quote_id: int):
+        async with self._lock:
+            q = await self.get_quote(token, quote_id)
+            q.status = "Closed"  # type: ignore[assignment]
+            q.modified_at = datetime.now(UTC)
+            return q.model_dump(mode="json")
+
     # ---------- Documents ----------
     async def list_documents(
         self, token, *, quote_id=None, document_type=None, page=1, per_page=25,
