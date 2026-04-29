@@ -1473,8 +1473,8 @@
   .asset-card-summary {
     width: 100%;
     display: grid;
-    grid-template-columns: auto 1.4fr 2fr auto auto;
-    gap: 18px;
+    grid-template-columns: auto minmax(120px, 1.2fr) minmax(0, 2.4fr) auto auto;
+    gap: 20px;
     align-items: center;
     padding: 14px 18px;
     background: transparent;
@@ -1499,21 +1499,28 @@
     font-size: 0.95rem; font-weight: 500; color: var(--navy);
     letter-spacing: -0.01em;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    min-width: 0;
   }
   .asset-card-stats {
-    display: flex; gap: 26px; flex-wrap: nowrap; overflow: hidden;
+    display: flex; gap: 28px; flex-wrap: nowrap; overflow: hidden;
+    justify-content: flex-end;
   }
-  .asset-card-stat { min-width: 0; }
+  .asset-card-stat {
+    min-width: 0;
+    text-align: right;
+  }
   .asset-card-stat-label {
-    font-size: 0.68rem; color: var(--mute);
+    font-size: 0.66rem; color: var(--mute);
     letter-spacing: 0.08em; text-transform: uppercase;
     font-weight: 500;
+    white-space: nowrap;
   }
   .asset-card-stat-value {
-    font-size: 0.9rem; color: var(--navy); font-weight: 400;
-    margin-top: 2px;
+    font-size: 0.92rem; color: var(--navy); font-weight: 500;
+    margin-top: 3px;
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
+    letter-spacing: -0.005em;
   }
   .asset-card-meta { display: flex; gap: 8px; align-items: center; }
   .asset-card-chip {
@@ -6464,7 +6471,14 @@ function pickAssetTitle(group) {
 
 // Pick up to 3 summary stats — Monetary/Number fields with values, preferred codes first
 function pickAssetSummaryStats(group) {
-  const preferred = ['building_value', 'total_value', 'value', 'tiv', 'building_count',
+  // Stats shown on the collapsed asset card. We deliberately exclude
+  // building_count — it has a long label ("Number of Buildings (at
+  // this address)") that crowds the summary, and its meaning is
+  // already encoded in the parent location header (e.g. "Location 1
+  // — Blanketed (8 buildings under blanket)"). Showing it twice is
+  // redundant. The other preferred stats are concise and
+  // location-agnostic.
+  const preferred = ['building_value', 'total_value', 'value', 'tiv',
                      'square_footage', 'stories', 'annual_sales', 'bpp_limit', 'limit'];
   const byScore = [];
   for (const f of group.fields) {
@@ -6716,8 +6730,9 @@ function renderLocationGroupWrapper(section, locationGroup, isEditing) {
         ? el('div', { className: 'location-group-pill is-blanketed' }, 'Blanketed')
         : null),
     // Nested building cards. Title differs by case:
-    //   • Blanketed: "Blanketed structures" (one card represents many
-    //     buildings; calling it "Building 1" would be wrong)
+    //   • Blanketed: "Structure 1" — neutral name; the blanketed status
+    //     lives at the location header (eyebrow text + yellow pill), so
+    //     repeating it on the building card adds no information.
     //   • Single building: "Building 1" (or whatever building_number is)
     //   • Multi-building: "Building N" with N from building_number
     el('div', { className: 'location-group-buildings' },
@@ -6725,7 +6740,7 @@ function renderLocationGroupWrapper(section, locationGroup, isEditing) {
         const displayLabel = buildingDisplayIndex(locationGroup, asset, i);
         const bldgNum = readBuildingNumber(asset) ?? (i + 1);
         const titleOverride = isBlanketed
-          ? 'Blanketed structures'
+          ? `Structure ${i + 1}`
           : `Building ${bldgNum}`;
         return renderAssetCard(section, asset, isEditing, displayLabel, titleOverride);
       })));
