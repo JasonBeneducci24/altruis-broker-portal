@@ -159,7 +159,7 @@
     min-height: 100vh;
     display: flex; align-items: center; justify-content: center;
     padding: 48px 64px 48px 0;
-    margin-left: 38%;
+    margin-left: 60%;
   }
   .login-hero { max-width: 460px; margin-top: auto; }
   .login-hero h1 {
@@ -3032,34 +3032,36 @@ function mountLoginCanvas(host) {
 }
 
 function loginLeft() {
-  // Right-half of Altruis chevron icon, rendered as inline SVG so its
-  // proper aspect ratio (0.594:1, narrower than tall) is preserved by
-  // the viewBox regardless of viewport dimensions. Two polygons:
-  //   - Big outer stroke in brand blue
-  //   - Small inner triangle in deeper brand blue (preserves the
-  //     duo-tone depth of the actual icon)
-  // Coordinates lifted directly from the icon SVG with the right-half
-  // bounding box translated to origin (was x∈[759.2,1300] y∈[294.5,1205.5]).
+  // Full Altruis chevron icon, rendered as inline SVG so its proper
+  // aspect ratio (1.21:1, slightly wider than tall) is preserved by
+  // the viewBox regardless of viewport dimensions. Four polygons:
+  //   - Two outer strokes in brand blue (the chevron's wings)
+  //   - Two inner triangles in deeper brand blue (the duo-tone depth
+  //     pieces inside each wing)
+  // Coordinates lifted directly from the icon SVG, with the bounding
+  // box translated to origin (was x∈[200,1300] y∈[294.5,1205.5]).
   // SVG anchored top-left of the shell, height 100% of viewport, width
-  // auto — this keeps the chevron crisp at any aspect ratio. CSS uses
-  // createElementNS because <svg> needs the XML namespace.
+  // auto — preserves the icon's geometry crisp at any aspect ratio.
+  // <svg> requires the XML namespace, hence createElementNS.
   const NS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(NS, 'svg');
   svg.setAttribute('class', 'login-chevron');
-  svg.setAttribute('viewBox', '0 0 540.8 911');
+  svg.setAttribute('viewBox', '0 0 1100 911');
   svg.setAttribute('preserveAspectRatio', 'xMinYMid meet');
   svg.setAttribute('aria-hidden', 'true');
 
-  const stroke = document.createElementNS(NS, 'polygon');
-  stroke.setAttribute('points', '540.8,911 0,0 0,213.4 349.4,802.1');
-  stroke.setAttribute('fill', '#6797EE');
-
-  const tri = document.createElementNS(NS, 'polygon');
-  tri.setAttribute('points', '269.1,756.3 0,319.6 0,603.2');
-  tri.setAttribute('fill', '#2F5FB8');
-
-  svg.appendChild(stroke);
-  svg.appendChild(tri);
+  const polys = [
+    { points: '1100,911 559.2,0 559.2,213.4 908.6,802.1',  fill: '#6797EE' },
+    { points: '0,911 191.4,802.1 540.8,213.5 540.8,0',     fill: '#6797EE' },
+    { points: '271.7,756.3 540.8,603.2 540.8,319.6',       fill: '#2F5FB8' },
+    { points: '828.3,756.3 559.2,319.6 559.2,603.2',       fill: '#2F5FB8' },
+  ];
+  for (const p of polys) {
+    const poly = document.createElementNS(NS, 'polygon');
+    poly.setAttribute('points', p.points);
+    poly.setAttribute('fill', p.fill);
+    svg.appendChild(poly);
+  }
   return svg;
 }
 
