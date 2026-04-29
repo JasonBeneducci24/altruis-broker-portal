@@ -152,22 +152,16 @@
       radial-gradient(circle at 20% 30%, rgba(255,255,255,0.10), transparent 55%),
       radial-gradient(circle at 85% 85%, rgba(14,27,54,0.12), transparent 55%);
     color: #fff;
-    padding: 64px 72px;
-    display: flex; flex-direction: column; justify-content: center;
+    padding: 64px;
+    display: flex; align-items: center; justify-content: center;
   }
   .login-canvas {
     position: absolute; inset: 0; width: 100%; height: 100%;
     display: block; pointer-events: none;
   }
-  .login-brand-wordmark {
+  .login-mark {
     position: relative; z-index: 1;
-    display: inline-flex; flex-direction: column; align-items: center;
-    gap: 4px; align-self: flex-start;
-  }
-  .login-brand-wordmark img { max-width: 420px; }
-  .login-brand-sub {
-    font-size: 0.95rem; font-weight: 500; letter-spacing: 0.32em;
-    text-transform: uppercase; color: rgba(255, 255, 255, 0.78);
+    width: 200px; height: auto; display: block;
   }
   .login-hero { max-width: 460px; margin-top: auto; }
   .login-hero h1 {
@@ -3044,17 +3038,20 @@ function mountLoginCanvas(host) {
 }
 
 function loginLeft() {
-  // Calm branded panel — wordmark + "Broker Portal" subtitle on top of
-  // the animated node-network backdrop. Marketing copy belongs on
-  // altruisgroup.com, not on a login screen the broker has already
-  // chosen to visit; the canvas does the atmospheric work that the
-  // copy used to.
-  const left = el('div', { className: 'login-left' },
-    el('div', { className: 'login-brand-wordmark' },
-      brandWordmark('white', 88),
-      el('div', { className: 'login-brand-sub' }, 'Broker Portal')));
-  // Defer mount so the element is in the DOM and has a measurable
-  // bounding rect before the canvas tries to size itself.
+  // Single brand mark, centered both axes against the network
+  // backdrop. The form on the right does all the actual labeling
+  // ("Sign in to your portal"), so this side just needs to plant a
+  // confident flag — no wordmark, no subtitle, no copy. The mark on
+  // var(--blue) reads as a hollow chevron because the inner duo-tone
+  // shapes share the panel color; intentional.
+  const mark = document.createElement('img');
+  mark.src = '/assets/altruis-mark-white.svg';
+  mark.alt = 'Altruis Group';
+  mark.className = 'login-mark';
+
+  const left = el('div', { className: 'login-left' }, mark);
+  // Defer mount so the panel has a measurable bounding rect before
+  // the canvas tries to size itself.
   queueMicrotask(() => mountLoginCanvas(left));
   return left;
 }
