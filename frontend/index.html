@@ -6997,7 +6997,7 @@ function quoteDetailView() {
             el('dt', {}, 'Status'), el('dd', {}, statusBadge(q.status)),
             el('dt', {}, 'Submission'), el('dd', { className: 'mono' }, q.submission_id),
             el('dt', {}, 'Expires'), el('dd', {}, fmtDate(q.quote_expires_at)),
-            el('dt', {}, 'Created'), el('dd', {}, fmtDateTime(q.created_at))))),
+            el('dt', {}, 'Created'), el('dd', {}, fmtDateTime(q.created_at)))))),
 
     quoteVariationCard(q));
 }
