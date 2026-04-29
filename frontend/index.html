@@ -145,17 +145,10 @@
      ═════════════════════════════════════════════════════════════════ */
   .login-wrap { min-height: 100vh; display: flex; flex-direction: column; }
   .login-shell { flex: 1; position: relative; background: var(--paper); overflow: hidden; }
-  .login-shape {
-    position: absolute; inset: 0;
+  .login-chevron {
+    position: absolute; top: 0; left: 0; bottom: 0;
+    width: auto; height: 100%;
     pointer-events: none;
-  }
-  .login-shape-stroke {
-    background: var(--blue);
-    clip-path: polygon(2% 4%, 62% 98%, 40.8% 86.8%, 2% 26%);
-  }
-  .login-shape-tri {
-    background: var(--blue-deep);
-    clip-path: polygon(31.9% 82%, 2% 37%, 2% 66.2%);
   }
   .login-canvas {
     position: absolute; inset: 0; width: 100%; height: 100%;
@@ -166,7 +159,7 @@
     min-height: 100vh;
     display: flex; align-items: center; justify-content: center;
     padding: 48px 64px 48px 0;
-    margin-left: 62%;
+    margin-left: 38%;
   }
   .login-hero { max-width: 460px; margin-top: auto; }
   .login-hero h1 {
@@ -225,7 +218,7 @@
     padding: 2px 7px; border-radius: 4px; font-size: 0.85em; color: var(--ink);
   }
   @media (max-width: 900px) {
-    .login-shape { display: none; }
+    .login-chevron { display: none; }
     .login-right { margin-left: 0; padding: 32px; min-height: 0; }
   }
 
@@ -3039,20 +3032,35 @@ function mountLoginCanvas(host) {
 }
 
 function loginLeft() {
-  // Left side renders as the right-half of the Altruis chevron icon,
-  // scaled to span most of the viewport. Two shapes:
-  //   (1) The big outer stroke parallelogram in brand blue
-  //   (2) The small inner triangle in deeper blue (mirrors the duo-tone
-  //       depth of the original icon)
-  // Cream paper background shows between them, which is part of the
-  // chevron's visual character — the empty space inside the mark.
-  // Both shapes are absolute-positioned against login-shell, so we
-  // return a fragment to make them direct children of the shell.
-  // Network animation deferred until geometry is dialed in.
-  const frag = document.createDocumentFragment();
-  frag.appendChild(el('div', { className: 'login-shape login-shape-stroke' }));
-  frag.appendChild(el('div', { className: 'login-shape login-shape-tri' }));
-  return frag;
+  // Right-half of Altruis chevron icon, rendered as inline SVG so its
+  // proper aspect ratio (0.594:1, narrower than tall) is preserved by
+  // the viewBox regardless of viewport dimensions. Two polygons:
+  //   - Big outer stroke in brand blue
+  //   - Small inner triangle in deeper brand blue (preserves the
+  //     duo-tone depth of the actual icon)
+  // Coordinates lifted directly from the icon SVG with the right-half
+  // bounding box translated to origin (was x∈[759.2,1300] y∈[294.5,1205.5]).
+  // SVG anchored top-left of the shell, height 100% of viewport, width
+  // auto — this keeps the chevron crisp at any aspect ratio. CSS uses
+  // createElementNS because <svg> needs the XML namespace.
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('class', 'login-chevron');
+  svg.setAttribute('viewBox', '0 0 540.8 911');
+  svg.setAttribute('preserveAspectRatio', 'xMinYMid meet');
+  svg.setAttribute('aria-hidden', 'true');
+
+  const stroke = document.createElementNS(NS, 'polygon');
+  stroke.setAttribute('points', '540.8,911 0,0 0,213.4 349.4,802.1');
+  stroke.setAttribute('fill', '#6797EE');
+
+  const tri = document.createElementNS(NS, 'polygon');
+  tri.setAttribute('points', '269.1,756.3 0,319.6 0,603.2');
+  tri.setAttribute('fill', '#2F5FB8');
+
+  svg.appendChild(stroke);
+  svg.appendChild(tri);
+  return svg;
 }
 
 function loginRight() {
