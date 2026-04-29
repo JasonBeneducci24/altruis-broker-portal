@@ -7693,30 +7693,51 @@ function uploadDropZone(form, onFilesAdded, rerender) {
 
   dz.appendChild(inner);
 
-  // Hidden file input — clicking the dropzone triggers it
-  const input = el('input', {
-    type: 'file', multiple: '',
-    accept: '.pdf,.png,.jpg,.jpeg,.tif,.tiff,.docx,.doc,.xlsx,.xls,.csv',
-    style: { display: 'none' },
-    onChange: (e) => {
+  // Hidden file input — clicking the dropzone triggers it. The input
+  // has to be a child so it can be programmatically .click()-ed without
+  // window focus issues, but its own click event must NOT bubble back
+  // up to the dz click handler — that would re-fire input.click() in
+  // a loop on some browsers and dismiss the picker.
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.multiple = true;
+  input.accept = '.pdf,.png,.jpg,.jpeg,.tif,.tiff,.docx,.doc,.xlsx,.xls,.csv';
+  input.style.display = 'none';
+  input.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files.length > 0) {
       onFilesAdded(Array.from(e.target.files));
-      e.target.value = '';   // reset so re-uploading the same file fires onChange again
-    },
+    }
+    e.target.value = '';   // reset so re-uploading the same file fires onChange again
   });
+  input.addEventListener('click', (e) => e.stopPropagation());
   dz.appendChild(input);
 
-  dz.addEventListener('click', (e) => {
+  dz.addEventListener('click', () => {
     if (form.processing || form.creating) return;
     input.click();
   });
 
-  dz.addEventListener('dragover', (e) => {
+  // HTML5 drag-and-drop requires preventDefault on BOTH dragenter and
+  // dragover for a drop to be accepted. Skipping dragenter is a common
+  // oversight that silently makes drops fail in Firefox and some
+  // Chromium versions — the dz becomes a "no-drop" target.
+  dz.addEventListener('dragenter', (e) => {
     e.preventDefault();
     if (form.processing || form.creating) return;
     dz.classList.add('upload-dropzone-active');
   });
-  dz.addEventListener('dragleave', () => {
-    dz.classList.remove('upload-dropzone-active');
+  dz.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    if (form.processing || form.creating) return;
+    dz.classList.add('upload-dropzone-active');
+  });
+  dz.addEventListener('dragleave', (e) => {
+    // dragleave fires when crossing into a child element too. Only
+    // remove the active state if we're actually leaving the dropzone.
+    if (e.target === dz) {
+      dz.classList.remove('upload-dropzone-active');
+    }
   });
   dz.addEventListener('drop', (e) => {
     e.preventDefault();
