@@ -149,13 +149,15 @@
     position: absolute; top: 0; left: 0; bottom: 0;
     width: auto; height: 100%;
     pointer-events: none;
+    z-index: 0;
   }
   .login-canvas {
     position: absolute; inset: 0; width: 100%; height: 100%;
     display: block; pointer-events: none;
+    z-index: 1;
   }
   .login-right {
-    position: relative; z-index: 1;
+    position: relative; z-index: 2;
     min-height: 100vh;
     display: flex; align-items: center; justify-content: center;
     padding: 48px 64px 48px 0;
@@ -2848,7 +2850,6 @@ function envBanner() {
 // ═════════════════════════════════════════════════════════════════
 function loginView() {
   return el('div', { className: 'login-wrap' },
-    envBanner(),
     el('div', { className: 'login-shell' }, loginLeft(), loginRight()));
 }
 
@@ -2869,40 +2870,59 @@ function mountLoginCanvas(host) {
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // Tunables — kept here so they're easy to nudge.
-  const NODE_DENSITY = 0.00009;     // nodes per px² of panel area
-  const ACCENT_RATIO = 0.12;        // ~12% of nodes are accent (pulsing blue)
-  const LINK_DIST = 150;            // px — max distance two nodes will draw a line
+  const NODE_DENSITY = 0.00018;     // doubled vs old version because nodes
+                                     // outside the chevron are clipped away,
+                                     // so we need more of them to keep the
+                                     // visible chevron area populated.
+  const ACCENT_RATIO = 0.12;
+  const LINK_DIST = 150;
   const LINK_DIST_SQ = LINK_DIST * LINK_DIST;
-  const SPEED = 0.12;               // base px/frame drift speed
-  const PULSE_PERIOD = 4200;        // ms for one full accent pulse cycle
+  const SPEED = 0.12;
+  const PULSE_PERIOD = 4200;
 
-  // Colors. On the brand-blue panel, the accent and line colors that
-  // worked on navy (var(--blue) itself) would now be invisible against
-  // the matching background. We use white at low alpha for both lines
-  // and accents instead, which still reads as the same network shape
-  // but with the contrast inverted. Default nodes stay muted blue-gray
-  // since that tone reads on either background.
+  // Colors. Chevron polygons render in brand blue (#6797EE) and deeper
+  // blue (#2F5FB8). White at low alpha reads on both — same logic as
+  // when the whole panel was brand-blue. Default nodes stay muted
+  // blue-gray; on the cream paper around the chevron these would also
+  // read fine but they're clipped away by the chevron mask anyway.
   const LINE_RGB = '255, 255, 255';
   const NODE_RGB = '184, 196, 217';
   const ACCENT_RGB = '255, 255, 255';
 
+  // Chevron polygon coordinates in viewBox space (matches loginLeft()).
+  // Used both to build the canvas clip path and to bias node spawning.
+  const CHEVRON_VBOX = { w: 1100, h: 911 };
+  const CHEVRON_POLYS = [
+    [[1100,911],[559.2,0],[559.2,213.4],[908.6,802.1]],
+    [[0,911],[191.4,802.1],[540.8,213.5],[540.8,0]],
+    [[271.7,756.3],[540.8,603.2],[540.8,319.6]],
+    [[828.3,756.3],[559.2,319.6],[559.2,603.2]],
+  ];
+
   let nodes = [];
   let width = 0, height = 0, dpr = 1;
+  let chevronScale = 0;             // scale factor: viewBox-units → canvas-px
+  let chevronWidth = 0;             // width of chevron in canvas px (for spawn)
   let rafId = null;
   let startTs = performance.now();
 
   function rebuildNodes() {
-    const target = Math.max(20, Math.round(width * height * NODE_DENSITY));
+    // Spawn within the chevron's pixel bbox rather than the whole canvas.
+    // Anything outside gets clipped, so spawning there is wasted work.
+    // Density is computed against the chevron area to keep visible
+    // populations consistent regardless of viewport width.
+    const chevronArea = chevronWidth * height;
+    const target = Math.max(20, Math.round(chevronArea * NODE_DENSITY));
     nodes = [];
     for (let i = 0; i < target; i++) {
       const angle = Math.random() * Math.PI * 2;
       nodes.push({
-        x: Math.random() * width,
+        x: Math.random() * chevronWidth,
         y: Math.random() * height,
         vx: Math.cos(angle) * SPEED * (0.5 + Math.random()),
         vy: Math.sin(angle) * SPEED * (0.5 + Math.random()),
         accent: Math.random() < ACCENT_RATIO,
-        phase: Math.random() * PULSE_PERIOD, // stagger pulses
+        phase: Math.random() * PULSE_PERIOD,
       });
     }
   }
@@ -2918,26 +2938,55 @@ function mountLoginCanvas(host) {
     canvas.style.width = width + 'px';
     canvas.style.height = height + 'px';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // Chevron is height-100% with preserved aspect, anchored top-left.
+    // So scale = canvas height / viewBox height; chevron pixel width
+    // follows from viewBox aspect.
+    chevronScale = height / CHEVRON_VBOX.h;
+    chevronWidth = CHEVRON_VBOX.w * chevronScale;
     rebuildNodes();
+  }
+
+  // Build a Path2D matching the chevron polygons in current canvas pixel
+  // space. Rebuilt each frame because it's cheap and avoids stale state
+  // after resize. Used as a clip region so the network only renders
+  // inside the chevron silhouette.
+  function buildChevronClip() {
+    const path = new Path2D();
+    for (const poly of CHEVRON_POLYS) {
+      for (let i = 0; i < poly.length; i++) {
+        const [vx, vy] = poly[i];
+        const px = vx * chevronScale;
+        const py = vy * chevronScale;
+        if (i === 0) path.moveTo(px, py);
+        else path.lineTo(px, py);
+      }
+      path.closePath();
+    }
+    return path;
   }
 
   function draw(ts) {
     const elapsed = ts - startTs;
     ctx.clearRect(0, 0, width, height);
 
-    // Step 1: advance positions, wrap at edges
+    // Step 1: advance positions, wrap at edges of the chevron bbox.
+    // Wrapping at the chevron bbox (not the full canvas) keeps node
+    // population concentrated where the clip will let it render.
     for (const n of nodes) {
       n.x += n.vx;
       n.y += n.vy;
-      if (n.x < -10) n.x = width + 10;
-      else if (n.x > width + 10) n.x = -10;
+      if (n.x < -10) n.x = chevronWidth + 10;
+      else if (n.x > chevronWidth + 10) n.x = -10;
       if (n.y < -10) n.y = height + 10;
       else if (n.y > height + 10) n.y = -10;
     }
 
-    // Step 2: links — draw lines between any two nodes within range,
-    // with opacity falling off with distance. Done before nodes so the
-    // dots sit on top of the web rather than getting cut by it.
+    // Step 2: clip to chevron silhouette, then draw network. save/restore
+    // so the clip doesn't persist into the next frame.
+    ctx.save();
+    ctx.clip(buildChevronClip());
+
+    // Lines first so node dots sit on top.
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
         const a = nodes[i], b = nodes[j];
@@ -2945,7 +2994,6 @@ function mountLoginCanvas(host) {
         const distSq = dx * dx + dy * dy;
         if (distSq > LINK_DIST_SQ) continue;
         const dist = Math.sqrt(distSq);
-        // 0 at LINK_DIST, ~0.22 at zero distance — quiet web
         const alpha = (1 - dist / LINK_DIST) * 0.22;
         ctx.strokeStyle = `rgba(${LINE_RGB}, ${alpha})`;
         ctx.lineWidth = 1;
@@ -2956,14 +3004,9 @@ function mountLoginCanvas(host) {
       }
     }
 
-    // Step 3: nodes. Default nodes are static-radius soft points.
-    // Accent nodes get a sine-pulsing inner dot plus a faint outer
-    // ring at lower opacity, giving a slow heartbeat without
-    // overpowering the wordmark.
     for (const n of nodes) {
       if (n.accent) {
         const t = ((elapsed + n.phase) % PULSE_PERIOD) / PULSE_PERIOD;
-        // 0.45 → 1.0 → 0.45 over the cycle
         const pulse = 0.45 + 0.55 * (0.5 - 0.5 * Math.cos(t * Math.PI * 2));
         ctx.fillStyle = `rgba(${ACCENT_RGB}, ${0.55 * pulse + 0.25})`;
         ctx.beginPath();
@@ -2982,6 +3025,7 @@ function mountLoginCanvas(host) {
       }
     }
 
+    ctx.restore();
     rafId = requestAnimationFrame(draw);
   }
 
@@ -3043,6 +3087,11 @@ function loginLeft() {
   // SVG anchored top-left of the shell, height 100% of viewport, width
   // auto — preserves the icon's geometry crisp at any aspect ratio.
   // <svg> requires the XML namespace, hence createElementNS.
+  //
+  // Network animation canvas mounts onto the shell as a sibling, sized
+  // to the full shell. The canvas's draw loop clips to the chevron
+  // polygons each frame so the network only renders inside the icon
+  // silhouette — see mountLoginCanvas.
   const NS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(NS, 'svg');
   svg.setAttribute('class', 'login-chevron');
@@ -3062,6 +3111,15 @@ function loginLeft() {
     poly.setAttribute('fill', p.fill);
     svg.appendChild(poly);
   }
+
+  // Defer canvas mount so the SVG (and its parent shell) are in the
+  // DOM with a measurable bounding rect before the canvas tries to
+  // size itself. parentElement at this point is the login-shell.
+  queueMicrotask(() => {
+    const shell = svg.parentElement;
+    if (shell) mountLoginCanvas(shell);
+  });
+
   return svg;
 }
 
@@ -3109,12 +3167,7 @@ function loginRight() {
         form.loading ? 'Signing in' : 'Sign in'));
     card.appendChild(fEl);
 
-    if (state.env === 'test') {
-      card.appendChild(el('div', { className: 'login-hint' },
-        el('strong', { style: { color: 'var(--ink)' } }, 'Test environment'),
-        el('div', { style: { marginTop: '8px' } },
-          'Any email works. The portal uses a shared API token for this container.')));
-    } else if (state.env === 'mock') {
+    if (state.env === 'mock') {
       card.appendChild(el('div', { className: 'login-hint' },
         el('strong', { style: { color: 'var(--ink)' } }, 'Demo accounts'),
         el('div', { style: { marginTop: '8px' } },
@@ -3136,7 +3189,7 @@ function loginRight() {
 // APP SHELL
 // ═════════════════════════════════════════════════════════════════
 function appShell() {
-  return el('div', {}, envBanner(),
+  return el('div', {},
     el('div', { className: 'app' }, sidebar(),
       el('main', { className: 'main' }, viewRouter())));
 }
