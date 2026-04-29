@@ -7812,7 +7812,7 @@ async function processDocuments(files) {
 // extracted data, stashes the extracted-field key set on global state
 // for the submission detail page to render highlights, and routes.
 async function createSubmissionAndContinue(form, rerender, extracted) {
-  form.creating = true; rerender();
+  form.creating = true; form.extractError = null; rerender();
   try {
     const res = await api('/api/submissions/start', {
       method: 'POST',
@@ -7845,7 +7845,16 @@ async function createSubmissionAndContinue(form, rerender, extracted) {
     state.view = 'submissions'; state.subView = res.submission_id;
     loadSubmission(res.submission_id);
   } catch (e) {
+    // Surface the error inline rather than relying on the corner toast,
+    // which is easy to miss. Detect the auth-blocker case (kill switch
+    // on create_policy / create_transaction) and explain it clearly so
+    // the broker doesn't think they did something wrong.
+    const msg = (e && e.message) || 'Submission creation failed.';
+    const isKillSwitch = msg.includes('not_ready') || msg.includes('not ready') || msg.includes('create_policy') || msg.includes('create_transaction');
     form.creating = false;
+    form.extractError = isKillSwitch
+      ? 'Submission creation is currently disabled in this environment pending an authentication update from Joshu. The upload flow is wired up — once auth is resolved, this will create the submission and route you to the application form. For now, no submission was created.'
+      : `Could not create submission: ${msg}`;
     rerender();
   }
 }
