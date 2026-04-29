@@ -152,7 +152,7 @@
       radial-gradient(circle at 85% 85%, rgba(103,151,238,0.10), transparent 55%);
     color: #fff;
     padding: 64px 72px;
-    display: flex; flex-direction: column; justify-content: space-between;
+    display: flex; flex-direction: column; justify-content: center;
   }
   .login-brand-wordmark { display: flex; flex-direction: column; gap: 8px; }
   .login-brand-wordmark img { max-width: 220px; }
@@ -2856,21 +2856,15 @@ function loginView() {
 }
 
 function loginLeft() {
+  // Calm branded panel — wordmark + "Broker Portal" subtitle, nothing
+  // else. The form on the right is the real content; this panel just
+  // confirms "you're in the right place." Marketing copy belongs on
+  // altruisgroup.com, not on a login screen the broker has already
+  // chosen to visit.
   return el('div', { className: 'login-left' },
     el('div', { className: 'login-brand-wordmark' },
       brandWordmark('white', 46),
-      el('div', { className: 'login-brand-sub' }, 'Broker Portal')),
-    el('div', { className: 'login-hero' },
-      el('div', { className: 'eyebrow on-dark' }, 'Specialty Insurance MGA'),
-      el('h1', {}, 'Insurance value, unlocked by ',
-        el('span', { className: 'accent' }, 'technology'),
-        ' and ', el('span', { className: 'accent' }, 'human'), ' expertise.'),
-      el('p', {},
-        'Altruis Group builds specialized insurance programs that treat policies as assets — not annual expenses. Submit, quote, and bind at the speed your book deserves.')),
-    el('div', { className: 'login-footnote' },
-      el('span', {}, 'A-rated carrier partners'),
-      el('span', {}, '48-state footprint'),
-      el('span', {}, '<48hr average turnaround')));
+      el('div', { className: 'login-brand-sub' }, 'Broker Portal')));
 }
 
 function loginRight() {
