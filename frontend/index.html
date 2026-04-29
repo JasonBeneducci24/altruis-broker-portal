@@ -144,24 +144,27 @@
      LOGIN
      ═════════════════════════════════════════════════════════════════ */
   .login-wrap { min-height: 100vh; display: flex; flex-direction: column; }
-  .login-shell { flex: 1; display: grid; grid-template-columns: 1.1fr 1fr; background: var(--paper); }
+  .login-shell { flex: 1; position: relative; background: var(--paper); }
   .login-left {
-    position: relative; overflow: hidden;
+    position: absolute; inset: 0;
+    overflow: hidden;
     background: var(--blue);
     background-image:
       radial-gradient(circle at 20% 30%, rgba(255,255,255,0.10), transparent 55%),
       radial-gradient(circle at 85% 85%, rgba(14,27,54,0.12), transparent 55%);
     color: #fff;
-    padding: 64px;
-    display: flex; align-items: center; justify-content: center;
+    clip-path: polygon(0 0, 38% 0, 62% 100%, 0 100%);
   }
   .login-canvas {
     position: absolute; inset: 0; width: 100%; height: 100%;
     display: block; pointer-events: none;
   }
-  .login-mark {
+  .login-right {
     position: relative; z-index: 1;
-    width: 200px; height: auto; display: block;
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    padding: 48px 64px 48px 0;
+    margin-left: 62%;
   }
   .login-hero { max-width: 460px; margin-top: auto; }
   .login-hero h1 {
@@ -177,10 +180,6 @@
   .login-footnote span { display: inline-flex; align-items: center; gap: 6px; }
   .login-footnote span::before {
     content: ''; width: 4px; height: 4px; border-radius: 50%; background: var(--blue);
-  }
-  .login-right {
-    display: flex; align-items: center; justify-content: center;
-    padding: 48px; background: var(--paper);
   }
   .login-card { max-width: 400px; width: 100%; }
   .login-card h2 { font-size: 1.75rem; margin-bottom: 6px; }
@@ -224,8 +223,8 @@
     padding: 2px 7px; border-radius: 4px; font-size: 0.85em; color: var(--ink);
   }
   @media (max-width: 900px) {
-    .login-shell { grid-template-columns: 1fr; }
-    .login-left { padding: 40px; }
+    .login-left { position: relative; clip-path: none; height: 200px; inset: auto; }
+    .login-right { margin-left: 0; padding: 32px; min-height: 0; }
   }
 
   /* ═════════════════════════════════════════════════════════════════
@@ -3038,20 +3037,12 @@ function mountLoginCanvas(host) {
 }
 
 function loginLeft() {
-  // Single brand mark, centered both axes against the network
-  // backdrop. The form on the right does all the actual labeling
-  // ("Sign in to your portal"), so this side just needs to plant a
-  // confident flag — no wordmark, no subtitle, no copy. The mark on
-  // var(--blue) reads as a hollow chevron because the inner duo-tone
-  // shapes share the panel color; intentional.
-  const mark = document.createElement('img');
-  mark.src = '/assets/altruis-mark-white.svg';
-  mark.alt = 'Altruis Group';
-  mark.className = 'login-mark';
-
-  const left = el('div', { className: 'login-left' }, mark);
-  // Defer mount so the panel has a measurable bounding rect before
-  // the canvas tries to size itself.
+  // Wedge-shaped panel with a diagonal right edge that mirrors the
+  // right stroke of the Altruis chevron mark. The shape itself is the
+  // brand statement — no mark inside, no wordmark, no copy. The
+  // network animation continues inside the wedge as atmospheric
+  // texture. Form on the right pane handles all labeling.
+  const left = el('div', { className: 'login-left' });
   queueMicrotask(() => mountLoginCanvas(left));
   return left;
 }
