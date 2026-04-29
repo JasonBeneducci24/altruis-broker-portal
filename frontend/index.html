@@ -8072,19 +8072,19 @@ function documentsView() {
 // NEW SUBMISSION
 // ═════════════════════════════════════════════════════════════════
 function newSubmissionView() {
-  // Three-step flow:
+  // Two-step flow:
   //   step 1: pick_product — cards, one per product
-  //   step 2: confirm — set effective date, confirm product
-  //   step 3: upload — drag-and-drop documents, process via external API,
+  //   step 2: upload — drag-and-drop documents, process via external API,
   //                    receive structured JSON to pre-populate the submission.
   //                    Skippable — brokers without source documents can
   //                    proceed to a blank application.
-  // After step 3 (whether documents were processed or skipped), we POST to
+  //
+  // After step 2 (whether documents were processed or skipped), we POST to
   // /api/submissions/start, then patch the submission's data with anything
-  // we extracted, then route to the submission detail page where the
-  // broker fills in the rest. Extracted-field keys are stashed in
-  // state.extractedFields so the submission detail page can render them
-  // with a visual highlight (broker-verifiable auto-fill).
+  // we extracted, then route to the submission detail page where the broker
+  // fills in the rest — including effective date as a regular field in the
+  // application form. Extracted-field keys are stashed in state.extractedFields
+  // so the submission detail page can render them with a visual highlight.
   //
   // External processing API is not yet wired. The processDocuments() stub
   // simulates a 1.5s round-trip and returns an empty extracted-data object,
@@ -8095,9 +8095,12 @@ function newSubmissionView() {
     products: null,
     productsError: null,
     selectedProduct: null,
+    // Default effective date is 7 days out — broker can override on the
+    // application form. Held here only so the seed/Joshu submissions/start
+    // call has a value to send; not exposed as a separate confirm-step UI.
     effective_date: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
     creating: false,
-    // Step 3 (upload) state
+    // Upload step state
     files: [],                    // [{ id, file: File, name, size, status }]
     processing: false,            // true while external API is "thinking"
     extractedData: null,          // null = not yet processed; {} = processed with no extractions; {key: value, ...} = processed with extractions
@@ -8110,10 +8113,10 @@ function newSubmissionView() {
   api('/api/products')
     .then(res => {
       form.products = res.items || [];
-      // If only one product is configured, auto-advance to step 2.
+      // If only one product is configured, auto-advance to upload step.
       if (form.products.length === 1) {
         form.selectedProduct = form.products[0];
-        form.step = 'confirm';
+        form.step = 'upload';
       }
       rerender();
     })
@@ -8127,7 +8130,6 @@ function newSubmissionView() {
     container.innerHTML = '';
     const stepTitle = {
       pick_product: 'Choose a product',
-      confirm: 'Confirm submission',
       upload: 'Upload supporting documents',
     }[form.step] || 'New submission';
     container.appendChild(
@@ -8140,8 +8142,6 @@ function newSubmissionView() {
 
     if (form.step === 'pick_product') {
       container.appendChild(renderProductPicker(form, rerender));
-    } else if (form.step === 'confirm') {
-      container.appendChild(renderConfirmStep(form, rerender));
     } else if (form.step === 'upload') {
       container.appendChild(renderUploadStep(form, rerender));
     }
@@ -8177,7 +8177,7 @@ function renderProductPicker(form, rerender) {
         className: `product-card ${form.selectedProduct?.id === p.id ? 'selected' : ''}`,
         onClick: () => {
           form.selectedProduct = p;
-          form.step = 'confirm';
+          form.step = 'upload';
           rerender();
         },
       },
@@ -8188,31 +8188,6 @@ function renderProductPicker(form, rerender) {
             ? el('div', { className: 'product-card-version' }, `Version ${p.version_label}`)
             : null),
         el('div', { className: 'product-card-arrow' }, '\u2192')))));
-}
-
-function renderConfirmStep(form, rerender) {
-  return el('div', { className: 'card' },
-    // Selected product summary at top with a "Change" link
-    el('div', { className: 'confirm-product-row' },
-      el('div', { className: 'confirm-product-label' }, 'PRODUCT'),
-      el('div', { className: 'confirm-product-value' }, form.selectedProduct.display_name),
-      el('button', {
-        className: 'btn-link',
-        onClick: () => { form.step = 'pick_product'; rerender(); },
-      }, 'Change')),
-    el('p', { className: 'subtle', style: { marginTop: '20px' } },
-      'Set a requested effective date. Next, you\u2019ll have a chance to upload supporting documents to pre-populate the application — or skip and start with a blank form.'),
-    el('div', { className: 'form-grid', style: { marginTop: '24px', maxWidth: '320px' } },
-      el('div', { className: 'form-field' },
-        el('label', {}, 'Requested effective date'),
-        el('input', { type: 'date', value: form.effective_date,
-          onInput: (e) => { form.effective_date = e.target.value; } }))),
-    el('div', { style: { marginTop: '28px', display: 'flex', justifyContent: 'flex-end', gap: '12px' } },
-      el('button', { className: 'btn btn-secondary',
-        onClick: () => { state.view = 'dashboard'; render(); loadView(); } }, 'Cancel'),
-      el('button', { className: 'btn btn-primary',
-        onClick: () => { form.step = 'upload'; rerender(); } },
-        'Continue')));
 }
 
 // ─── Upload / extraction step ──────────────────────────────────────
@@ -8253,17 +8228,16 @@ function renderUploadStep(form, rerender) {
   };
 
   return el('div', {},
-    // Selected product + effective date summary at top — broker can confirm
-    // they're still on the right track before committing to file processing.
+    // Selected product summary at top — broker can change product if they
+    // realize they picked the wrong one. Effective date is no longer set
+    // here; it's a regular field on the application form (under Policy
+    // details), pre-filled with a default 7 days out.
     el('div', { className: 'card', style: { marginBottom: '20px' } },
       el('div', { className: 'confirm-product-row' },
         el('div', { className: 'confirm-product-label' }, 'PRODUCT'),
         el('div', { className: 'confirm-product-value' }, form.selectedProduct.display_name),
         el('button', { className: 'btn-link',
-          onClick: () => { form.step = 'confirm'; rerender(); } }, 'Change')),
-      el('div', { className: 'confirm-product-row', style: { marginTop: '8px' } },
-        el('div', { className: 'confirm-product-label' }, 'EFFECTIVE'),
-        el('div', { className: 'confirm-product-value' }, fmtDate(form.effective_date)))),
+          onClick: () => { form.step = 'pick_product'; rerender(); } }, 'Change'))),
 
     el('div', { className: 'card' },
       el('p', { className: 'subtle' },
