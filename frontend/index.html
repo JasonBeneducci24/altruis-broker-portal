@@ -4133,6 +4133,9 @@ function seedFormSchemaForSubmission(submission) {
         value: v(def.code),
         options: opts || null,
         decimal_places: def.decimal_places,
+        widget: def.widget,
+        help_text: def.help_text,
+        format: def.format,
         validation_error: null,
       });
       if (fieldVisible) {
@@ -4182,6 +4185,9 @@ function seedFormSchemaForSubmission(submission) {
           value: entry[def.code] !== undefined ? entry[def.code] : null,
           options: opts || null,
           decimal_places: def.decimal_places,
+          widget: def.widget,
+          help_text: def.help_text,
+          format: def.format,
           validation_error: null,
         });
         if (condMet) {
