@@ -2825,6 +2825,28 @@ function toast(msg, kind = '') {
 
 async function api(path, opts = {}) {
   const { method = 'GET', body, silent = false } = opts;
+
+  // Seed-mode interception. Any path that the seed layer handles is
+  // routed there instead of hitting the real backend. Auth and config
+  // pass through unchanged. To wire real Joshu calls back in: remove
+  // this block.
+  if (seedHandlesPath(path)) {
+    try {
+      const result = await seedApi(path, opts);
+      if (result !== null) return result;
+      // null = seed didn't handle this specific path/method; fall
+      // through to real fetch as a safety net.
+    } catch (e) {
+      if (e.message === 'seed:ephemeral') {
+        // Special signal: caller should treat this as a no-op success.
+        // Re-throw so the caller can branch on it.
+        throw e;
+      }
+      if (!silent) toast(e.message || 'Seed API error', 'err');
+      throw e;
+    }
+  }
+
   const init = { method, credentials: 'include', headers: { 'Content-Type': 'application/json' } };
   if (body !== undefined) init.body = JSON.stringify(body);
   const res = await fetch(path, init);
@@ -2931,6 +2953,559 @@ function unwrapForInput(v) {
 // ═════════════════════════════════════════════════════════════════
 // APP STATE
 // ═════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════
+// SEED DATA MODE
+// ═════════════════════════════════════════════════════════════════
+// All API calls are intercepted client-side and routed against an
+// in-memory dataset that's persisted to localStorage. No requests go
+// to Joshu. This lets us iterate on UX, flow, and edit/bind functionality
+// without depending on auth resolution or kill-switch state.
+//
+// When the real Joshu integration is ready, remove the api() interception
+// (the switch block at the top of api()) and the rest of the portal
+// resumes hitting the backend normally. The seed module itself can stay
+// in place for local dev or be deleted.
+//
+// Auth and config still call the real backend — login still works.
+
+const SEED_STORAGE_KEY = 'altruis_seed_v1';
+
+// Seed bootstrap. Hardcoded base data. Persisted snapshot in localStorage
+// supersedes this on subsequent loads so edits survive page reloads.
+const SEED_BASE = (() => {
+  const today = new Date();
+  const daysFromNow = (n) => {
+    const d = new Date(today); d.setDate(today.getDate() + n);
+    return d.toISOString();
+  };
+  const daysAgo = (n) => daysFromNow(-n);
+
+  return {
+    products: [
+      { id: 1, name: 'self_storage_commercial',
+        display_name: 'Self Storage \u2014 Commercial Package',
+        product_version_id: 101, version_label: '2026.1' },
+      { id: 2, name: 'general_liability',
+        display_name: 'General Liability',
+        product_version_id: 102, version_label: '2026.1' },
+      { id: 3, name: 'excess_liability',
+        display_name: 'Excess Liability',
+        product_version_id: 103, version_label: '2026.1' },
+      { id: 4, name: 'iso_self_storage',
+        display_name: 'ISO Self Storage',
+        product_version_id: 104, version_label: '2026.1' },
+    ],
+
+    submissions: [
+      // Draft \u2014 mid-application, broker stopped halfway
+      {
+        id: 1001, unique_id: 'SUB-2026-1001',
+        product_version_id: 101, user_id: 1,
+        created_at: daysAgo(2), modified_at: daysAgo(1),
+        status: 'Incomplete', flow: 'New',
+        effective_at: daysFromNow(28),
+        insured_name: 'Acme Self Storage',
+        data: {
+          'insured.name': 'Acme Self Storage',
+          'insured.address': '4400 Forest Hill Blvd, West Palm Beach, FL 33415',
+          'policy.effective_date': daysFromNow(28).slice(0, 10),
+          'litem.property.locations': 12,
+        },
+      },
+
+      // Submitted \u2014 awaiting underwriter
+      {
+        id: 1002, unique_id: 'SUB-2026-1002',
+        product_version_id: 101, user_id: 1,
+        created_at: daysAgo(8), submitted_at: daysAgo(6), modified_at: daysAgo(6),
+        status: 'Submitted', flow: 'New',
+        effective_at: daysFromNow(35),
+        insured_name: 'Riverside Storage Group',
+        data: {
+          'insured.name': 'Riverside Storage Group',
+          'insured.address': '2100 NW 13th St, Gainesville, FL 32609',
+          'policy.effective_date': daysFromNow(35).slice(0, 10),
+          'litem.property.locations': 8,
+          'litem.property.tiv': 14200000,
+        },
+      },
+
+      // Quoted \u2014 multiple variations exist
+      {
+        id: 1003, unique_id: 'SUB-2026-1003',
+        product_version_id: 101, user_id: 1,
+        created_at: daysAgo(14), submitted_at: daysAgo(12), modified_at: daysAgo(2),
+        status: 'Pending', flow: 'New',
+        effective_at: daysFromNow(21),
+        insured_name: 'Sunshine Self Storage',
+        data: {
+          'insured.name': 'Sunshine Self Storage',
+          'insured.address': '8500 SW 56th Ave, Miami, FL 33143',
+          'policy.effective_date': daysFromNow(21).slice(0, 10),
+          'litem.property.locations': 21,
+          'litem.property.tiv': 38500000,
+          'litem.property.building_ded': 5000,
+          'litem.general_liability.limits': '$1,000,000 / $2,000,000 / $2,000,000',
+          'litem.general_liability.sdll': 100000,
+          'litem.general_liability.cgll': 100000,
+        },
+      },
+
+      // Bound \u2014 has an in-force policy
+      {
+        id: 1004, unique_id: 'SUB-2026-1004',
+        product_version_id: 101, user_id: 1,
+        created_at: daysAgo(45), submitted_at: daysAgo(42),
+        modified_at: daysAgo(30), bound_at: daysAgo(30),
+        status: 'Submitted', flow: 'New',
+        effective_at: daysAgo(28),
+        insured_name: 'Mountain View Storage',
+        policy_id: 'pol-2001',
+        data: {
+          'insured.name': 'Mountain View Storage',
+          'insured.address': '650 Powerline Rd, Pompano Beach, FL 33069',
+          'policy.effective_date': daysAgo(28).slice(0, 10),
+          'litem.property.locations': 5,
+          'litem.property.tiv': 8900000,
+          'litem.property.building_ded': 2500,
+          'litem.general_liability.limits': '$1,000,000 / $2,000,000 / $2,000,000',
+          'litem.general_liability.sdll': 50000,
+          'litem.general_liability.cgll': 50000,
+        },
+      },
+
+      // Declined \u2014 carrier said no (proximity to coast)
+      {
+        id: 1005, unique_id: 'SUB-2026-1005',
+        product_version_id: 101, user_id: 1,
+        created_at: daysAgo(20), submitted_at: daysAgo(18),
+        modified_at: daysAgo(15), declined_at: daysAgo(15),
+        status: 'Declined', flow: 'New',
+        effective_at: daysFromNow(10),
+        insured_name: 'Coastal Self Storage',
+        decline_reason: 'Property within 1 mile of coastline \u2014 outside underwriting appetite for current wind season.',
+        data: {
+          'insured.name': 'Coastal Self Storage',
+          'insured.address': '305 Ocean Dr, Vero Beach, FL 32963',
+          'policy.effective_date': daysFromNow(10).slice(0, 10),
+          'litem.property.locations': 2,
+        },
+      },
+
+      // Lost \u2014 broker walked
+      {
+        id: 1006, unique_id: 'SUB-2026-1006',
+        product_version_id: 101, user_id: 1,
+        created_at: daysAgo(50), submitted_at: daysAgo(48),
+        modified_at: daysAgo(35),
+        status: 'Submitted', flow: 'New',
+        effective_at: daysAgo(20),
+        insured_name: 'Capitol Self Storage',
+        additional_details: 'Broker reported insured chose competitor.',
+        data: {
+          'insured.name': 'Capitol Self Storage',
+          'insured.address': '1200 Capital Cir SE, Tallahassee, FL 32301',
+          'policy.effective_date': daysAgo(20).slice(0, 10),
+          'litem.property.locations': 15,
+          'litem.property.tiv': 22000000,
+        },
+      },
+    ],
+
+    quotes: [
+      // Sunshine Self Storage \u2014 3 variations
+      { id: 5001, submission_id: 1003, user_id: 1,
+        created_at: daysAgo(10), modified_at: daysAgo(10),
+        quote_expires_at: daysFromNow(20),
+        status: 'QuotePublished',
+        data: {
+          property_premium: 32400, gl_premium: 12800, eb_premium: 1100,
+          tria_premium: 850, total_premium: 47150,
+          total_taxes: 2358, total_fees: 250, total_invoice: 49758,
+          'litem.property.building_ded': 5000,
+          'litem.general_liability.limits': '$1,000,000 / $2,000,000 / $2,000,000',
+          'litem.general_liability.sdll': 100000,
+          'litem.general_liability.cgll': 100000,
+        },
+      },
+      { id: 5002, submission_id: 1003, user_id: 1,
+        created_at: daysAgo(7), modified_at: daysAgo(7),
+        quote_expires_at: daysFromNow(23),
+        status: 'QuotePublished',
+        data: {
+          property_premium: 32400, gl_premium: 16100, eb_premium: 1100,
+          tria_premium: 950, total_premium: 50550,
+          total_taxes: 2528, total_fees: 250, total_invoice: 53328,
+          'litem.property.building_ded': 5000,
+          'litem.general_liability.limits': '$2,000,000 / $4,000,000 / $4,000,000',
+          'litem.general_liability.sdll': 100000,
+          'litem.general_liability.cgll': 100000,
+        },
+      },
+      { id: 5003, submission_id: 1003, user_id: 1,
+        created_at: daysAgo(2), modified_at: daysAgo(2),
+        quote_expires_at: daysFromNow(28),
+        status: 'QuotePublished',
+        data: {
+          property_premium: 28900, gl_premium: 12800, eb_premium: 1100,
+          tria_premium: 800, total_premium: 43600,
+          total_taxes: 2180, total_fees: 250, total_invoice: 46030,
+          'litem.property.building_ded': 10000,
+          'litem.general_liability.limits': '$1,000,000 / $2,000,000 / $2,000,000',
+          'litem.general_liability.sdll': 100000,
+          'litem.general_liability.cgll': 100000,
+        },
+      },
+      // Mountain View Storage \u2014 1 quote, bound
+      { id: 5004, submission_id: 1004, user_id: 1,
+        created_at: daysAgo(35), modified_at: daysAgo(30),
+        quote_expires_at: daysAgo(15),
+        status: 'CoverageActive',
+        data: {
+          property_premium: 18200, gl_premium: 8900, eb_premium: 850,
+          tria_premium: 580, total_premium: 28530,
+          total_taxes: 1426, total_fees: 250, total_invoice: 30206,
+          'litem.property.building_ded': 2500,
+          'litem.general_liability.limits': '$1,000,000 / $2,000,000 / $2,000,000',
+          'litem.general_liability.sdll': 50000,
+          'litem.general_liability.cgll': 50000,
+        },
+      },
+      // Riverside \u2014 quoted but not bound, single quote
+      { id: 5005, submission_id: 1002, user_id: 1,
+        created_at: daysAgo(4), modified_at: daysAgo(4),
+        quote_expires_at: daysFromNow(26),
+        status: 'QuotePublished',
+        data: {
+          property_premium: 24500, gl_premium: 10800, eb_premium: 950,
+          tria_premium: 720, total_premium: 36970,
+          total_taxes: 1848, total_fees: 250, total_invoice: 39068,
+          'litem.property.building_ded': 5000,
+          'litem.general_liability.limits': '$1,000,000 / $2,000,000 / $2,000,000',
+          'litem.general_liability.sdll': 50000,
+          'litem.general_liability.cgll': 50000,
+        },
+      },
+    ],
+
+    policies: [
+      { id: 'pol-2001', user_id: 1, insured_name: 'Mountain View Storage',
+        status: 'Active', product_version_id: 101,
+        product_name: 'Self Storage \u2014 Commercial Package',
+        effective_date: daysAgo(28), renews_at: daysFromNow(337),
+        last_modified: daysAgo(30), created_at: daysAgo(45) },
+      { id: 'pol-2002', user_id: 1, insured_name: 'Pelican Bay Storage',
+        status: 'Active', product_version_id: 101,
+        product_name: 'Self Storage \u2014 Commercial Package',
+        effective_date: daysAgo(120), renews_at: daysFromNow(245),
+        last_modified: daysAgo(120), created_at: daysAgo(140) },
+      { id: 'pol-2003', user_id: 1, insured_name: 'Magnolia Storage Partners',
+        status: 'Active', product_version_id: 101,
+        product_name: 'Self Storage \u2014 Commercial Package',
+        effective_date: daysAgo(60), renews_at: daysFromNow(305),
+        last_modified: daysAgo(60), created_at: daysAgo(75) },
+    ],
+
+    documents: [],
+  };
+})();
+
+// Form schema generator. The submission detail page needs a structured
+// schema to render the application form. For seed mode, we generate a
+// product-flavored schema based on the submission's product_version_id
+// and seed in the data values from the submission record.
+//
+// Schema shape mirrors what /api/submissions/{id}/form returns from
+// Joshu (sections + fields), simplified to ~15 fields total. Enough
+// to exercise the edit/save flow without reproducing the full Joshu
+// application.
+function seedFormSchemaForSubmission(submission) {
+  const data = submission.data || {};
+  const v = (k, dflt) => data[k] !== undefined ? data[k] : (dflt ?? null);
+  const fields = [
+    { code: 'insured.name', label: 'Insured name', type: 'text',
+      value: v('insured.name'), required: true },
+    { code: 'insured.address', label: 'Mailing address', type: 'text',
+      value: v('insured.address'), required: true },
+    { code: 'insured.contact_name', label: 'Primary contact', type: 'text',
+      value: v('insured.contact_name'), required: false },
+    { code: 'insured.contact_email', label: 'Contact email', type: 'text',
+      value: v('insured.contact_email'), required: false },
+    { code: 'policy.effective_date', label: 'Effective date', type: 'date',
+      value: v('policy.effective_date'), required: true },
+    { code: 'litem.property.locations', label: 'Number of locations',
+      type: 'number', value: v('litem.property.locations'),
+      required: true, decimal_places: 0 },
+    { code: 'litem.property.tiv', label: 'Total insured value',
+      type: 'monetary', value: v('litem.property.tiv'),
+      required: true, decimal_places: 0 },
+    { code: 'litem.property.year_built_avg', label: 'Average year built',
+      type: 'number', value: v('litem.property.year_built_avg'),
+      required: false, decimal_places: 0 },
+    { code: 'litem.property.sprinklered', label: 'Sprinklered',
+      type: 'boolean', value: v('litem.property.sprinklered'),
+      required: false },
+    { code: 'litem.property.building_ded', label: 'Property deductible',
+      type: 'number', value: v('litem.property.building_ded'),
+      required: true,
+      options: [
+        { value: 1000, display: '$1,000' },
+        { value: 2500, display: '$2,500' },
+        { value: 5000, display: '$5,000' },
+        { value: 10000, display: '$10,000' },
+        { value: 25000, display: '$25,000' },
+        { value: 50000, display: '$50,000' },
+        { value: 75000, display: '$75,000' },
+      ] },
+    { code: 'litem.general_liability.limits', label: 'GL limits',
+      type: 'text', value: v('litem.general_liability.limits'),
+      required: true,
+      options: [
+        { value: '$1,000,000 / $2,000,000 / $2,000,000', display: '1M / 2M / 2M' },
+        { value: '$2,000,000 / $4,000,000 / $4,000,000', display: '2M / 4M / 4M' },
+      ] },
+    { code: 'litem.general_liability.sdll', label: 'SDLL coverage limit',
+      type: 'monetary', value: v('litem.general_liability.sdll'),
+      required: false, decimal_places: 0 },
+    { code: 'litem.general_liability.cgll', label: 'CGLL coverage limit',
+      type: 'monetary', value: v('litem.general_liability.cgll'),
+      required: false, decimal_places: 0 },
+    { code: 'litem.claims.last_5_years', label: 'Claims in last 5 years',
+      type: 'number', value: v('litem.claims.last_5_years'),
+      required: false, decimal_places: 0 },
+    { code: 'litem.claims.total_paid', label: 'Total paid claims',
+      type: 'monetary', value: v('litem.claims.total_paid'),
+      required: false, decimal_places: 0 },
+  ];
+
+  const sections = [
+    { code: 'insured', name: 'Insured information',
+      fields: fields.filter(f => f.code.startsWith('insured.')) },
+    { code: 'policy', name: 'Policy details',
+      fields: fields.filter(f => f.code.startsWith('policy.')) },
+    { code: 'property', name: 'Property',
+      fields: fields.filter(f => f.code.startsWith('litem.property.')) },
+    { code: 'liability', name: 'Liability coverage',
+      fields: fields.filter(f => f.code.startsWith('litem.general_liability.')) },
+    { code: 'claims', name: 'Claims history',
+      fields: fields.filter(f => f.code.startsWith('litem.claims.')) },
+  ].map(s => ({ ...s, visible_count: s.fields.length }));
+
+  return { fields, sections };
+}
+
+// localStorage-backed mutable seed state. Loaded on first access; written
+// back on every mutation. Reset by clearing localStorage or calling
+// resetSeedDb().
+let _seedDb = null;
+function seedDb() {
+  if (_seedDb) return _seedDb;
+  try {
+    const stored = localStorage.getItem(SEED_STORAGE_KEY);
+    if (stored) {
+      _seedDb = JSON.parse(stored);
+      return _seedDb;
+    }
+  } catch (e) { /* fall through to fresh */ }
+  _seedDb = JSON.parse(JSON.stringify(SEED_BASE));
+  saveSeedDb();
+  return _seedDb;
+}
+function saveSeedDb() {
+  try {
+    localStorage.setItem(SEED_STORAGE_KEY, JSON.stringify(_seedDb));
+  } catch (e) { console.warn('seedDb persist failed', e); }
+}
+function resetSeedDb() {
+  _seedDb = JSON.parse(JSON.stringify(SEED_BASE));
+  saveSeedDb();
+}
+window.resetSeedDb = resetSeedDb;  // expose for console reset
+
+// API interception. Routes any path matching the seed-handled prefixes
+// to seedApi(). Auth and config still hit the real backend.
+async function seedApi(path, opts = {}) {
+  const { method = 'GET', body } = opts;
+  const db = seedDb();
+  // Tiny artificial latency so loading states render visibly. 80ms is
+  // enough to see a flash of the spinner without feeling sluggish.
+  await new Promise(r => setTimeout(r, 80));
+
+  const url = new URL(path, window.location.origin);
+  const p = url.pathname;
+  const q = url.searchParams;
+
+  // Submissions
+  if (p === '/api/submissions' && method === 'GET') {
+    const items = db.submissions.slice().sort((a, b) =>
+      new Date(b.modified_at || b.created_at) - new Date(a.modified_at || a.created_at));
+    return { items, total: items.length, page: 1, per_page: items.length };
+  }
+  let m = p.match(/^\/api\/submissions\/(\d+)$/);
+  if (m && method === 'GET') {
+    const sub = db.submissions.find(s => String(s.id) === m[1]);
+    if (!sub) throw new Error('Submission not found');
+    return sub;
+  }
+  m = p.match(/^\/api\/submissions\/(\d+)\/form$/);
+  if (m && method === 'GET') {
+    const sub = db.submissions.find(s => String(s.id) === m[1]);
+    if (!sub) throw new Error('Submission not found');
+    return seedFormSchemaForSubmission(sub);
+  }
+  m = p.match(/^\/api\/submissions\/(\d+)\/data$/);
+  if (m && method === 'PUT') {
+    const sub = db.submissions.find(s => String(s.id) === m[1]);
+    if (!sub) throw new Error('Submission not found');
+    // Body is a flat {code: value} dict (matching the real backend's
+    // PUT /submissions/{id}/data shape). Merge directly into sub.data.
+    sub.data = { ...(sub.data || {}), ...(body || {}) };
+    sub.modified_at = new Date().toISOString();
+    if (body && body['insured.name']) sub.insured_name = body['insured.name'];
+    saveSeedDb();
+    return { data: sub.data };
+  }
+  m = p.match(/^\/api\/submissions\/(\d+)\/submit$/);
+  if (m && method === 'POST') {
+    const sub = db.submissions.find(s => String(s.id) === m[1]);
+    if (!sub) throw new Error('Submission not found');
+    sub.status = 'Submitted';
+    sub.submitted_at = new Date().toISOString();
+    sub.modified_at = sub.submitted_at;
+    saveSeedDb();
+    return sub;
+  }
+  m = p.match(/^\/api\/submissions\/(\d+)\/reopen$/);
+  if (m && method === 'POST') {
+    const sub = db.submissions.find(s => String(s.id) === m[1]);
+    if (!sub) throw new Error('Submission not found');
+    sub.status = 'Incomplete';
+    sub.modified_at = new Date().toISOString();
+    saveSeedDb();
+    return sub;
+  }
+  if (p === '/api/submissions/start' && method === 'POST') {
+    // Ephemeral: do NOT persist a new submission. Return a faux response
+    // shape but the new-submission flow knows to treat this as a demo.
+    // Caller (createSubmissionAndContinue) intercepts via a separate path.
+    throw new Error('seed:ephemeral');
+  }
+
+  // Quotes
+  if (p === '/api/quotes' && method === 'GET') {
+    let items = db.quotes.slice();
+    const subId = q.get('submission_id');
+    if (subId) items = items.filter(qt => String(qt.submission_id) === String(subId));
+    items.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    return { items, total: items.length, page: 1, per_page: items.length };
+  }
+  m = p.match(/^\/api\/quotes\/(\d+)$/);
+  if (m && method === 'GET') {
+    const qt = db.quotes.find(x => String(x.id) === m[1]);
+    if (!qt) throw new Error('Quote not found');
+    return qt;
+  }
+  m = p.match(/^\/api\/quotes\/(\d+)\/variations$/);
+  if (m && method === 'POST') {
+    const parent = db.quotes.find(x => String(x.id) === m[1]);
+    if (!parent) throw new Error('Parent quote not found');
+    const overrides = (body && body.overrides) || {};
+    const newId = Math.max(0, ...db.quotes.map(qq => qq.id)) + 1;
+    const newData = { ...(parent.data || {}), ...overrides };
+    // Recompute total_premium roughly: just bump base by 5% per change to
+    // give a different-looking number. Real pricing comes from rater.
+    const tweakFactor = 1 + (Object.keys(overrides).length * 0.03);
+    newData.total_premium = Math.round((parent.data.total_premium || 0) * tweakFactor);
+    newData.total_invoice = Math.round((parent.data.total_invoice || 0) * tweakFactor);
+    const variation = {
+      ...parent, id: newId,
+      created_at: new Date().toISOString(), modified_at: new Date().toISOString(),
+      status: 'QuotePublished',
+      data: newData,
+      _parent_quote_id: parent.id,
+    };
+    db.quotes.push(variation);
+    saveSeedDb();
+    return variation;
+  }
+  m = p.match(/^\/api\/quotes\/(\d+)\/close$/);
+  if (m && method === 'POST') {
+    const qt = db.quotes.find(x => String(x.id) === m[1]);
+    if (!qt) throw new Error('Quote not found');
+    qt.status = 'QuoteClosed';
+    qt.modified_at = new Date().toISOString();
+    saveSeedDb();
+    return qt;
+  }
+  m = p.match(/^\/api\/quotes\/(\d+)\/bind$/);
+  if (m && method === 'POST') {
+    const qt = db.quotes.find(x => String(x.id) === m[1]);
+    if (!qt) throw new Error('Quote not found');
+    qt.status = 'BinderPending';
+    qt.modified_at = new Date().toISOString();
+    // Also flip the parent submission to Bound and create a policy.
+    const sub = db.submissions.find(s => s.id === qt.submission_id);
+    if (sub) {
+      sub.bound_at = new Date().toISOString();
+      sub.modified_at = sub.bound_at;
+      const newPolicyId = `pol-${3000 + db.policies.length}`;
+      sub.policy_id = newPolicyId;
+      db.policies.push({
+        id: newPolicyId, user_id: 1,
+        insured_name: sub.insured_name || sub.data?.['insured.name'] || 'Unknown insured',
+        status: 'Active', product_version_id: sub.product_version_id,
+        product_name: 'Self Storage \u2014 Commercial Package',
+        effective_date: sub.effective_at || new Date().toISOString(),
+        renews_at: new Date(Date.now() + 365 * 86400000).toISOString(),
+        last_modified: new Date().toISOString(),
+        created_at: sub.created_at,
+      });
+    }
+    saveSeedDb();
+    return qt;
+  }
+
+  // Policies
+  if (p === '/api/policies' && method === 'GET') {
+    const items = db.policies.slice().sort((a, b) =>
+      new Date(b.last_modified || b.created_at) - new Date(a.last_modified || a.created_at));
+    return { items, total: items.length, page: 1, per_page: items.length };
+  }
+  m = p.match(/^\/api\/policies\/([^\/]+)$/);
+  if (m && method === 'GET') {
+    const pol = db.policies.find(x => x.id === m[1]);
+    if (!pol) throw new Error('Policy not found');
+    return pol;
+  }
+
+  // Documents (always empty in seed mode)
+  if (p === '/api/documents' && method === 'GET') {
+    return { items: [], total: 0, page: 1, per_page: 25 };
+  }
+
+  // Products
+  if (p === '/api/products' && method === 'GET') {
+    return { items: db.products };
+  }
+
+  // Anything not handled — let it through to real backend (login, config, etc.)
+  return null;
+}
+
+// Predicate: does this path go through the seed layer at all?
+function seedHandlesPath(path) {
+  const p = path.split('?')[0];
+  return p === '/api/submissions' ||
+    p.startsWith('/api/submissions/') ||
+    p === '/api/quotes' ||
+    p.startsWith('/api/quotes/') ||
+    p === '/api/policies' ||
+    p.startsWith('/api/policies/') ||
+    p === '/api/documents' ||
+    p === '/api/products';
+}
+
+
 const state = {
   user: null,
   env: 'mock',
@@ -4360,6 +4935,25 @@ async function loadSubmission(id) {
     state.extractedFieldsForSubmissionId = null;
   }
   render();
+
+  // Demo submission special case — fully in-memory, never touches the
+  // (intercepted) API. The form schema is generated from a synthetic
+  // submission record so the broker can fill it out exactly like a
+  // real one. Submit becomes a no-op success.
+  if (id === 'demo' && state.demoSubmission) {
+    const sub = state.demoSubmission;
+    const formSchema = seedFormSchemaForSubmission(sub);
+    state.selectedSubmission = { ...sub, quotes: [] };
+    state.submissionForm = formSchema;
+    state.submissionFormState = 'edit';
+    if (formSchema?.sections?.length) {
+      const firstWithFields = formSchema.sections.find(s => s.visible_count > 0) || formSchema.sections[0];
+      state.activeSection = firstWithFields?.code || null;
+    }
+    render();
+    return;
+  }
+
   try {
     const [sub, form, quotes] = await Promise.all([
       api(`/api/submissions/${id}`),
@@ -6834,6 +7428,34 @@ async function saveDirtyData() {
   const dirty = state.submissionDirty;
   if (!Object.keys(dirty).length) return;
 
+  // Demo submission: save in-memory only, never persists. Updates the
+  // form schema's field values so the UI stays in sync with what the
+  // broker typed, then shows the same "saved" indicator as a real save.
+  if (s.id === 'demo') {
+    state.submissionSaving = 'saving';
+    render();
+    if (state.demoSubmission) {
+      state.demoSubmission.data = { ...(state.demoSubmission.data || {}), ...dirty };
+      state.demoSubmission.modified_at = new Date().toISOString();
+    }
+    if (state.submissionForm) {
+      for (const f of state.submissionForm.fields) {
+        if (f.code in dirty) f.value = dirty[f.code];
+      }
+    }
+    state.submissionDirty = {};
+    state.submissionSaving = 'saved';
+    state.showRequiredHighlight = false;
+    render();
+    setTimeout(() => {
+      if (state.submissionSaving === 'saved') {
+        state.submissionSaving = 'idle';
+        render();
+      }
+    }, 2000);
+    return;
+  }
+
   state.submissionSaving = 'saving';
   render();
   try {
@@ -6914,6 +7536,19 @@ async function submitForQuote(id) {
       state.activeSection = incomplete.firstSectionCode;
     }
     render();
+    return;
+  }
+
+  if (id === 'demo') {
+    if (!confirm('Submit this for a quote?\n\nNote: this is a demo submission \u2014 it will not be sent anywhere or saved.')) return;
+    toast('Demo submission complete \u2014 in production, this would route to the underwriter for quoting.', 'ok');
+    state.demoSubmission = null;
+    state.extractedFields = new Set();
+    state.extractedFieldsForSubmissionId = null;
+    state.subView = null;
+    state.view = 'dashboard';
+    render();
+    loadView();
     return;
   }
 
@@ -7822,39 +8457,52 @@ async function createSubmissionAndContinue(form, rerender, extracted) {
       },
     });
     // If extraction returned any fields, patch them onto the submission.
-    // PUT /submissions/{id}/data is the existing data-update endpoint.
     const extractedKeys = Object.keys(extracted || {});
     if (extractedKeys.length > 0) {
       try {
         await api(`/api/submissions/${res.submission_id}/data`, {
           method: 'PUT',
-          body: { data: extracted },
+          body: extracted,
         });
       } catch (e) {
-        // Non-fatal: the submission exists, we just couldn't pre-fill it.
-        // Broker will see the form blank instead of pre-populated.
         toast('Submission created, but auto-fill failed. You can fill the form manually.', 'warn');
       }
     }
-    // Stash the auto-filled keys for the detail page to highlight,
-    // tagged with this submission's id so the highlights don't leak
-    // onto unrelated submissions the broker views afterward.
     state.extractedFields = new Set(extractedKeys);
     state.extractedFieldsForSubmissionId = res.submission_id;
     toast('Submission created', 'ok');
     state.view = 'submissions'; state.subView = res.submission_id;
     loadSubmission(res.submission_id);
   } catch (e) {
-    // Surface the error inline rather than relying on the corner toast,
-    // which is easy to miss. Detect the auth-blocker case (kill switch
-    // on create_policy / create_transaction) and explain it clearly so
-    // the broker doesn't think they did something wrong.
+    // Ephemeral case: seed layer doesn't persist new submissions. We
+    // construct an in-memory demo submission that lives only in state
+    // (not localStorage), use the same form schema as a real submission
+    // so the broker gets the full edit experience, and signal "submit"
+    // just shows a success state without persisting anywhere.
+    if (e.message === 'seed:ephemeral') {
+      const demoSub = {
+        id: 'demo', unique_id: 'DEMO-' + Date.now().toString(36).toUpperCase(),
+        product_version_id: form.selectedProduct.product_version_id,
+        user_id: 1,
+        created_at: new Date().toISOString(),
+        modified_at: new Date().toISOString(),
+        status: 'Incomplete', flow: 'New',
+        effective_at: form.effective_date,
+        insured_name: extracted['insured.name'] || 'New submission',
+        data: { ...(extracted || {}),
+          'policy.effective_date': form.effective_date },
+        _demo: true,
+      };
+      state.demoSubmission = demoSub;
+      state.extractedFields = new Set(Object.keys(extracted || {}));
+      state.extractedFieldsForSubmissionId = 'demo';
+      state.view = 'submissions'; state.subView = 'demo';
+      loadSubmission('demo');
+      return;
+    }
     const msg = (e && e.message) || 'Submission creation failed.';
-    const isKillSwitch = msg.includes('not_ready') || msg.includes('not ready') || msg.includes('create_policy') || msg.includes('create_transaction');
     form.creating = false;
-    form.extractError = isKillSwitch
-      ? 'Submission creation is currently disabled in this environment pending an authentication update from Joshu. The upload flow is wired up — once auth is resolved, this will create the submission and route you to the application form. For now, no submission was created.'
-      : `Could not create submission: ${msg}`;
+    form.extractError = `Could not create submission: ${msg}`;
     rerender();
   }
 }
