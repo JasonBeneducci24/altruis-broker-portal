@@ -1798,18 +1798,43 @@ class HttpJoshuClient(JoshuClientBase):
         Endpoint: GET /api/auth/v1/me  (NOT under /api/insurance/v3).
         Auth: Bearer <jwt> — must be a real JWT, not the API token.
 
-        The exact response shape was not captured during the auth
-        spec investigation (DevTools failed to preserve the response
-        body), so this implementation is defensive: it walks a small
-        set of candidate field names for each piece of broker info,
-        and synthesizes anything missing from the bearer token's JWT
-        sub claim. We never throw — a partial user record is fine
-        for UI rendering.
+        Confirmed response shape (Apr 30 2026, captured from live call)::
 
-        If the token is the API_TOKEN_SENTINEL (read-only fallback
-        path) or empty, return a synthetic user without making the
-        upstream call. The /me endpoint requires a real JWT and the
-        API token would fail with a 401 'Access token decode error'.
+            {
+              "identity": {
+                "User": {
+                  "user": {
+                    "id": 34,
+                    "email": "jasonbeneducci@altruisgroup.com",
+                    "first_name": "Jason",
+                    "last_name": "Beneducci",
+                    "role": "Admin",                     // or "Broker", etc.
+                    "brokerage_id": null,                // populated for brokers
+                    "office_id": null,
+                    "account_status": "Active",
+                    "unique_id": "<uuid>",
+                    "source": "Email",
+                    "created_at": "...", "last_seen": "...",
+                    "external_id": null
+                  },
+                  "user_services": { "docs_url": "...",
+                                     "zendesk_chat_user_token": "..." }
+                }
+              }
+            }
+
+        The outer ``identity.User`` wrapper is a tagged-union pattern —
+        Joshu may have other identity types (service accounts, etc.) under
+        different sibling keys. We extract the User branch defensively
+        and fall back to a JWT-synthesized user for anything else.
+
+        If the token is the API_TOKEN_SENTINEL or empty, return a
+        synthetic user without making the upstream call. The /me
+        endpoint requires a real JWT and the API token would fail
+        with a 401 'Access token decode error'.
+
+        We never throw — login should not fail because /me had a
+        hiccup. A partial user is fine for UI rendering.
         """
         from app.session import API_TOKEN_SENTINEL
 
@@ -1834,10 +1859,26 @@ class HttpJoshuClient(JoshuClientBase):
             log.warning("WHOAMI: transport error: %s", e)
             return self._synthesize_user_from_jwt(token)
 
-        if not resp.is_success:
+        if resp.status_code == 401:
+            # JWT was server-side invalidated (Joshu uses session-backed
+            # JWTs — even a cryptographically-valid token can be revoked
+            # by a logout, fresh login, or admin action). Distinct from
+            # other failures: the JWT itself is bad, not /me's response
+            # shape. Caller can use this to bump the broker back to
+            # login. For now, fall through to synthesized user — the
+            # next per-broker request will get its own 401 from the
+            # endpoint actually being hit, and the existing portal
+            # error handling will surface it.
             log.info(
+                "WHOAMI: 401 — JWT invalidated server-side. body=%s",
+                (resp.text or "")[:160],
+            )
+            return self._synthesize_user_from_jwt(token)
+
+        if not resp.is_success:
+            log.warning(
                 "WHOAMI: non-success status=%d body=%s",
-                resp.status_code, (resp.text or "")[:120],
+                resp.status_code, (resp.text or "")[:160],
             )
             return self._synthesize_user_from_jwt(token)
 
@@ -1847,44 +1888,77 @@ class HttpJoshuClient(JoshuClientBase):
             log.warning("WHOAMI: response was not JSON")
             return self._synthesize_user_from_jwt(token)
 
-        # Walk candidate field names defensively. Joshu's wider API
-        # uses snake_case, so we prefer that, but fall back to a few
-        # variants in case /me's shape diverges.
+        # Walk identity.User.user — the confirmed shape. Each level of
+        # extraction is defensive so a Joshu API change to any one
+        # nesting level falls back gracefully instead of erroring.
         if not isinstance(data, dict):
+            log.warning("WHOAMI: top-level response was not a dict: %s", type(data).__name__)
             return self._synthesize_user_from_jwt(token)
 
-        email = (
-            data.get("email")
-            or data.get("user_email")
-            or data.get("username")
-            or "unknown@altruis"
-        )
-        # Some auth subsystems return a UUID for the user id; keep the
-        # raw value as a string in `extra` and use 0 for the int field
-        # if we can't coerce. BrokerUser.id is `int` per the schema.
-        raw_id = data.get("id") or data.get("user_id") or data.get("sub")
+        identity = data.get("identity")
+        if not isinstance(identity, dict):
+            log.warning("WHOAMI: missing or non-dict 'identity' field. keys=%s", list(data.keys()))
+            return self._synthesize_user_from_jwt(token)
+
+        # 'identity' is a tagged-union object. Try the User branch first;
+        # fall back to any other branch's payload as a last resort.
+        user_branch = identity.get("User")
+        if not isinstance(user_branch, dict):
+            # Different identity type (service account?) — log it for
+            # future schema work but proceed with a synthesized user.
+            log.warning(
+                "WHOAMI: identity has no 'User' branch — variants seen: %s",
+                list(identity.keys()),
+            )
+            return self._synthesize_user_from_jwt(token)
+
+        user_record = user_branch.get("user")
+        if not isinstance(user_record, dict):
+            log.warning(
+                "WHOAMI: identity.User has no nested 'user' record. keys=%s",
+                list(user_branch.keys()),
+            )
+            return self._synthesize_user_from_jwt(token)
+
+        # Pull the fields we care about. Each is defensive in case
+        # individual fields go missing in a future Joshu API revision.
         try:
-            user_id = int(raw_id) if raw_id is not None else 0
+            user_id_raw = user_record.get("id")
+            user_id = int(user_id_raw) if user_id_raw is not None else 0
         except (TypeError, ValueError):
             user_id = 0
-        name = (
-            data.get("name")
-            or data.get("display_name")
-            or data.get("full_name")
-            or (str(email).split("@")[0].replace(".", " ").title() if email else "User")
-        )
-        store_id = data.get("store_id") or data.get("brokerage_id") or data.get("office_id")
+
+        email = user_record.get("email") or "unknown@altruis"
+
+        # Compose name from first_name / last_name; fall back to email
+        # local-part if both are missing.
+        first = (user_record.get("first_name") or "").strip()
+        last = (user_record.get("last_name") or "").strip()
+        composed = " ".join(p for p in (first, last) if p)
+        if composed:
+            name = composed
+        elif email and "@" in email:
+            name = email.split("@")[0].replace(".", " ").title()
+        else:
+            name = "User"
+
+        # brokerage_id is the broker's "store" in the portal's vocabulary.
+        # Null for admins. Per Joshu's BrokerUser convention we coerce to
+        # int when present, None otherwise.
         try:
-            store_id = int(store_id) if store_id is not None else None
+            brokerage_raw = user_record.get("brokerage_id")
+            store_id = int(brokerage_raw) if brokerage_raw is not None else None
         except (TypeError, ValueError):
             store_id = None
-        store_name = (
-            data.get("store_name")
-            or data.get("brokerage_name")
-            or data.get("office_name")
-            or "Altruis Group"
-        )
-        role = data.get("role") or data.get("user_role") or "Broker"
+
+        # store_name isn't present in the /me payload directly — Joshu's
+        # /me only gives us brokerage_id. For now hardcode "Altruis
+        # Group" since the portal serves Altruis brokers. If the portal
+        # ever needs to surface the brokerage's display name, fetch it
+        # via /brokerages/{id} as a follow-up.
+        store_name = "Altruis Group"
+
+        role = user_record.get("role") or "Broker"
 
         return BrokerUser(
             id=user_id, email=email, name=name,

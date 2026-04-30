@@ -12,10 +12,24 @@ In mock mode the portal uses an in-memory dataset — no network calls to Joshu.
 """
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
+
+# Configure logging BEFORE importing app modules so their module-level
+# loggers attach to the configured handlers. Without this, log.info()
+# calls from app.joshu.http (and other custom loggers) go to a logger
+# with no handler and disappear silently — invisible in Render logs.
+#
+# Uvicorn configures its own access logger (the "INFO: 1.2.3.4 - GET ..."
+# lines), but does NOT configure a root handler — anything our code
+# logs to a custom logger name needs basicConfig to surface.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
 
 # Import config FIRST so the environment guardrail runs before anything else
 from app.config import settings
