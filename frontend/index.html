@@ -6821,15 +6821,14 @@ function pickAssetDisplayNumber(group) {
   return (group.idx ?? 0) + 1;
 }
 
-// Field codes that are populated by underwriting AFTER the broker
-// submits, and which the broker should never edit. These render as
-// locked inputs even when the broker is in edit mode on the rest of
-// the asset card.
-const BROKER_LOCKED_FIELD_TAILS = new Set([
-  'ex_wind_status',
-  'windhailpercentage',
-  'wind_hail_dollar_figure',
-]);
+// Fields the broker should see as locked / read-only inside an asset
+// edit context. Was originally used to gray out wind/hail UW fields
+// that brokers shouldn't touch — but those are now stripped entirely
+// by the UNDERWRITER_SOURCE_FIELDS filter at schema-generation time,
+// so anything that survives to render IS broker-editable. We keep
+// this hook in place so we can re-add field-level locking later if
+// the data model requires it (e.g. a partial-edit reopen flow).
+const BROKER_LOCKED_FIELD_TAILS = new Set();
 
 function isBrokerLockedField(field) {
   if (!field?.code) return false;
