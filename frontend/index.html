@@ -364,6 +364,37 @@
     gap: 24px; flex-wrap: wrap;
   }
   .page-header h1 { font-size: 2.1rem; letter-spacing: -0.03em; font-weight: 600; }
+  /* Submission detail page header: title + status pill on one line,
+     then a thin metadata subline beneath. Replaces the old card-style
+     status banner with quieter inline information. */
+  .page-header-with-pill { align-items: flex-end; }
+  .page-header-titleblock { min-width: 0; }
+  .page-header-titlerow {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  }
+  .page-header-titlerow h1 { margin: 0; }
+  .page-header-meta {
+    font-size: 0.82rem;
+    color: var(--ink-mute);
+    margin-top: 8px;
+    line-height: 1.5;
+  }
+  .page-header-meta-declined { color: var(--err); }
+  .status-pill {
+    display: inline-flex; align-items: center;
+    font-size: 0.7rem; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 4px 10px; border-radius: var(--radius-pill);
+    white-space: nowrap;
+    /* Sit at the title's baseline rather than aligning to its top */
+    align-self: center;
+    margin-bottom: 4px;
+  }
+  .status-pill-draft    { background: #FEF3C7; color: #92400E; }
+  .status-pill-pending  { background: #FEF9C3; color: #854F0B; }
+  .status-pill-bound    { background: #DCFCE7; color: #166534; }
+  .status-pill-declined { background: #FEE2E2; color: #991B1B; }
+  .status-pill-lost     { background: #F3F4F6; color: #4B5563; }
 
   /* ─────────── Buttons ─────────── */
   .btn {
@@ -1580,69 +1611,65 @@
     }
   }
 
+  /* Section nav rail — variant H: no circular badges, underline-active
+     section gets a left accent bar + bolder label, thin progress bar
+     under each row colored by status (blue in-progress, green complete,
+     red error, gray empty). */
   .section-nav-item {
-    display: flex; align-items: center; gap: 12px;
-    padding: 10px 12px; border-radius: var(--radius-md);
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 10px 12px;
+    border-radius: 0;
     text-align: left; cursor: pointer; transition: all 120ms;
     color: var(--ink-soft); background: transparent;
     width: 100%;
     /* Reserve space for the active-state accent bar so rows don't
        reflow when one becomes active. */
-    border-left: 3px solid transparent;
-    padding-left: 9px;
+    border-left: 2px solid transparent;
+    padding-left: 14px;
+    border-bottom: 1px solid rgba(0,0,0,0.04);
   }
-  .section-nav-item:hover { background: var(--white); color: var(--ink); }
-  /* ACTIVE — left accent bar in Altruis blue + bolder label.
-     Note: we deliberately do NOT recolor the indicator circle here.
-     The indicator keeps showing its completion state (number, ✓, etc.)
-     so active and complete are independently legible. The blue accent
-     bar on the left is what tells the broker "you're here." */
+  .section-nav-item:last-child { border-bottom: none; }
+  .section-nav-item:hover .section-nav-label { color: var(--ink); }
   .section-nav-item.active {
-    background: var(--white); color: var(--ink);
-    box-shadow: var(--shadow-xs);
     border-left-color: var(--blue);
+    background: rgba(47, 95, 184, 0.04);
   }
   .section-nav-item.active .section-nav-label {
-    font-weight: 600;
+    font-weight: 500;
     color: var(--navy, var(--ink));
   }
-  /* COMPLETE — solid blue circle with white check inside */
-  .section-nav-item.complete .section-nav-indicator {
-    background: var(--blue);
-    color: #fff;
-    border-color: var(--blue);
+  .section-nav-item.active .section-nav-count {
+    color: var(--blue-deep, var(--blue));
+    font-weight: 500;
   }
-  /* HAS-ERRORS — solid red circle */
-  .section-nav-item.has-errors .section-nav-indicator {
-    background: var(--err);
-    color: #fff;
-    border-color: var(--err);
+  .section-nav-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 12px;
   }
-  .section-nav-indicator {
-    width: 24px; height: 24px; border-radius: 50%;
-    border: 1.5px solid var(--line);
-    background: var(--white); color: var(--ink-mute);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 0.72rem; font-weight: 600; flex-shrink: 0;
-    transition: all 150ms;
-  }
-  /* When the section is the active one BUT not yet complete, give the
-     numbered circle a thicker blue ring so it reads as "current" without
-     filling. (If complete, the .complete rule above takes precedence —
-     a completed circle stays solid blue regardless of active.) */
-  .section-nav-item.active:not(.complete):not(.has-errors) .section-nav-indicator {
-    border-color: var(--blue);
-    color: var(--blue);
-    border-width: 2px;
-  }
-  .section-nav-body { min-width: 0; flex: 1; }
   .section-nav-label {
-    font-size: 0.88rem; font-weight: 500; line-height: 1.25;
+    font-size: 0.88rem; font-weight: 400; line-height: 1.3;
+    color: var(--ink);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    flex: 1; min-width: 0;
+    transition: color 120ms;
   }
   .section-nav-count {
-    font-size: 0.72rem; color: var(--ink-mute); margin-top: 2px;
+    font-size: 0.74rem; color: var(--ink-mute);
     font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+    letter-spacing: -0.005em;
+  }
+  /* Thin progress bar — 2px tall, takes the row's full label width. */
+  .section-nav-progress {
+    height: 2px;
+    background: rgba(0,0,0,0.05);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+  .section-nav-progress-fill {
+    height: 100%;
+    transition: width 200ms var(--ease), background 120ms;
+    border-radius: 1px;
   }
 
   .form-pane {
@@ -1678,6 +1705,10 @@
       padding: 12px;
     }
     .section-nav-item, .asset-rail-item { flex-shrink: 0; min-width: 160px; }
+    /* On mobile, the section-nav-items become horizontal cards. Drop
+       the per-row bottom border (already redundant when items sit
+       side-by-side) and let the active accent stay on the left edge. */
+    .section-nav-item { border-bottom: none; }
   }
   .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px 24px; }
   .form-field { display: flex; flex-direction: column; gap: 8px; }
@@ -2749,11 +2780,11 @@
     max-width: 420px; margin: 0 auto; line-height: 1.5;
   }
 
-  /* Rail item for empty asset shells — muted, no "progress" styling */
-  .section-nav-item.is-empty .section-nav-indicator {
-    background: var(--white); color: var(--mute); border: 1px dashed var(--line);
+  /* Rail item for empty asset shells — count text rendered in italic mute */
+  .section-nav-item.is-empty .section-nav-count {
+    color: var(--mute);
+    font-style: italic;
   }
-  .section-nav-item.is-empty .section-nav-count { color: var(--mute); font-style: italic; }
 
   /* Toast */
   #toast-host {
@@ -2907,6 +2938,25 @@ function brandWordmark(color = 'white', height = 42) {
 }
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
+// Relative-time formatter: "2 min ago", "1 hr ago", "3 days ago", "5 weeks ago".
+// Falls back to the absolute date for anything older than 8 weeks. Used in the
+// page-header metadata line so the broker sees recency at a glance.
+const fmtRelativeTime = (d) => {
+  if (!d) return '—';
+  const ms = Date.now() - new Date(d).getTime();
+  if (ms < 0) return fmtDate(d);
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return 'just now';
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} min ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} hr${h === 1 ? '' : 's'} ago`;
+  const days = Math.floor(h / 24);
+  if (days < 14) return `${days} day${days === 1 ? '' : 's'} ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 8) return `${weeks} week${weeks === 1 ? '' : 's'} ago`;
+  return fmtDate(d);
+};
 const fmtDateTime = (d) => d ? new Date(d).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
 
 // Cleaner two-line date+time render for the overview bar — the date sits
@@ -5947,18 +5997,25 @@ function submissionDetailView() {
     || s.insured_name || `Submission ${s.id}`;
 
   return el('div', {},
-    el('div', { className: 'page-header' },
-      el('div', {},
+    el('div', { className: 'page-header page-header-with-pill' },
+      el('div', { className: 'page-header-titleblock' },
         el('div', { className: 'eyebrow' }, `Submission · #${s.id} · ${s.flow || 'New'}`),
-        el('h1', {}, insuredName)),
+        el('div', { className: 'page-header-titlerow' },
+          el('h1', {}, insuredName),
+          statusPill(s)),
+        statusMetaLine(s)),
       el('div', { style: { display: 'flex', gap: '10px', alignItems: 'center' } },
         state.submissionSaving !== 'idle' ?
           el('div', { className: `saving-chip ${state.submissionSaving === 'saved' ? 'saved' : ''}` },
             state.submissionSaving === 'saving' ? 'Saving…' : '✓ Saved') : null,
+        // Edit & Resubmit moves to the header for Submitted/Pending submissions
+        // in view mode — used to live inside the status banner card.
+        ((s.status === 'Submitted' || s.status === 'Pending') && state.submissionFormState === 'view')
+          ? el('button', { className: 'btn btn-primary btn-sm no-arrow',
+              onClick: () => reopenForEdit(s.id) }, 'Edit & Resubmit')
+          : null,
         el('button', { className: 'btn btn-secondary',
           onClick: () => { state.subView = null; render(); loadView(); } }, '← Back'))),
-
-    statusBanner(s),
 
     submissionOverviewBar(s),
 
@@ -5967,48 +6024,42 @@ function submissionDetailView() {
     submissionQuotesCard(s));
 }
 
-function statusBanner(s) {
+// Pill rendered next to the page title showing the submission's status.
+// One of: Draft / Pending / Bound / Declined / Lost. Color matches the
+// pipeline strip palette (yellow / yellow / green / red / gray).
+function statusPill(s) {
   const status = s.status;
-  if (status === 'Incomplete') {
-    return el('div', { className: 'status-banner editable' },
-      el('div', { className: 'status-banner-icon' }, '✎'),
-      el('div', {},
-        el('div', { className: 'status-banner-title' }, 'Draft — in progress'),
-        el('div', { className: 'status-banner-desc' },
-          'Fill in the fields below, then submit for a quote.')));
+  let label = null;
+  let cls = '';
+  if (status === 'Incomplete') { label = 'Draft'; cls = 'status-pill-draft'; }
+  else if (status === 'Submitted' || status === 'Pending') {
+    if (s.bound_at) { label = 'Bound'; cls = 'status-pill-bound'; }
+    else { label = 'Pending Decision'; cls = 'status-pill-pending'; }
   }
-  if (status === 'Submitted' || status === 'Pending') {
-    return el('div', { className: 'status-banner locked' },
-      el('div', { className: 'status-banner-icon' }, lockIconSvg()),
-      el('div', { style: { flex: 1 } },
-        el('div', { className: 'status-banner-title' },
-          `Submitted${s.submitted_at ? ' ' + fmtDate(s.submitted_at) : ''}`),
-        el('div', { className: 'status-banner-desc' },
-          state.submissionFormState === 'edit'
-            ? 'You are editing a submitted record. Save your changes to resubmit for rating.'
-            : 'Awaiting quote from the underwriter. You can reopen this submission to edit and resubmit.')),
-      state.submissionFormState === 'view'
-        ? el('button', { className: 'btn btn-primary btn-sm no-arrow',
-            onClick: () => reopenForEdit(s.id) }, 'Edit & Resubmit')
-        : null);
+  else if (status === 'Declined') { label = 'Declined'; cls = 'status-pill-declined'; }
+  else if (status === 'Closed' || status === 'Lost') { label = 'Lost'; cls = 'status-pill-lost'; }
+  if (!label) return null;
+  return el('span', { className: `status-pill ${cls}` }, label);
+}
+
+// Metadata line under the page title: "New policy · effective Apr 9 · last
+// edited 2 min ago" — replaces the old card-style banner with a quieter
+// inline subhead. For Declined submissions, replaces the metadata line
+// with the carrier's decline reason so the broker sees it inline.
+function statusMetaLine(s) {
+  const parts = [];
+  if (s.status === 'Declined' && s.decline_reason) {
+    return el('div', { className: 'page-header-meta page-header-meta-declined' },
+      s.decline_reason);
   }
-  if (status === 'Declined') {
-    return el('div', { className: 'status-banner declined' },
-      el('div', { className: 'status-banner-icon' }, '✕'),
-      el('div', {},
-        el('div', { className: 'status-banner-title' }, 'Declined'),
-        el('div', { className: 'status-banner-desc' },
-          s.decline_reason || 'This submission was declined by the underwriter.')));
-  }
-  if (s.bound_at) {
-    return el('div', { className: 'status-banner bound' },
-      el('div', { className: 'status-banner-icon' }, '✓'),
-      el('div', {},
-        el('div', { className: 'status-banner-title' }, 'Bound'),
-        el('div', { className: 'status-banner-desc' },
-          `Policy is in force as of ${fmtDate(s.bound_at)}.`)));
-  }
-  return null;
+  parts.push(s.flow ? `${s.flow} policy` : 'New policy');
+  if (s.effective_at) parts.push(`effective ${fmtDate(s.effective_at)}`);
+  if (s.bound_at) parts.push(`bound ${fmtDate(s.bound_at)}`);
+  else if (s.submitted_at) parts.push(`submitted ${fmtDate(s.submitted_at)}`);
+  else if (s.created_at) parts.push(`started ${fmtDate(s.created_at)}`);
+  if (s.modified_at && s.status === 'Incomplete') parts.push(`last edited ${fmtRelativeTime(s.modified_at)}`);
+  return el('div', { className: 'page-header-meta' },
+    parts.map((p, i) => i === 0 ? p : ` · ${p}`).join(''));
 }
 
 function submissionMainCard(s) {
@@ -6220,20 +6271,26 @@ function sectionNavItem(section, isActive) {
   const hasErrors = section.has_errors;
   const isEditing = state.submissionFormState === 'edit';
 
-  // Empty asset shells (e.g. Structures with no data yet) don't have a
-  // sensible fields-complete ratio. Show a simple "empty" indicator so the
-  // rail doesn't imply progress that isn't there.
-  // When the submission is LOCKED (not editing), drop the count line
-  // entirely — locked submissions are by definition complete or in
-  // underwriter review, so per-section counters add noise without signal.
+  // Empty asset shells (e.g. Structures with no data yet) need a hint
+  // that there's nothing inside. Locked submissions don't need a per-
+  // section counter — they're past the editing phase.
   let countLabel = null;
   if (isEditing) {
-    countLabel = isEmptyShell ? 'Empty' : `${section.completed}/${section.visible_count} \u00b7 ${pct}%`;
+    countLabel = isEmptyShell ? 'Empty' : `${section.completed}/${section.visible_count}`;
   } else if (isEmptyShell) {
-    // Even when locked, an empty asset shell deserves a hint that there's
-    // nothing inside (rare case for a quoted submission, but possible).
     countLabel = 'Empty';
   }
+
+  // Progress bar fill width and color follow the section status:
+  //   • Complete → green (--ok)
+  //   • Has errors → red (--err)
+  //   • In progress → blue (--blue)
+  //   • Empty asset shell → fully gray (--line)
+  const barColor = hasErrors ? 'var(--err)'
+                : isComplete ? 'var(--ok)'
+                : isEmptyShell ? 'var(--line)'
+                : 'var(--blue)';
+  const barWidth = isEmptyShell ? '100%' : `${pct}%`;
 
   return el('button', {
     className: `section-nav-item ${isActive ? 'active' : ''} ${isComplete ? 'complete' : ''} ${hasErrors ? 'has-errors' : ''} ${isEmptyShell ? 'is-empty' : ''}`,
@@ -6242,11 +6299,14 @@ function sectionNavItem(section, isActive) {
       render();
     },
   },
-    el('div', { className: 'section-nav-indicator' },
-      hasErrors ? '!' : isComplete ? '\u2713' : isEmptyShell ? '\u25cb' : (section.order + 1)),
-    el('div', { className: 'section-nav-body' },
+    el('div', { className: 'section-nav-row' },
       el('div', { className: 'section-nav-label' }, section.label),
-      countLabel ? el('div', { className: 'section-nav-count' }, countLabel) : null));
+      countLabel ? el('div', { className: 'section-nav-count' }, countLabel) : null),
+    isEditing
+      ? el('div', { className: 'section-nav-progress' },
+          el('div', { className: 'section-nav-progress-fill',
+            style: { width: barWidth, background: barColor } }))
+      : null);
 }
 
 function sectionPrevButton(sections, active) {
@@ -8555,20 +8615,20 @@ function renderSlider(field, currentValue, onChange) {
 
   // Slider handle: Altruis chevron mark pointing UP at the track. We
   // build inline SVG with createElementNS (the el() helper doesn't
-  // handle the XML namespace). The shape is the outer chevron silhouette
-  // from the brand mark — simplified to read clearly at 16x14px.
+  // handle the XML namespace). Uses the full 4-polygon brand mark —
+  // outer blades in lighter blue (#6797EE), inner pair in deeper blue
+  // (#2F5FB8) — for a fully-filled, recognizable Altruis chevron.
   const NS = 'http://www.w3.org/2000/svg';
   const handle = el('div', { className: 'slider-handle' });
   const handleSvg = document.createElementNS(NS, 'svg');
   handleSvg.setAttribute('viewBox', '0 0 1100 911');
   handleSvg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
   handleSvg.setAttribute('aria-hidden', 'true');
-  // Outer chevron polygons in brand blue. We use only the two outer
-  // shapes (not the inner deeper-blue pair) so the mark stays legible
-  // at slider-handle size where the inner detail would be invisible.
   const handleShapes = [
     { points: '1100,911 559.2,0 559.2,213.4 908.6,802.1', fill: '#6797EE' },
     { points: '0,911 191.4,802.1 540.8,213.5 540.8,0',    fill: '#6797EE' },
+    { points: '271.7,756.3 540.8,603.2 540.8,319.6',      fill: '#2F5FB8' },
+    { points: '828.3,756.3 559.2,319.6 559.2,603.2',      fill: '#2F5FB8' },
   ];
   for (const s of handleShapes) {
     const poly = document.createElementNS(NS, 'polygon');
