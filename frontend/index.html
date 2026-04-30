@@ -3018,9 +3018,10 @@
     width: 48px; height: 48px; border-radius: 50%;
     display: inline-flex; align-items: center; justify-content: center;
     background: var(--white); border: 1px solid var(--line);
-    color: var(--blue); font-size: 1.4rem; font-weight: 300;
+    color: var(--blue);
     margin-bottom: 14px;
   }
+  .empty-asset-icon svg { display: block; }
   .empty-asset-title {
     font-size: 1rem; color: var(--navy); font-weight: 500;
     letter-spacing: -0.01em; margin-bottom: 6px;
@@ -4083,7 +4084,7 @@ const APP_SCHEMA = {
     { code: 'app.named_insured_structure', label: 'Named Insured Structure', type: 'text', required: true,
       widget: 'segmented',
       options: [
-        { value: 'Sole Proprietorship', display: 'Sole Prop' },
+        { value: 'Sole Proprietorship', display: 'Sole Proprietorship' },
         { value: 'Partnership', display: 'Partnership' },
         { value: 'Corporation', display: 'Corporation' },
         { value: 'Limited Liability Company', display: 'LLC' },
@@ -4164,9 +4165,10 @@ const APP_SCHEMA = {
       condition: 'commercial_auto_status=1' },
     { code: 'app.heavy_truck_count', label: 'Number Heavy Trucks', type: 'number', required: true, decimal_places: 0,
       condition: 'commercial_auto_status=1' },
-    { code: 'app.waterbackuplimit', label: 'Water Backup and Overflow Limit', type: 'text', required: false,
-      widget: 'segmented',
-      options: ['$50,000','$100,000'].map(v => ({ value: v, display: v })) },
+    // Water Backup and Overflow Limit removed from broker UI per program
+    // requirements — Altruis self-storage doesn't surface this as a
+    // broker-selectable coverage. The Joshu datapoint still exists in
+    // case underwriting needs to populate it directly.
   ],
 
   // Deductibles
@@ -6557,7 +6559,7 @@ function submissionMainCard(s) {
         // Body: asset cards, empty-state card, or flat form grid
         activeSection.is_empty_asset_shell
           ? el('div', { className: 'empty-asset-shell' },
-              el('div', { className: 'empty-asset-icon' }, '+'),
+              el('div', { className: 'empty-asset-icon', html: emptyAssetIconSvg(activeSection) }),
               el('div', { className: 'empty-asset-title' },
                 `No ${inferAssetNoun(activeSection, 2).toLowerCase()} added yet`),
               el('div', { className: 'empty-asset-desc' },
@@ -6874,6 +6876,36 @@ function buildingDisplayIndex(locationGroup, assetGroup, indexInLocation) {
 }
 
 // Pick a short noun for the asset type based on the section name
+// Pick a section-appropriate icon for the empty-state circle. Returns
+// raw SVG markup (we use innerHTML to inject it into the .empty-asset-
+// icon container). Keeps the visual identity of each asset section
+// distinct: a building outline for structures, a stacked-cards glyph
+// for additional insureds.
+function emptyAssetIconSvg(section) {
+  const stroke = 'currentColor';
+  if (section?.code === 'additional_insureds') {
+    // Document/certificate stack — evokes ACORD-style certificate of
+    // insurance, which is what an AI list functionally is.
+    return `<svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+      xmlns="http://www.w3.org/2000/svg">
+      <path d="M7 4h7l4 4v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"
+        stroke="${stroke}" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M14 4v4h4" stroke="${stroke}" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M9 12h6M9 15h6M9 18h4" stroke="${stroke}" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>`;
+  }
+  // Default: simple property/building outline. Used by structures and
+  // any other future asset section that doesn't have a custom icon.
+  return `<svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+    xmlns="http://www.w3.org/2000/svg">
+    <path d="M4 21V8l8-5 8 5v13" stroke="${stroke}" stroke-width="1.5"
+      stroke-linejoin="round"/>
+    <path d="M9 21v-6h6v6" stroke="${stroke}" stroke-width="1.5"
+      stroke-linejoin="round"/>
+    <path d="M4 21h16" stroke="${stroke}" stroke-width="1.5" stroke-linecap="round"/>
+  </svg>`;
+}
+
 function inferAssetNoun(section, count) {
   const label = (section?.label || '').toLowerCase();
   const pairs = [
@@ -10769,6 +10801,9 @@ async function createSubmissionAndContinue(form, rerender, extracted) {
           'app.med_pay_limit': '$10,000',
           'app.EB_sublimit': '$25,000',
           'app.cyber_limit': '$50,000',
+          'app.BI_days_limit': '365 Days',
+          'app.Extended_BI_days_limit': '365 Days',
+          'app.aop_deductible': '$2,500',
           ...(extracted || {}),
           'policy.effective_date': form.effective_date,
         },
