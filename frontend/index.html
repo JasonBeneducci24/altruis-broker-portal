@@ -1571,6 +1571,20 @@
     letter-spacing: -0.005em;
   }
   .asset-card-chip.done { background: var(--ok-soft); color: var(--ok); }
+  /* Green check shown in place of the count chip when a structure is
+     fully filled out. Reads cleaner than "27/27" — the chip's job is
+     to show progress and once complete, the chip's information value
+     drops to zero. The check confirms completion at a glance. */
+  .asset-card-check {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px;
+    background: var(--ok);
+    color: #fff;
+    border-radius: 50%;
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1;
+  }
   /* Multiselect pills — horizontal toggle-able chips for Array<Text>
      fields like building_occupancy. Same visual language as the segmented
      control pills (border + fill on active), but multi-select. The check
@@ -3443,7 +3457,7 @@ function unwrapForInput(v) {
 //
 // Auth and config still call the real backend — login still works.
 
-const SEED_STORAGE_KEY = 'altruis_seed_v7';
+const SEED_STORAGE_KEY = 'altruis_seed_v8';
 
 // Seed bootstrap. Hardcoded base data. Persisted snapshot in localStorage
 // supersedes this on subsequent loads so edits survive page reloads.
@@ -4055,6 +4069,12 @@ const APP_SCHEMA = {
     { code: 'limits_coverages',   label: 'Limits and Coverages',  order: 1, condition: null },
     { code: 'deductibles',        label: 'Deductibles',           order: 2, condition: null },
     { code: 'structures',         label: 'Locations & Structures', order: 3, condition: null, is_asset: true, asset_collection: 'app.structures' },
+    // Additional Insureds — only appears once the broker checks
+    // "Additional Insureds?" in Basic Information. Lives as its own
+    // asset section with the same add/remove tile pattern as
+    // structures, but with a much smaller per-entry field set
+    // (just name, mailing address, type).
+    { code: 'additional_insureds', label: 'Additional Insureds', order: 4, condition: 'app.additional_insured_status=1', is_asset: true, asset_collection: 'app.Additional_Insureds' },
   ],
 
   // Basic Information
@@ -4069,13 +4089,14 @@ const APP_SCHEMA = {
         { value: 'Limited Liability Company', display: 'LLC' },
         { value: 'Other', display: 'Other' },
       ] },
-    { code: 'app.renewal_status', label: 'Renewal?', type: 'boolean', required: true },
-    { code: 'app.renewal_of_policy_num', label: 'Renewal of Policy Number', type: 'text', required: true,
-      condition: 'app.renewal_status=1' },
+    // Renewal status / renewal policy # are captured by the submission's
+    // own flow tag (s.flow === 'Renewal' implies the policy is a renewal).
+    // Claims history is derived from the loss-run document the broker
+    // attaches at submission time — neither is something the broker
+    // should re-key on this form.
     { code: 'app.expiring_premium', label: 'Expiring Premium', type: 'monetary', required: false, decimal_places: 0 },
     { code: 'app.additional_insured_status', label: 'Additional Insureds?', type: 'boolean', required: true },
     { code: 'app.exclusions_status', label: 'Exclusions?', type: 'boolean', required: true },
-    { code: 'app.claims_history_flag', label: 'Claims History Flagged?', type: 'boolean', required: true },
   ],
 
   // Limits and Coverages
@@ -4280,6 +4301,36 @@ const STRUCTURE_SCHEMA = {
   ],
 };
 
+// Additional Insured per-entry schema. Mirrors the YAML's
+// app.Additional_Insureds asset section. Only 3 broker-visible fields:
+//   • Name (text)
+//   • Mailing Address (location)
+//   • Type (one of 9 standard certificate types)
+// app.addtl_insured_loc is UW-source — broker doesn't enter it; the
+// underwriter associates the AI to a specific structure during review.
+const ADDITIONAL_INSURED_SCHEMA = {
+  fields: [
+    { code: 'app.additional_insured_name', label: 'Additional Insured Name', type: 'text', required: true,
+      fullwidth: true },
+    { code: 'app.additional_insured_mailing', label: 'Mailing Address', type: 'location', required: true,
+      fullwidth: true },
+    { code: 'app.additional_insured_type', label: 'Type', type: 'text', required: true,
+      widget: 'segmented',
+      fullwidth: true,
+      options: [
+        { value: 'Mortgagee',                display: 'Mortgagee' },
+        { value: 'Additional Named Insured', display: 'Additional Named Insured' },
+        { value: 'Additional Insured',       display: 'Additional Insured' },
+        { value: 'Lender',                   display: 'Lender' },
+        { value: 'Loss Payee',               display: 'Loss Payee' },
+        { value: 'Management Company',       display: 'Management Company' },
+        { value: 'Designated Party',         display: 'Designated Party' },
+        { value: 'Master Servicer',          display: 'Master Servicer' },
+        { value: 'Lienholder',               display: 'Lienholder' },
+      ] },
+  ],
+};
+
 // US states list — used by app.SLtaxstate
 const US_STATE_OPTIONS = [
   { value: 'AL', display: 'Alabama' }, { value: 'AK', display: 'Alaska' },
@@ -4442,6 +4493,7 @@ function seedFormSchemaForSubmission(submission) {
         widget: def.widget,
         help_text: def.help_text,
         format: def.format,
+        fullwidth: def.fullwidth,
         validation_error: null,
       });
       if (fieldVisible) {
@@ -4494,6 +4546,7 @@ function seedFormSchemaForSubmission(submission) {
           widget: def.widget,
           help_text: def.help_text,
           format: def.format,
+          fullwidth: def.fullwidth,
           validation_error: null,
         });
         if (condMet) {
@@ -4506,6 +4559,55 @@ function seedFormSchemaForSubmission(submission) {
     structuresSection.field_count = totalSV;
     structuresSection.completed = totalSC;
     structuresSection.is_empty_asset_shell = structures.length === 0;
+  }
+
+  // ── Additional Insureds asset section ─────────────────────────
+  // Conditional on app.additional_insured_status=1. Stored under the
+  // `additionalInsureds` key on submission data — flat array of objects,
+  // each with name/mailing/type. Field codes get an `additionalInsureds[i].`
+  // prefix so the save layer can unflatten them back into the array.
+  const additionalInsureds = data['additionalInsureds'] || [];
+  const aiSection = sectionsOut.find(s => s.code === 'additional_insureds');
+  if (aiSection && aiSection.condition_met) {
+    aiSection.asset_count = additionalInsureds.length;
+    let totalSV = 0, totalSC = 0;
+    additionalInsureds.forEach((entry, idx) => {
+      for (const def of ADDITIONAL_INSURED_SCHEMA.fields) {
+        if (UNDERWRITER_SOURCE_FIELDS.has(def.code)) continue;
+        const flatCode = `additionalInsureds[${idx}].${def.code}`;
+        const condMet = evalCondition(def.condition, { ...data, ...entry });
+        const opts = def.options === 'US_STATES' ? US_STATE_OPTIONS : def.options;
+        fields.push({
+          code: flatCode,
+          original_code: def.code,
+          label: def.label,
+          section: 'additional_insureds',
+          section_label: 'Additional Insureds',
+          section_order: aiSection.order,
+          asset_idx: idx,
+          type: def.type,
+          required: def.required || false,
+          visible: condMet,
+          exists: true,
+          value: entry[def.code] !== undefined ? entry[def.code] : null,
+          options: opts || null,
+          decimal_places: def.decimal_places,
+          widget: def.widget,
+          help_text: def.help_text,
+          format: def.format,
+          fullwidth: def.fullwidth,
+          validation_error: null,
+        });
+        if (condMet) {
+          totalSV++;
+          if (entry[def.code] !== undefined && entry[def.code] !== null && entry[def.code] !== '') totalSC++;
+        }
+      }
+    });
+    aiSection.visible_count = totalSV;
+    aiSection.field_count = totalSV;
+    aiSection.completed = totalSC;
+    aiSection.is_empty_asset_shell = additionalInsureds.length === 0;
   }
 
   const totalVisible = sectionsOut.reduce((acc, s) => acc + s.visible_count, 0);
@@ -4603,20 +4705,27 @@ async function seedApi(path, opts = {}) {
     const sub = db.submissions.find(s => String(s.id) === m[1]);
     if (!sub) throw new Error('Submission not found');
     // Body is a flat {code: value} dict. Top-level keys merge into
-    // sub.data directly. Structure-scoped keys (structures[N].app.X)
-    // unflatten back into the structures array, mutating in place.
+    // sub.data directly. Asset-scoped keys (structures[N].app.X or
+    // additionalInsureds[N].app.X) unflatten back into their array.
     sub.data = sub.data || {};
     sub.data.structures = sub.data.structures || [];
+    sub.data.additionalInsureds = sub.data.additionalInsureds || [];
     for (const [code, val] of Object.entries(body || {})) {
       const sm = code.match(/^structures\[(\d+)\]\.(.+)$/);
       if (sm) {
         const idx = parseInt(sm[1], 10);
-        const fieldCode = sm[2];
         if (!sub.data.structures[idx]) sub.data.structures[idx] = {};
-        sub.data.structures[idx][fieldCode] = val;
-      } else {
-        sub.data[code] = val;
+        sub.data.structures[idx][sm[2]] = val;
+        continue;
       }
+      const aim = code.match(/^additionalInsureds\[(\d+)\]\.(.+)$/);
+      if (aim) {
+        const idx = parseInt(aim[1], 10);
+        if (!sub.data.additionalInsureds[idx]) sub.data.additionalInsureds[idx] = {};
+        sub.data.additionalInsureds[idx][aim[2]] = val;
+        continue;
+      }
+      sub.data[code] = val;
     }
     sub.modified_at = new Date().toISOString();
     if (body && body['insured.name']) sub.insured_name = body['insured.name'];
@@ -6429,7 +6538,7 @@ function submissionMainCard(s) {
                     }, 'Collapse all')
                   : null,
                 el('button', { className: 'btn btn-primary btn-sm',
-                  onClick: () => addStructure() },
+                  onClick: () => addAssetEntry(activeSection) },
                   `+ Add ${inferAssetNoun(activeSection, 1).toLowerCase()}`))
             : isMultiAsset
               ? el('div', { className: 'asset-controls' },
@@ -6452,7 +6561,7 @@ function submissionMainCard(s) {
               isEditing
                 ? el('button', { className: 'btn btn-primary',
                     style: { marginTop: '20px' },
-                    onClick: () => addStructure() },
+                    onClick: () => addAssetEntry(activeSection) },
                     `+ Add ${inferAssetNoun(activeSection, 1).toLowerCase()}`)
                 : null)
           : activeFields.length === 0
@@ -6460,7 +6569,9 @@ function submissionMainCard(s) {
               el('p', {}, 'No fields in this section are currently visible.'))
             : hasAssetCards
               ? el('div', { className: 'asset-list' },
-                  ...renderLocationGroups(activeSection, displayedGroups, isEditing))
+                  ...(activeSection.code === 'additional_insureds'
+                    ? renderFlatAssetCards(activeSection, displayedGroups, isEditing)
+                    : renderLocationGroups(activeSection, displayedGroups, isEditing)))
               : isEditing
                 ? (activeSection.label === 'Limits and Coverages'
                     ? renderCoverageLinesBody(activeSection, activeFields, true)
@@ -6762,6 +6873,8 @@ function buildingDisplayIndex(locationGroup, assetGroup, indexInLocation) {
 function inferAssetNoun(section, count) {
   const label = (section?.label || '').toLowerCase();
   const pairs = [
+    ['additional insured', 'Additional Insured', 'Additional Insureds'],
+    ['insured', 'Insured', 'Insureds'],
     ['structure', 'Structure', 'Structures'],
     ['location', 'Location', 'Locations'],
     ['building', 'Building', 'Buildings'],
@@ -6776,6 +6889,16 @@ function inferAssetNoun(section, count) {
     if (label.includes(key)) return count === 1 ? sing : plur;
   }
   return count === 1 ? 'Asset' : 'Assets';
+}
+
+// Dispatch the right add-helper based on which asset section the
+// broker is editing. Single entry point so the section header's
+// "+ Add structure" / "+ Add additional insured" buttons can share
+// onClick wiring without each knowing the section's CRUD function.
+function addAssetEntry(section) {
+  if (!section) return;
+  if (section.code === 'additional_insureds') return addAdditionalInsured();
+  return addStructure();
 }
 
 // Pick the best title field for an asset card's summary row.
@@ -6799,12 +6922,19 @@ function pickAssetTitle(group) {
 
 // Pick up to 3 summary stats — Monetary/Number fields with values, preferred codes first
 function pickAssetSummaryStats(group) {
-  // Three pinned summary stats for the collapsed structure card:
-  // Building TIV, Square Footage, Construction Type. Order matters —
-  // these appear left-to-right as picked. Construction Type is a text
-  // field (not monetary/numeric) so we can't lean on type-based filters
-  // like the older heuristic did; we explicitly pull each by code-tail.
-  const pinned = ['building_value', 'square_footage', 'construction_type'];
+  // Section-aware pinning: structures show Building TIV / Sqft /
+  // Construction Type; additional insureds show Type and a short
+  // address snippet. Each card type pins specific fields so the
+  // collapsed summary reads consistently.
+  const isAdditionalInsured = group.fields.some(f => {
+    const tail = (f.original_code || f.code || '').toLowerCase().split('.').pop();
+    return tail === 'additional_insured_name' || tail === 'additional_insured_type';
+  });
+
+  const pinned = isAdditionalInsured
+    ? ['additional_insured_type', 'additional_insured_mailing']
+    : ['building_value', 'square_footage', 'construction_type'];
+
   const result = [];
   for (const key of pinned) {
     const f = group.fields.find(ff => {
@@ -6937,6 +7067,73 @@ function removeStructure(idx) {
   toast('Structure removed', 'ok');
 }
 
+// Add and remove helpers for the Additional Insureds asset list. Same
+// shape as addStructure / removeStructure — broker writes a new entry
+// (or removes one) and we persist via the seed layer or the in-memory
+// demo submission. The data path is `data.additionalInsureds`, an
+// array of objects keyed by Joshu field codes.
+function addAdditionalInsured() {
+  const sub = state.selectedSubmission;
+  if (!sub) return;
+
+  let dataObj;
+  let persist;
+  if (sub.id === 'demo' && state.demoSubmission) {
+    dataObj = state.demoSubmission.data = state.demoSubmission.data || {};
+    persist = () => {};
+  } else {
+    const db = seedDb();
+    const seedSub = db.submissions.find(s => String(s.id) === String(sub.id));
+    if (!seedSub) return;
+    dataObj = seedSub.data = seedSub.data || {};
+    persist = () => saveSeedDb();
+  }
+
+  const list = dataObj['additionalInsureds'] = dataObj['additionalInsureds'] || [];
+  // Default new AI to a sensible Type ("Additional Insured" is the
+  // most common selection on a self-storage policy, so it saves the
+  // broker a click in the typical case).
+  list.push({
+    'app.additional_insured_type': 'Additional Insured',
+  });
+  persist();
+
+  if (sub.id === 'demo') loadSubmission('demo');
+  else loadSubmission(sub.id);
+  if (!state.expandedAssets['additional_insureds']) state.expandedAssets['additional_insureds'] = new Set();
+  state.expandedAssets['additional_insureds'].add(list.length - 1);
+  toast(`Added additional insured`, 'ok');
+}
+
+function removeAdditionalInsured(idx) {
+  const sub = state.selectedSubmission;
+  if (!sub) return;
+  if (!confirm('Remove this additional insured? Any data entered for it will be lost.')) return;
+
+  let dataObj;
+  let persist;
+  if (sub.id === 'demo' && state.demoSubmission) {
+    dataObj = state.demoSubmission.data = state.demoSubmission.data || {};
+    persist = () => {};
+  } else {
+    const db = seedDb();
+    const seedSub = db.submissions.find(s => String(s.id) === String(sub.id));
+    if (!seedSub) return;
+    dataObj = seedSub.data = seedSub.data || {};
+    persist = () => saveSeedDb();
+  }
+
+  const list = dataObj['additionalInsureds'] || [];
+  if (idx < 0 || idx >= list.length) return;
+  list.splice(idx, 1);
+  persist();
+
+  state.expandedAssets['additional_insureds'] = new Set();
+  if (sub.id === 'demo') loadSubmission('demo');
+  else loadSubmission(sub.id);
+  toast('Additional insured removed', 'ok');
+}
+
 // Render a single collapsible asset card
 // ──────────────────────────────────────────────────────────────
 // Asset numbering and broker-lock helpers
@@ -6999,6 +7196,29 @@ function renderLocationGroups(section, assetGroups, isEditing) {
   return locationGroups.map(loc => renderLocationGroupWrapper(section, loc, isEditing));
 }
 
+// Render a flat list of asset cards with no parent grouping. Used for
+// asset sections where the entries don't share a common parent (like
+// Additional Insureds — each AI is independent, no location to group
+// by). Each card shows its index in the eyebrow ("Additional Insured
+// N") and the entry's name as the title when set.
+function renderFlatAssetCards(section, assetGroups, isEditing) {
+  return assetGroups.map((group, i) => {
+    const num = i + 1;
+    // Pull the AI's name as the card title. Falls back to a generic
+    // "Additional Insured N" if the broker hasn't filled it in yet.
+    const nameField = group.fields.find(f => {
+      const tail = (f.original_code || f.code || '').toLowerCase();
+      return tail.endsWith('additional_insured_name');
+    });
+    const nameVal = nameField && nameField.value != null && nameField.value !== ''
+      ? formatDatapointValue(nameField.value)
+      : null;
+    const nounSing = inferAssetNoun(section, 1);
+    const title = nameVal || `${nounSing} ${num}`;
+    return renderAssetCard(section, group, isEditing, String(num), title);
+  });
+}
+
 // The wrapper card for a location. Contains:
 //   • Header: "LOCATION 1 — 1 BUILDING" or "LOCATION 2 — 6 BUILDINGS"
 //     eyebrow + address + blanket pill
@@ -7052,14 +7272,12 @@ function renderLocationGroupWrapper(section, locationGroup, isEditing) {
         el('div', { className: 'location-group-eyebrow' }, eyebrow.toUpperCase()),
         address
           ? el('div', { className: 'location-group-address' }, address)
-          : null),
-      isBlanketed
-        ? el('div', { className: 'location-group-pill is-blanketed' }, 'Blanketed')
-        : null),
+          : null)),
     // Nested building cards. Title differs by case:
     //   • Blanketed: "Structure 1" — neutral name; the blanketed status
-    //     lives at the location header (eyebrow text + yellow pill), so
-    //     repeating it on the building card adds no information.
+    //     is communicated only via the eyebrow text on the location
+    //     wrapper above (e.g. "LOCATION 1 — BLANKETED (8 BUILDINGS UNDER
+    //     BLANKET)"). Repeating it as a pill or in the card title is noise.
     //   • Single building: "Building 1" (or whatever building_number is)
     //   • Multi-building: "Building N" with N from building_number
     el('div', { className: 'location-group-buildings' },
@@ -7107,19 +7325,24 @@ function renderAssetCard(section, group, isEditing, displayLabelOverride, titleO
         el('div', { className: 'asset-card-stat-value' }, formatDatapointValue(f.value))))),
     isEditing
       ? el('div', { className: 'asset-card-meta' },
-          el('span', { className: `asset-card-chip ${pct === 100 ? 'done' : ''}` },
-            `${group.completed}/${group.total}`),
+          pct === 100
+            ? el('span', { className: 'asset-card-check', title: 'All fields complete' }, '\u2713')
+            : el('span', { className: 'asset-card-chip' },
+                `${group.completed}/${group.total}`),
           // Remove button — span instead of button (we're already inside a
           // button element for the toggle), uses pointer events with
           // stopPropagation to avoid expanding/collapsing the card.
-          section.code === 'structures'
+          (section.code === 'structures' || section.code === 'additional_insureds')
             ? el('span', { className: 'asset-card-remove',
                 onClick: (e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  removeStructure(group.idx);
+                  if (section.code === 'additional_insureds') removeAdditionalInsured(group.idx);
+                  else removeStructure(group.idx);
                 },
-                title: 'Remove this structure' }, '\u00d7')
+                title: section.code === 'additional_insureds'
+                  ? 'Remove this additional insured'
+                  : 'Remove this structure' }, '\u00d7')
             : null)
       : null,
     el('div', { className: 'asset-card-chevron' }, isOpen ? '\u2303' : '\u2304'));
@@ -7415,6 +7638,18 @@ function renderAssetReadBody(section, group, fields) {
 // form grid renders all editable fields (with underwriter-only fields
 // rendered as locked).
 function renderAssetEditBody(section, group, visible, lockedPredicate) {
+  // Additional Insureds are a small 3-field record. They don't need a
+  // structure-style hero strip or accordion grouping — just a flat
+  // form. Render them as a clean compact 2-col grid.
+  if (section.code === 'additional_insureds') {
+    return el('div', { className: 'asset-card-body is-editing is-compact' },
+      el('div', { className: 'form-grid form-grid-compact' },
+        ...visible.map(f => {
+          const locked = lockedPredicate(f);
+          return renderFormField(f, !locked);
+        })));
+  }
+
   // Identity strip — pull stories/year/sqft to show as prose context.
   const isMeaningful = (f) => {
     if (!hasValue(f)) return false;
@@ -9327,21 +9562,28 @@ async function saveDirtyData() {
   if (!Object.keys(dirty).length) return;
 
   // Helper: apply a flat dirty dict to a target data object,
-  // unflattening structure-scoped keys (`structures[N].app.X`)
-  // back into the structures array. Returns the target unchanged.
+  // unflattening asset-scoped keys back into their array. Currently
+  // handles `structures[N].app.X` and `additionalInsureds[N].app.X`.
   // Mutates target in place.
   const applyDirty = (target, dirtyDict) => {
     target.structures = target.structures || [];
+    target.additionalInsureds = target.additionalInsureds || [];
     for (const [code, val] of Object.entries(dirtyDict)) {
-      const m = code.match(/^structures\[(\d+)\]\.(.+)$/);
-      if (m) {
-        const idx = parseInt(m[1], 10);
-        const fieldCode = m[2];
+      const sm = code.match(/^structures\[(\d+)\]\.(.+)$/);
+      if (sm) {
+        const idx = parseInt(sm[1], 10);
         if (!target.structures[idx]) target.structures[idx] = {};
-        target.structures[idx][fieldCode] = val;
-      } else {
-        target[code] = val;
+        target.structures[idx][sm[2]] = val;
+        continue;
       }
+      const aim = code.match(/^additionalInsureds\[(\d+)\]\.(.+)$/);
+      if (aim) {
+        const idx = parseInt(aim[1], 10);
+        if (!target.additionalInsureds[idx]) target.additionalInsureds[idx] = {};
+        target.additionalInsureds[idx][aim[2]] = val;
+        continue;
+      }
+      target[code] = val;
     }
     return target;
   };
