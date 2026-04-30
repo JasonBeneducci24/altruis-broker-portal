@@ -1600,6 +1600,98 @@
   .asset-card-body .form-grid {
     gap: 14px 28px;
   }
+  /* Compact mode for the structure card body — accordion sub-sections
+     plus a tighter form-grid. Used on the structures asset section to
+     keep the 33-field form from feeling overbearing. */
+  .asset-card-body.is-compact {
+    padding: 16px 18px 18px;
+  }
+  .form-grid-compact {
+    gap: 10px 22px !important;
+  }
+  .form-grid-compact .form-field {
+    gap: 5px;
+  }
+  .form-grid-compact .form-field label {
+    font-size: 0.78rem;
+    color: var(--ink-mute);
+    font-weight: 400;
+  }
+  .form-grid-compact .form-field input[type="text"],
+  .form-grid-compact .form-field input[type="number"],
+  .form-grid-compact .form-field input[type="date"],
+  .form-grid-compact .form-field select {
+    padding: 7px 10px;
+    font-size: 0.88rem;
+  }
+  .form-grid-compact .slider-wrap {
+    padding: 8px 4px 4px;
+    gap: 14px;
+  }
+  .form-grid-compact .slider-value {
+    font-size: 1.15rem;
+  }
+  .form-grid-compact .segmented-option {
+    padding: 5px 11px;
+    font-size: 0.8rem;
+  }
+  .form-grid-compact .multiselect {
+    padding: 4px 0;
+  }
+  .form-grid-compact .multiselect-option {
+    font-size: 0.85rem;
+  }
+  /* Accordion sub-sections inside a structure card. Header reads as
+     a quiet section divider; clicking toggles open/closed. */
+  .structure-accordion {
+    border-top: 1px solid var(--line-2);
+  }
+  .structure-accordion:first-child {
+    border-top: none;
+  }
+  .structure-accordion-head {
+    width: 100%;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 0 12px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+  }
+  .structure-accordion-head:hover .structure-accordion-title {
+    color: var(--blue);
+  }
+  .structure-accordion-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    transition: color 120ms;
+  }
+  .structure-accordion-meta {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .structure-accordion-count {
+    font-size: 0.74rem;
+    color: var(--ink-mute);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+  }
+  .structure-accordion-count.is-complete {
+    color: var(--ok);
+  }
+  .structure-accordion-chevron {
+    color: var(--ink-mute);
+    font-size: 0.85rem;
+    width: 16px;
+    text-align: center;
+  }
+  .structure-accordion-body {
+    padding: 4px 0 18px;
+  }
   /* Medium viewports — stack stats below title */
   @media (max-width: 1200px) {
     .asset-card-summary {
@@ -1922,20 +2014,20 @@
   /* ── Card grid — multi-column visual picker for things like construction type ── */
   .card-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
     gap: 8px;
   }
   .card-grid-option {
     border: 1.5px solid var(--line);
     border-radius: var(--radius-md);
     background: var(--white);
-    padding: 14px 10px;
+    padding: 11px 12px;
     cursor: pointer;
     text-align: center;
     transition: border-color 120ms, background 120ms;
-    display: flex; flex-direction: column; align-items: center; gap: 6px;
-    min-height: 70px;
+    display: flex; flex-direction: column; align-items: center;
     justify-content: center;
+    min-height: 44px;
   }
   .card-grid-option:hover {
     border-color: var(--blue-100);
@@ -1948,12 +2040,14 @@
   .card-grid-icon {
     font-size: 1.4rem;
     line-height: 1;
+    margin-bottom: 6px;
   }
   .card-grid-label {
     font-size: 0.85rem;
     font-weight: 500;
     color: var(--navy, var(--ink));
-    line-height: 1.3;
+    line-height: 1.25;
+    letter-spacing: -0.005em;
   }
 
   /* Boolean toggle switch */
@@ -3967,13 +4061,13 @@ const STRUCTURE_SCHEMA = {
     { code: 'app.construction_type', label: 'Construction Type', type: 'text', required: true,
       widget: 'card_grid',
       options: [
-        { value: 'Frame', display: 'Frame', icon: '\ud83d\udd28' },
-        { value: 'Masonry Joisted', display: 'Masonry Joisted', icon: '\ud83e\uddf1' },
-        { value: 'Non Combustible', display: 'Non Combustible', icon: '\ud83d\udee1\ufe0f' },
-        { value: 'Masonry Non Combustible', display: 'Masonry Non Combustible', icon: '\ud83c\udfdb\ufe0f' },
-        { value: 'Modified Fire Resistive', display: 'Modified Fire Resistive', icon: '\ud83d\udd25' },
-        { value: 'Fire Resistive', display: 'Fire Resistive', icon: '\u26a1' },
-        { value: 'Vacant Land', display: 'Vacant Land', icon: '\ud83c\udf3e' },
+        { value: 'Frame', display: 'Frame' },
+        { value: 'Masonry Joisted', display: 'Masonry Joisted' },
+        { value: 'Non Combustible', display: 'Non Combustible' },
+        { value: 'Masonry Non Combustible', display: 'Masonry Non Combustible' },
+        { value: 'Modified Fire Resistive', display: 'Modified Fire Resistive' },
+        { value: 'Fire Resistive', display: 'Fire Resistive' },
+        { value: 'Vacant Land', display: 'Vacant Land' },
       ] },
     { code: 'app.roof_type', label: 'Roof Type', type: 'text', required: false,
       widget: 'segmented',
@@ -7209,13 +7303,100 @@ function renderAssetEditBody(section, group, visible, lockedPredicate) {
     ? el('div', { className: 'asset-hero asset-hero-v2 asset-hero-edit' }, heroLeft, heroRight)
     : null;
 
-  return el('div', { className: 'asset-card-body is-editing' },
+  return el('div', { className: 'asset-card-body is-editing is-compact' },
     hero,
-    el('div', { className: 'form-grid' },
-      ...visible.map(f => {
-        const locked = lockedPredicate(f);
-        return renderFormField(f, !locked);
-      })));
+    ...renderStructureAccordionGroups(visible, lockedPredicate, group));
+}
+
+// ──────────────────────────────────────────────────────────────
+// Accordion grouping for structure cards
+// ──────────────────────────────────────────────────────────────
+// The Joshu YAML defines 3 named subsections inside each structure
+// (Building Basic Information / Additional Coverages / Security
+// Features) via Heading markers. We mirror that grouping here:
+// each group renders as a collapsible accordion section, so the
+// broker can focus on one bucket at a time instead of staring at
+// 33 fields stacked vertically.
+//
+// Groups are keyed by which structure-schema field marks the start
+// of each group. We bucket the rendered fields by where they fall
+// in the original schema sequence: any field with original_code
+// before the first marker → Building Basic; before the second
+// marker → Additional Coverages; from the second marker on →
+// Security Features.
+function renderStructureAccordionGroups(fields, lockedPredicate, group) {
+  const groupDefs = [
+    { id: 'basic',     label: 'Building Basic Information', startCode: null },
+    { id: 'additional', label: 'Additional Coverages',     startCode: 'app.LRO_status' },
+    { id: 'security',   label: 'Security Features',        startCode: 'app.surveillance_status' },
+  ];
+
+  // Build an index map of structure-schema field codes → ordinal.
+  // `f.original_code` is the per-asset-stripped code (e.g. 'app.LRO_status')
+  // matching the schema definition order.
+  const schemaOrder = STRUCTURE_SCHEMA.fields.map(f => f.code);
+  const ordinalOf = (code) => {
+    const i = schemaOrder.indexOf(code);
+    return i === -1 ? 999 : i;
+  };
+  const startOrd = groupDefs.map(g => g.startCode ? ordinalOf(g.startCode) : -1);
+  const groupOrdOf = (origCode) => {
+    const o = ordinalOf(origCode);
+    let idx = 0;
+    for (let i = 1; i < startOrd.length; i++) {
+      if (o >= startOrd[i]) idx = i;
+    }
+    return idx;
+  };
+
+  // Bucket the fields
+  const buckets = groupDefs.map(g => ({ ...g, fields: [] }));
+  for (const f of fields) {
+    const origCode = f.original_code || f.code;
+    const idx = groupOrdOf(origCode);
+    buckets[idx].fields.push(f);
+  }
+
+  // Persist accordion expand state per asset+group across renders.
+  // Default: Building Basic open, others closed — broker starts from
+  // the most important group and expands the rest as needed.
+  if (!state.structureAccordions) state.structureAccordions = {};
+  const stateKey = `${group.idx}`;
+  if (!state.structureAccordions[stateKey]) {
+    state.structureAccordions[stateKey] = new Set(['basic']);
+  }
+  const expanded = state.structureAccordions[stateKey];
+
+  return buckets.map(bucket => {
+    if (bucket.fields.length === 0) return null;
+    const isOpen = expanded.has(bucket.id);
+    const completed = bucket.fields.filter(f =>
+      f.value != null && f.value !== '' && (Array.isArray(f.value) ? f.value.length > 0 : true)
+    ).length;
+    return el('div', { className: `structure-accordion ${isOpen ? 'open' : ''}` },
+      el('button', {
+        className: 'structure-accordion-head',
+        type: 'button',
+        onClick: () => {
+          if (expanded.has(bucket.id)) expanded.delete(bucket.id);
+          else expanded.add(bucket.id);
+          render();
+        },
+      },
+        el('div', { className: 'structure-accordion-title' }, bucket.label),
+        el('div', { className: 'structure-accordion-meta' },
+          el('span', { className: `structure-accordion-count ${completed === bucket.fields.length ? 'is-complete' : ''}` },
+            `${completed}/${bucket.fields.length}`),
+          el('span', { className: 'structure-accordion-chevron' }, isOpen ? '\u2303' : '\u2304'))),
+      isOpen
+        ? el('div', { className: 'structure-accordion-body' },
+            el('div', { className: 'form-grid form-grid-compact' },
+              ...bucket.fields.map(f => {
+                const locked = lockedPredicate(f);
+                return renderFormField(f, !locked);
+              })))
+        : null);
+  }).filter(Boolean);
 }
 
 // ──────────────────────────────────────────────────────────────
