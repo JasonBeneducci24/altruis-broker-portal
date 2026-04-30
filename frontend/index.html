@@ -4046,15 +4046,23 @@ const STRUCTURE_SCHEMA = {
   ],
   fields: [
     // Building Basic Information
+    // Field order is intentional — these top fields establish identity
+    // (which location, which building, where, how many) before any
+    // physical/coverage details. Layout: location#+building# on one
+    // row, then address (full width), then building_count (full width
+    // since the value carries weight — it can be 1 or "8 under blanket"),
+    // then occupancy (full width — 5 multiselect options need room).
     { code: 'app.location_number', label: 'Location Number', type: 'number', required: true, decimal_places: 0 },
-    { code: 'app.location_address', label: 'Location Address', type: 'location', required: true },
     { code: 'app.building_number', label: 'Building Number', type: 'number', required: true, decimal_places: 0 },
-    { code: 'app.building_occupancy', label: 'Occupancy Description', type: 'multiselect', required: true,
-      options: ['Self Storage','Office','Mercantile','Car Wash','Other'].map(v => ({ value: v, display: v })) },
-    { code: 'app.GLonlyStatus', label: 'GL Only?', type: 'boolean', required: true },
+    { code: 'app.location_address', label: 'Location Address', type: 'location', required: true },
     { code: 'app.building_count', label: 'Number of Buildings (at this address)', type: 'number',
       required: false, decimal_places: 0,
+      fullwidth: true,
       help_text: 'Enter the number of buildings represented by this entry. Use 1 for an individual building. Use a higher number when this entry represents multiple buildings under a blanket policy at the same address.' },
+    { code: 'app.building_occupancy', label: 'Occupancy Description', type: 'multiselect', required: true,
+      fullwidth: true,
+      options: ['Self Storage','Office','Mercantile','Car Wash','Other'].map(v => ({ value: v, display: v })) },
+    { code: 'app.GLonlyStatus', label: 'GL Only?', type: 'boolean', required: true },
     { code: 'app.building_value', label: 'Building TIV', type: 'monetary', required: true, decimal_places: 0 },
     { code: 'app.square_footage', label: 'Square Footage', type: 'number', required: true, decimal_places: 0 },
     { code: 'app.BPP_limit', label: 'Business Personal Property', type: 'monetary', required: true, decimal_places: 0 },
@@ -4067,7 +4075,6 @@ const STRUCTURE_SCHEMA = {
         { value: 'Masonry Non Combustible', display: 'Masonry Non Combustible' },
         { value: 'Modified Fire Resistive', display: 'Modified Fire Resistive' },
         { value: 'Fire Resistive', display: 'Fire Resistive' },
-        { value: 'Vacant Land', display: 'Vacant Land' },
       ] },
     { code: 'app.roof_type', label: 'Roof Type', type: 'text', required: false,
       widget: 'segmented',
