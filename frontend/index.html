@@ -1561,18 +1561,48 @@
     letter-spacing: -0.005em;
   }
   .asset-card-chip.done { background: var(--ok-soft); color: var(--ok); }
-  .multiselect {
-    display: flex; flex-direction: column; gap: 6px;
-    padding: 8px 0;
+  /* Multiselect pills — horizontal toggle-able chips for Array<Text>
+     fields like building_occupancy. Same visual language as the segmented
+     control pills (border + fill on active), but multi-select. The check
+     glyph on selected pills disambiguates from the single-select segmented. */
+  .multiselect-pills {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    align-items: center;
   }
-  .multiselect-option {
-    display: flex; align-items: center; gap: 8px;
-    font-size: 0.9rem;
+  .multiselect-pill {
+    border: 1px solid var(--line);
+    background: var(--white);
+    padding: 7px 14px 7px 14px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--ink);
     cursor: pointer;
+    border-radius: var(--radius-pill);
+    transition: border-color 120ms, background 120ms, color 120ms;
+    white-space: nowrap;
+    letter-spacing: -0.005em;
+    font-family: inherit;
+    display: inline-flex; align-items: center; gap: 6px;
   }
-  .multiselect-option input[type="checkbox"] {
-    width: 16px; height: 16px;
-    accent-color: var(--blue);
+  .multiselect-pill:hover {
+    border-color: var(--blue-100);
+    background: var(--blue-50);
+    color: var(--blue-deep, var(--blue));
+  }
+  .multiselect-pill.active {
+    background: var(--blue);
+    border-color: var(--blue);
+    color: var(--white);
+  }
+  .multiselect-pill.active:hover {
+    background: var(--blue-deep, var(--blue));
+    border-color: var(--blue-deep, var(--blue));
+    color: var(--white);
+  }
+  .multiselect-pill-check {
+    font-size: 0.78rem;
+    line-height: 1;
+    margin-left: -2px;
   }
   .asset-card-remove {
     display: inline-flex; align-items: center; justify-content: center;
@@ -1609,6 +1639,32 @@
   .form-grid-compact {
     gap: 10px 22px !important;
   }
+  /* 3-column row used at the top of the building basic info bucket
+     for the identity numbers (Location #, Building #, Number of
+     Buildings). Same compact rhythm as form-grid-compact, but three
+     columns instead of two. Wraps to 1-column on narrow viewports. */
+  .form-grid-trio {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px 22px;
+    margin-bottom: 12px;
+  }
+  .form-grid-trio .form-field { gap: 5px; }
+  .form-grid-trio .form-field label {
+    font-size: 0.78rem;
+    color: var(--ink-mute);
+    font-weight: 400;
+  }
+  .form-grid-trio .form-field input[type="text"],
+  .form-grid-trio .form-field input[type="number"],
+  .form-grid-trio .form-field input[type="date"],
+  .form-grid-trio .form-field select {
+    padding: 7px 10px;
+    font-size: 0.88rem;
+  }
+  @media (max-width: 700px) {
+    .form-grid-trio { grid-template-columns: 1fr; }
+  }
   .form-grid-compact .form-field {
     gap: 5px;
   }
@@ -1635,11 +1691,9 @@
     padding: 5px 11px;
     font-size: 0.8rem;
   }
-  .form-grid-compact .multiselect {
-    padding: 4px 0;
-  }
-  .form-grid-compact .multiselect-option {
-    font-size: 0.85rem;
+  .form-grid-compact .multiselect-pill {
+    padding: 5px 11px;
+    font-size: 0.8rem;
   }
   /* Accordion sub-sections inside a structure card. Header reads as
      a quiet section divider; clicking toggles open/closed. */
@@ -2234,9 +2288,12 @@
   }
   .asset-hero-v2.asset-hero-edit {
     /* Edit mode: lighter footprint (no big-value emphasis), but keep
-       identity for context. */
+       identity for context. The accordion header below provides its
+       own top border, so we drop the hero's bottom border to avoid
+       a stacked double-divider. */
     padding: 14px 0 12px;
-    margin-bottom: 16px;
+    margin-bottom: 4px;
+    border-bottom: none;
   }
   .asset-hero-bigvalue { }
   .asset-hero-bigvalue-amount {
@@ -4065,7 +4122,6 @@ const STRUCTURE_SCHEMA = {
     { code: 'app.location_address', label: 'Location Address', type: 'location', required: true },
     { code: 'app.building_count', label: 'Number of Buildings (at this address)', type: 'number',
       required: false, decimal_places: 0,
-      fullwidth: true,
       help_text: 'Enter the number of buildings represented by this entry. Use 1 for an individual building. Use a higher number when this entry represents multiple buildings under a blanket policy at the same address.' },
     { code: 'app.building_occupancy', label: 'Occupancy Description', type: 'multiselect', required: true,
       fullwidth: true,
@@ -7404,13 +7460,54 @@ function renderStructureAccordionGroups(fields, lockedPredicate, group) {
           el('span', { className: 'structure-accordion-chevron' }, isOpen ? '\u2303' : '\u2304'))),
       isOpen
         ? el('div', { className: 'structure-accordion-body' },
-            el('div', { className: 'form-grid form-grid-compact' },
-              ...bucket.fields.map(f => {
-                const locked = lockedPredicate(f);
-                return renderFormField(f, !locked);
-              })))
+            ...renderAccordionBucketBody(bucket, lockedPredicate))
         : null);
   }).filter(Boolean);
+}
+
+// Render the body of a single accordion bucket. For the `basic` bucket
+// we split out the 3 identity numbers (location#, building#, building
+// count) into a tight 3-column row at the very top — these are the
+// "which is this" fields and belong on a single visual line. Everything
+// else in the bucket falls through to the standard 2-column grid.
+function renderAccordionBucketBody(bucket, lockedPredicate) {
+  if (bucket.id !== 'basic') {
+    return [el('div', { className: 'form-grid form-grid-compact' },
+      ...bucket.fields.map(f => {
+        const locked = lockedPredicate(f);
+        return renderFormField(f, !locked);
+      }))];
+  }
+
+  // Pull the three identity-number fields out by code-tail. Order is
+  // intentional left-to-right: Location → Building → Number of Buildings.
+  const tailMatch = (codes) => bucket.fields.find(f => {
+    const tail = (f.original_code || f.code || '').toLowerCase().split('.').pop();
+    return codes.includes(tail);
+  });
+  const locField    = tailMatch(['location_number']);
+  const bldgField   = tailMatch(['building_number']);
+  const countField  = tailMatch(['building_count']);
+  const identityFields = [locField, bldgField, countField].filter(Boolean);
+  const identitySet = new Set(identityFields.map(f => f.code));
+  const remainingFields = bucket.fields.filter(f => !identitySet.has(f.code));
+
+  const out = [];
+  if (identityFields.length > 0) {
+    out.push(el('div', { className: 'form-grid-trio' },
+      ...identityFields.map(f => {
+        const locked = lockedPredicate(f);
+        return renderFormField(f, !locked);
+      })));
+  }
+  if (remainingFields.length > 0) {
+    out.push(el('div', { className: 'form-grid form-grid-compact' },
+      ...remainingFields.map(f => {
+        const locked = lockedPredicate(f);
+        return renderFormField(f, !locked);
+      })));
+  }
+  return out;
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -8410,24 +8507,31 @@ function renderFieldInput(field, value, locked = false) {
 
   // ── Multiselect: array-typed field with options (broker picks 1+)
   // Used by Joshu Array<Text> datapoints like app.building_occupancy.
-  // Value is stored as an array of strings; we render as a checkbox group.
+  // Value is stored as an array of strings. Renders as a horizontal
+  // row of toggle-able pill chips — same visual language as the
+  // segmented-control pills, but multi-select instead of single-select.
+  // A check glyph appears on selected pills to disambiguate from the
+  // single-select segmented controls elsewhere on the page.
   if (field.type === 'multiselect' && field.options) {
     const arrayVal = Array.isArray(cleanValue) ? cleanValue : (cleanValue ? [cleanValue] : []);
     if (locked) {
       if (arrayVal.length === 0) return lockedValueEl('');
       return lockedValueEl(arrayVal.join(', '));
     }
-    return el('div', { className: 'multiselect' },
+    return el('div', { className: 'multiselect-pills' },
       ...field.options.map(opt => {
         const checked = arrayVal.includes(opt.value);
-        return el('label', { className: 'multiselect-option' },
-          el('input', { type: 'checkbox', checked,
-            onChange: (e) => {
-              const next = e.target.checked
-                ? [...arrayVal, opt.value]
-                : arrayVal.filter(v => v !== opt.value);
-              onChange(next);
-            } }),
+        return el('button', {
+          type: 'button',
+          className: `multiselect-pill ${checked ? 'active' : ''}`,
+          onClick: () => {
+            const next = checked
+              ? arrayVal.filter(v => v !== opt.value)
+              : [...arrayVal, opt.value];
+            onChange(next);
+          },
+        },
+          checked ? el('span', { className: 'multiselect-pill-check' }, '\u2713') : null,
           el('span', {}, opt.display || opt.value));
       }));
   }
