@@ -1271,6 +1271,39 @@
     color: var(--ink-mute, var(--mute));
   }
 
+  /* Sortable column headers in the submissions table. The whole th is
+     clickable; on hover the label shifts color to suggest interactivity.
+     The arrow appears in tabular space (always reserved) so the column
+     widths don't shift between active/inactive sort states. */
+  .submissions-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: color 120ms;
+    position: relative;
+  }
+  .submissions-table th.sortable:hover {
+    color: var(--navy);
+  }
+  .submissions-table th.sortable .th-label {
+    /* nothing special — just a target for the arrow gap */
+  }
+  .submissions-table th.sortable .th-arrow {
+    display: inline-block;
+    width: 12px;
+    margin-left: 4px;
+    text-align: center;
+    color: var(--blue);
+    font-weight: 600;
+    font-size: 0.85rem;
+    line-height: 1;
+    /* Reserve the space even when no arrow shows so headers don't
+       jump as the broker clicks between columns. */
+  }
+  .submissions-table th.sortable.sort-asc,
+  .submissions-table th.sortable.sort-desc {
+    color: var(--navy);
+  }
+
   /* ─────────── Badges ─────────── */
   .badge {
     display: inline-flex; align-items: center; gap: 6px;
@@ -1292,7 +1325,13 @@
   .badge-processing,
   .badge-quoteindication, .badge-quotestoreedit { background: var(--info-soft); color: var(--info); }
   .badge-submitted, .badge-quotepublished, .badge-binderpublished { background: var(--info-soft); color: var(--info); }
-  .badge-pendingdecision { background: var(--info-soft); color: var(--info); }
+  /* Pending Decision — broker submitted, no quotes yet. Altruis blue
+     since this is the active "in-flight" state for the carrier. */
+  .badge-pendingdecision { background: var(--blue-100); color: var(--blue-deep); }
+  /* Quote(s) Ready — quotes have come back from underwriting (or the
+     submission is bound). Green since this is the "good news" state
+     where the broker has something actionable in front of them. */
+  .badge-quotesready { background: var(--ok-soft); color: var(--ok-deep, var(--ok)); }
   .badge-future, .badge-coverageactive, .badge-active, .badge-ready,
   .badge-issued, .badge-bound { background: var(--ok-soft); color: var(--ok-deep, var(--ok)); }
   .badge-declined, .badge-quotedeclined, .badge-binderdeclined, .badge-canceled, .badge-error { background: var(--err-soft); color: var(--err); }
@@ -3360,6 +3399,41 @@ function statusBadge(s) {
   return el('span', { className: `badge badge-${s.toLowerCase()}` }, s);
 }
 
+// Submission-specific status badge for the broker's view of the
+// submissions list. Collapses the underlying Joshu lifecycle into
+// exactly four labels that match how brokers think about the funnel:
+//
+//   • Incomplete       (yellow)  — draft, broker still filling out
+//   • Pending Decision (blue)    — submitted, no quotes back yet
+//   • Quote(s) Ready   (green)   — quotes attached or policy bound
+//   • Declined         (red)     — declined / closed / lost
+//
+// The "has quotes" signal comes from the row-level `quote_count`
+// annotation that the list endpoint adds. Bound submissions also
+// roll into Quote(s) Ready since the broker is past the decision
+// point — the active-policy view lives elsewhere (Policies tab).
+function submissionStatusBadge(s) {
+  if (!s) return el('span', { className: 'badge badge-incomplete' }, '—');
+  const status = s.status;
+  const hasQuotes = (s.quote_count || 0) > 0
+    || (Array.isArray(s.quotes) && s.quotes.length > 0)
+    || !!s.bound_at;
+
+  if (status === 'Declined' || status === 'Closed' || status === 'Lost') {
+    return el('span', { className: 'badge badge-declined' }, 'Declined');
+  }
+  if (status === 'Incomplete') {
+    return el('span', { className: 'badge badge-incomplete' }, 'Incomplete');
+  }
+  // Submitted / Pending / Bound / Active / Future / unknown — split
+  // by whether quotes have come back. With quotes → green Quote(s)
+  // Ready; without → blue Pending Decision.
+  if (hasQuotes) {
+    return el('span', { className: 'badge badge-quotesready' }, 'Quote(s) Ready');
+  }
+  return el('span', { className: 'badge badge-pendingdecision' }, 'Pending Decision');
+}
+
 function showModal(title, content) {
   const backdrop = el('div', {
     className: 'modal-backdrop',
@@ -4695,7 +4769,16 @@ async function seedApi(path, opts = {}) {
   if (p === '/api/submissions' && method === 'GET') {
     const items = db.submissions.slice().sort((a, b) =>
       new Date(b.modified_at || b.created_at) - new Date(a.modified_at || a.created_at));
-    return { items, total: items.length, page: 1, per_page: items.length };
+    // Annotate each row with how many quotes are attached so the broker
+    // list view can show "Quote(s) Ready" for submissions that have
+    // received underwriter quotes. Quotes themselves live in a separate
+    // table (db.quotes) but the list view shouldn't have to fetch each
+    // submission's quotes separately just to render a badge.
+    const annotated = items.map(s => ({
+      ...s,
+      quote_count: db.quotes.filter(q => String(q.submission_id) === String(s.id)).length,
+    }));
+    return { items: annotated, total: annotated.length, page: 1, per_page: annotated.length };
   }
   let m = p.match(/^\/api\/submissions\/(\d+)$/);
   if (m && method === 'GET') {
@@ -4925,7 +5008,12 @@ const state = {
     error: null,
   },
   // Dashboard filter
-  filter: { tab: 'all', search: '' },
+  // Filter / sort state for the submissions list. `tab` cycles through
+  // status filters; `search` is the free-text box; `sortColumn` and
+  // `sortDir` drive column-header click sorting. Default sort is by
+  // effective date ascending — brokers typically work soonest-first
+  // since policies need to bind before they take effect.
+  filter: { tab: 'all', search: '', sortColumn: 'effective', sortDir: 'asc' },
   // Dashboard local UI state
   dashboard: {
     search: '',                  // search query in the page header
@@ -5994,7 +6082,7 @@ function recentSubmissionRow(s) {
       updatedRelative
         ? el('div', { className: 'recent-row-time' }, updatedRelative)
         : null,
-      el('div', { className: 'recent-row-status' }, statusBadge(s.status))));
+      el('div', { className: 'recent-row-status' }, submissionStatusBadge(s))));
 }
 
 // ═════════════════════════════════════════════════════════════════
@@ -6133,11 +6221,25 @@ function submissionsListView() {
   const tab = state.filter.tab;
   const search = state.filter.search.toLowerCase().trim();
 
+  // Single source of truth for "what status bucket is this submission
+  // in?" — used by both the tab filter and the status badge so they
+  // never drift out of sync. Returns one of: 'incomplete',
+  // 'pending', 'quotesready', 'declined'.
+  const bucket = (s) => {
+    const status = s.status;
+    if (status === 'Declined' || status === 'Closed' || status === 'Lost') return 'declined';
+    if (status === 'Incomplete') return 'incomplete';
+    const hasQuotes = (s.quote_count || 0) > 0
+      || (Array.isArray(s.quotes) && s.quotes.length > 0)
+      || !!s.bound_at;
+    return hasQuotes ? 'quotesready' : 'pending';
+  };
+
   let filtered = items;
-  if (tab === 'drafts') filtered = items.filter(s => s.status === 'Incomplete');
-  else if (tab === 'submitted') filtered = items.filter(s => ['Submitted', 'Pending'].includes(s.status));
-  else if (tab === 'quoted') filtered = items.filter(s => s.bound_at || s.status === 'Submitted');
-  else if (tab === 'declined') filtered = items.filter(s => s.status === 'Declined');
+  if (tab === 'drafts')      filtered = items.filter(s => bucket(s) === 'incomplete');
+  else if (tab === 'pending') filtered = items.filter(s => bucket(s) === 'pending');
+  else if (tab === 'quoted')  filtered = items.filter(s => bucket(s) === 'quotesready');
+  else if (tab === 'declined') filtered = items.filter(s => bucket(s) === 'declined');
 
   if (search) {
     filtered = filtered.filter(s => {
@@ -6147,12 +6249,21 @@ function submissionsListView() {
     });
   }
 
-  // Tab counts (from the full list)
+  // Apply sort. Each column extracts a comparable value from the row,
+  // then we run a stable sort with direction applied. Strings compare
+  // case-insensitively. Missing / null values always sort to the end
+  // regardless of direction so empty rows don't drift to the top.
+  filtered = sortSubmissions(filtered, state.filter.sortColumn, state.filter.sortDir);
+
+  // Tab counts (from the full list) — buckets must match the badge
+  // logic so the count next to each tab name is what the broker
+  // actually sees in the table for that filter.
   const counts = {
     all: items.length,
-    drafts: items.filter(s => s.status === 'Incomplete').length,
-    submitted: items.filter(s => ['Submitted', 'Pending'].includes(s.status)).length,
-    declined: items.filter(s => s.status === 'Declined').length,
+    drafts: items.filter(s => bucket(s) === 'incomplete').length,
+    pending: items.filter(s => bucket(s) === 'pending').length,
+    quoted: items.filter(s => bucket(s) === 'quotesready').length,
+    declined: items.filter(s => bucket(s) === 'declined').length,
   };
 
   return el('div', {},
@@ -6166,8 +6277,9 @@ function submissionsListView() {
     el('div', { className: 'toolbar' },
       el('div', { className: 'tabs' },
         filterTab('all', 'All', counts.all),
-        filterTab('drafts', 'Drafts', counts.drafts),
-        filterTab('submitted', 'Pending Decision', counts.submitted),
+        filterTab('drafts', 'Incomplete', counts.drafts),
+        filterTab('pending', 'Pending Decision', counts.pending),
+        filterTab('quoted', 'Quote(s) Ready', counts.quoted),
         filterTab('declined', 'Declined', counts.declined)),
       el('div', { className: 'search-box' },
         el('input', { type: 'search',
@@ -6186,6 +6298,66 @@ function submissionsListView() {
             el('h3', {}, search ? 'No matches' : 'No submissions in this view'),
             el('p', {}, search ? 'Try a different search term.' : 'Try a different filter.'))
           : submissionsTable(filtered)));
+}
+
+// Sort a list of submissions by the given column + direction. Each
+// column has its own value extractor since the row shape isn't a
+// flat field-per-column dict (status is a string code mapped to a
+// label, insured name lives in either column or data.*, etc.).
+//
+// Sort is stable so secondary order is preserved (the filtered array
+// is already in modified-at-desc order from the API, so equal
+// primary-sort-keys maintain that recency tie-break).
+//
+// Missing values always sort to the end regardless of direction —
+// rows with no effective date or no insured name sink to the bottom
+// rather than drifting between populated rows.
+function sortSubmissions(rows, column, dir) {
+  const sign = dir === 'desc' ? -1 : 1;
+  const extractors = {
+    insured: (s) => (extractInsuredName(s) || '').toLowerCase(),
+    id: (s) => Number(s.id) || 0,
+    flow: (s) => (s.flow || '').toLowerCase(),
+    effective: (s) => s.effective_at ? new Date(s.effective_at).getTime() : null,
+    status: (s) => statusSortRank(s.status),
+    updated: (s) => new Date(s.modified_at || s.created_at || 0).getTime(),
+  };
+  const extract = extractors[column] || extractors.effective;
+
+  // Tag each row with its original index so we can build a stable sort
+  // (Array.prototype.sort is not guaranteed stable across all engines,
+  // but tagging the index makes the comparator total).
+  const tagged = rows.map((row, idx) => ({ row, idx, key: extract(row) }));
+  tagged.sort((a, b) => {
+    // Missing values (null/undefined/'') always sink to the end
+    const aMissing = a.key == null || a.key === '';
+    const bMissing = b.key == null || b.key === '';
+    if (aMissing && bMissing) return a.idx - b.idx;
+    if (aMissing) return 1;
+    if (bMissing) return -1;
+    if (a.key < b.key) return -1 * sign;
+    if (a.key > b.key) return  1 * sign;
+    return a.idx - b.idx;
+  });
+  return tagged.map(t => t.row);
+}
+
+// Status sort rank — pipeline order rather than alphabetical, since
+// "Bound > Declined > Incomplete" alphabetically would put bound at
+// the bottom which is the opposite of what brokers expect.
+function statusSortRank(status) {
+  const order = {
+    'Incomplete': 1,
+    'Submitted':  2,
+    'Pending':    2,
+    'Bound':      3,
+    'Active':     3,
+    'Future':     3,
+    'Declined':   4,
+    'Closed':     5,
+    'Lost':       5,
+  };
+  return order[status] || 99;
 }
 
 function filterTab(key, label, count) {
@@ -6211,12 +6383,12 @@ function submissionsTable(items) {
       // Updated — date+time, slightly wider than Effective
       el('col', { className: 'col-updated' })),
     el('thead', {}, el('tr', {},
-      el('th', {}, 'Insured'),
-      el('th', {}, 'Submission'),
-      el('th', {}, 'Flow'),
-      el('th', {}, 'Effective'),
-      el('th', {}, 'Status'),
-      el('th', {}, 'Updated'))),
+      sortableHeader('insured', 'Insured'),
+      sortableHeader('id', 'Submission'),
+      sortableHeader('flow', 'Flow'),
+      sortableHeader('effective', 'Effective'),
+      sortableHeader('status', 'Status'),
+      sortableHeader('updated', 'Updated'))),
     el('tbody', {}, ...items.map(s => el('tr', {
       className: 'clickable',
       onClick: () => { state.subView = s.id; loadSubmission(s.id); }
@@ -6227,9 +6399,40 @@ function submissionsTable(items) {
       el('td', { className: 'tabular-id cell-nowrap' }, `#${s.id}`),
       el('td', { className: 'cell-nowrap' }, friendlyFlow(s.flow)),
       el('td', { className: 'cell-nowrap' }, fmtDate(s.effective_at)),
-      el('td', { className: 'cell-nowrap' }, statusBadge(s.status)),
+      el('td', { className: 'cell-nowrap' }, submissionStatusBadge(s)),
       el('td', { className: 'cell-updated cell-nowrap' },
         fmtDateTime(s.modified_at || s.created_at))))));
+}
+
+// Render a clickable column header. Click cycles: asc → desc → reset
+// to default sort. The active column shows a small directional arrow
+// next to its label; inactive columns show a subtle paired-arrow hint
+// on hover so the broker knows the column is sortable.
+function sortableHeader(column, label) {
+  const isActive = state.filter.sortColumn === column;
+  const dir = isActive ? state.filter.sortDir : null;
+  const arrow = dir === 'asc' ? '\u2191' : dir === 'desc' ? '\u2193' : '';
+  return el('th', {
+    className: `sortable ${isActive ? `sort-${dir}` : ''}`,
+    onClick: () => {
+      // Click cycle: not active → asc; asc → desc; desc → reset to
+      // default sort (effective ascending). Cycling back to a default
+      // means the broker can always undo a sort change without
+      // remembering what the original was.
+      if (!isActive) {
+        state.filter.sortColumn = column;
+        state.filter.sortDir = 'asc';
+      } else if (dir === 'asc') {
+        state.filter.sortDir = 'desc';
+      } else {
+        state.filter.sortColumn = 'effective';
+        state.filter.sortDir = 'asc';
+      }
+      render();
+    },
+  },
+    el('span', { className: 'th-label' }, label),
+    el('span', { className: 'th-arrow' }, arrow));
 }
 
 // Pull the named insured out of a submission row from the list endpoint.
