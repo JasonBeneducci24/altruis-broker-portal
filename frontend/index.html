@@ -513,6 +513,229 @@
     margin-left: auto; flex-shrink: 0;
   }
 
+  /* ─── This-month KPI strip ──────────────────────────────────────
+     Four cards in a row showing month-to-date metrics. The "Bound"
+     card gets emphasized (slightly thicker number, brand-blue tint
+     on the value) since that's the broker's headline number. */
+  .kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 900px) {
+    .kpi-strip { grid-template-columns: repeat(2, 1fr); }
+  }
+  .kpi-card {
+    background: var(--white);
+    border: 1px solid var(--line-soft, var(--line));
+    border-radius: var(--radius-md);
+    padding: 16px 18px;
+    display: flex; flex-direction: column;
+    gap: 4px;
+    min-height: 96px;
+  }
+  .kpi-card-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+  .kpi-card-value {
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: var(--navy);
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    margin-top: 2px;
+  }
+  .kpi-card-emphasis .kpi-card-value {
+    color: var(--blue);
+  }
+  .kpi-card-sub {
+    font-size: 0.82rem;
+    color: var(--ink-mute);
+    margin-top: 2px;
+  }
+
+  /* ─── Action lane ───────────────────────────────────────────────
+     Card with a list of action rows. Each row has an icon (tinted by
+     kind), a title + detail, and a single CTA button on the right.
+     The "good" kind is the only celebratory color; the rest stay
+     neutral or warm so the broker isn't bombarded with alarm states. */
+  .action-lane {
+    background: var(--white);
+    border: 1px solid var(--line-soft, var(--line));
+    border-radius: var(--radius-lg);
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  .action-lane-head {
+    padding: 14px 18px 8px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .action-lane-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin: 0;
+  }
+  .action-lane-empty {
+    padding: 28px 24px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .action-lane-empty-icon {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--ok-soft);
+    color: var(--ok);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 1rem;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .action-lane-empty-title {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--navy);
+    margin-bottom: 2px;
+  }
+  .action-lane-empty-sub {
+    font-size: 0.85rem;
+    color: var(--ink-mute);
+  }
+  .action-lane-items {
+    display: flex; flex-direction: column;
+  }
+  .action-lane-row {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .action-lane-row:last-child { border-bottom: none; }
+  .action-lane-row-icon {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .action-lane-row-icon-svg { display: inline-flex; }
+  .action-lane-row-icon-svg svg { display: block; }
+  .action-lane-row-good .action-lane-row-icon {
+    background: var(--ok-soft); color: var(--ok-deep, var(--ok));
+  }
+  .action-lane-row-urgent .action-lane-row-icon {
+    background: var(--info-soft); color: var(--info);
+  }
+  .action-lane-row-warn .action-lane-row-icon {
+    background: var(--blue-100); color: var(--blue-deep);
+  }
+  .action-lane-row-normal .action-lane-row-icon {
+    background: var(--paper-warm, var(--paper)); color: var(--ink-mute);
+  }
+  .action-lane-row-text { flex: 1; min-width: 0; }
+  .action-lane-row-title {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--navy);
+    margin-bottom: 2px;
+  }
+  .action-lane-row-detail {
+    font-size: 0.82rem;
+    color: var(--ink-mute);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* ─── Dashboard charts ──────────────────────────────────────────
+     Two cards side by side: a 6-month volume bar chart and a
+     conversion funnel. Stack on narrow viewports. */
+  .dashboard-charts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 900px) {
+    .dashboard-charts { grid-template-columns: 1fr; }
+  }
+  .dashboard-card.chart-card {
+    background: var(--white);
+    border: 1px solid var(--line-soft, var(--line));
+    border-radius: var(--radius-md);
+    padding: 16px 18px;
+  }
+  .chart-card-head {
+    margin-bottom: 14px;
+  }
+  .chart-card-title {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--navy);
+    letter-spacing: -0.01em;
+  }
+  .chart-card-sub {
+    font-size: 0.78rem;
+    color: var(--ink-mute);
+    margin-top: 2px;
+  }
+  .chart-svg-wrap {
+    width: 100%;
+  }
+  .chart-svg-wrap svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+
+  /* Funnel — horizontal bars with conversion% to the right */
+  .funnel {
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .funnel-row {
+    display: grid;
+    grid-template-columns: 80px 1fr 48px;
+    align-items: center;
+    gap: 10px;
+  }
+  .funnel-row-label {
+    font-size: 0.85rem;
+    color: var(--ink-mute);
+    font-weight: 500;
+  }
+  .funnel-row-bar-wrap {
+    height: 26px;
+    background: var(--paper-warm, var(--paper));
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+  .funnel-row-bar {
+    height: 100%;
+    background: var(--blue);
+    border-radius: 4px;
+    display: flex; align-items: center;
+    padding: 0 10px;
+    min-width: 28px;  /* always show count even on tiny bars */
+    transition: width 240ms ease;
+  }
+  .funnel-row-bar-count {
+    color: var(--white);
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .funnel-row-conv {
+    font-size: 0.82rem;
+    color: var(--ink-mute);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
   /* Activity list — replaces both the "Needs your attention" panel and
      the "Recent activity" list with a single unified list. The broker
      toggles between cohorts via filter chips at the top. */
@@ -5527,12 +5750,6 @@ function dashboardView() {
   const quotes = state.quotes.items || [];
   const policies = state.policies.items || [];
 
-  // ── Pipeline counts (always over the full set, not filtered) ───────
-  const total = subs.length;
-  const drafts = subs.filter(s => s.status === 'Incomplete').length;
-  const inUw = subs.filter(s => s.status === 'Submitted' || s.status === 'Pending').length;
-  const declined = subs.filter(s => s.status === 'Declined').length;
-
   // ── Greeting (compact: no subgreeting; the page itself shows what
   //    the pipeline looks like) ───────────────────────────────────────
   const hour = new Date().getHours();
@@ -5540,28 +5757,489 @@ function dashboardView() {
   const firstName = (state.user.name || state.user.email || 'Broker').split(' ')[0]
     .replace(/\d+$/, '');  // strip trailing digits ("Jasonbeneducci2" → "Jasonbeneducci")
 
+  // Total count for the pipeline strip — used in a few places below
+  const total = subs.length;
+  const drafts = subs.filter(s => s.status === 'Incomplete').length;
+  const inUw = subs.filter(s => s.status === 'Submitted' || s.status === 'Pending').length;
+  const declined = subs.filter(s => s.status === 'Declined').length;
+
   return el('div', { className: 'dashboard' },
-    // Compact header — greeting on left, search on right. The "New
-    // submission" button has moved to the persistent sidebar CTA, so
-    // it doesn't need to appear here too.
+    // Compact header — greeting on left, search on right.
     el('div', { className: 'dashboard-header' },
       el('div', { className: 'dashboard-header-left' },
         el('h1', { className: 'dashboard-greeting' }, `${greeting}, ${firstName}.`)),
       el('div', { className: 'dashboard-header-actions' },
         renderHeaderSearch(subs))),
 
-    // Thin pipeline strip — total + segmented bar + scope toggle.
-    // Replaces the heavier pipeline-panel which dominated the page.
+    // Tier 1A — "This month" KPIs. The single most important strip
+    // for a broker's morning check-in: did we get more in the door than
+    // we got out the door, and what's our hit ratio looking like.
+    renderMonthKpiStrip(subs, quotes, policies),
+
+    // Tier 1B — Action lane. Each row is "here's a thing that needs
+    // attention; here's the one button to do something about it." This
+    // is the single most workflow-critical addition to the dashboard.
+    renderActionLane(subs, quotes),
+
+    // Pipeline strip (existing) — total + composition. Kept because it
+    // gives "shape of the book at a glance" which the KPIs above don't.
     renderPipelineStrip(total, { drafts, inUw, declined }),
 
-    // Unified activity list — replaces both the "Needs your attention"
-    // panel and the separate "Recent activity" list. The broker
-    // toggles between cohorts via filter chips.
+    // Tier 3 — Charts. Volume over time + funnel. Placeholders for now;
+    // they'll come alive with more historical data over time.
+    renderDashboardCharts(subs, quotes),
+
+    // Recent activity (existing) — chronological feed of what happened.
     renderActivitySection(subs, quotes, policies)
   );
 }
 
-// ─── Pipeline strip ──────────────────────────────────────────────────
+// ─── This-month KPI strip ────────────────────────────────────────────
+// Four cards: Submitted, Quoted, Bound, Hit Ratio. Counts are
+// month-to-date (current calendar month). The "Bound" card also shows
+// total bound premium; the "Hit Ratio" card shows the percentage of
+// quotes that resulted in a bind in the same month.
+//
+// The choice of MTD vs trailing-30 is intentional: MTD aligns with
+// how brokers report up to leadership ("how are we doing this
+// month?") and how they're paid (commission books are usually
+// monthly). Trailing-30 would feel rolling and unmoored.
+function renderMonthKpiStrip(subs, quotes, policies) {
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+  const within = (ts) => {
+    if (!ts) return false;
+    const t = new Date(ts).getTime();
+    return Number.isFinite(t) && t >= monthStart;
+  };
+
+  // Submitted this month: created_at falls in the month. Use created_at
+  // rather than submitted_at since "started a submission" is what we
+  // want to count (a broker creating a draft on Apr 1 still counts as
+  // April activity even if they don't submit until May).
+  const submittedCount = subs.filter(s => within(s.created_at)).length;
+
+  // Quoted this month: any quote created_at in the month. Each quote
+  // counts even if multiple come back per submission — that reflects
+  // underwriting activity, which is what this card represents.
+  const quotedCount = quotes.filter(q => within(q.created_at)).length;
+
+  // Bound this month: bound_at in the month. Premium total comes from
+  // the submission's most recent quote; if we can't find one, skip the
+  // premium contribution rather than guessing.
+  const boundSubs = subs.filter(s => s.bound_at && within(s.bound_at));
+  const boundCount = boundSubs.length;
+  let boundPremium = 0;
+  for (const s of boundSubs) {
+    const subQuotes = quotes.filter(q => String(q.submission_id) === String(s.id));
+    if (subQuotes.length === 0) continue;
+    // Prefer the latest quote (most likely the one that bound) — sort by
+    // created_at desc, take the first non-zero total_premium.
+    subQuotes.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    const winning = subQuotes.find(q => Number(q.data?.total_premium) > 0);
+    if (winning) boundPremium += Number(winning.data.total_premium);
+  }
+
+  // Hit ratio this month: bound_count / submitted_count. Using the
+  // narrower denominator (submitted, not quoted) tells the broker how
+  // well the book is converting end-to-end. A 0/0 ratio shows as "—".
+  const hitRatio = submittedCount > 0
+    ? Math.round((boundCount / submittedCount) * 100)
+    : null;
+
+  return el('div', { className: 'kpi-strip' },
+    el('div', { className: 'kpi-card' },
+      el('div', { className: 'kpi-card-label' }, 'Submitted this month'),
+      el('div', { className: 'kpi-card-value' }, String(submittedCount)),
+      el('div', { className: 'kpi-card-sub' },
+        submittedCount === 0 ? 'No new submissions yet'
+          : submittedCount === 1 ? '1 new submission' : `${submittedCount} new submissions`)),
+    el('div', { className: 'kpi-card' },
+      el('div', { className: 'kpi-card-label' }, 'Quotes received'),
+      el('div', { className: 'kpi-card-value' }, String(quotedCount)),
+      el('div', { className: 'kpi-card-sub' },
+        quotedCount === 0 ? 'No quotes back yet'
+          : quotedCount === 1 ? '1 from underwriting' : `${quotedCount} from underwriting`)),
+    el('div', { className: 'kpi-card kpi-card-emphasis' },
+      el('div', { className: 'kpi-card-label' }, 'Bound'),
+      el('div', { className: 'kpi-card-value' }, String(boundCount)),
+      el('div', { className: 'kpi-card-sub' },
+        boundPremium > 0 ? `${formatMoney(boundPremium)} premium` : 'No bound premium yet')),
+    el('div', { className: 'kpi-card' },
+      el('div', { className: 'kpi-card-label' }, 'Hit ratio'),
+      el('div', { className: 'kpi-card-value' },
+        hitRatio == null ? '\u2014' : `${hitRatio}%`),
+      el('div', { className: 'kpi-card-sub' },
+        hitRatio == null ? 'Not enough data yet'
+          : hitRatio >= 30 ? 'Bind rate this month'
+          : 'Bind rate this month')));
+}
+
+// ─── Action lane ────────────────────────────────────────────────────
+// Surfaces 0-N specific items requiring broker action right now. Each
+// item has: a kind (informs the icon + tone), a title (what's
+// happening), a detail (which submissions, when), and a CTA (one click
+// → the right place to act). Empty state is celebrated rather than
+// hidden — brokers like seeing "you're caught up."
+function renderActionLane(subs, quotes) {
+  const now = Date.now();
+  const days = (n) => n * 24 * 60 * 60 * 1000;
+
+  // 1. Quotes ready to review — submission has at least one quote
+  //    attached and the broker hasn't bound or declined yet. We don't
+  //    track per-broker "viewed" state, so this is "any submission
+  //    in pending/submitted with quotes attached".
+  const quotesReady = subs.filter(s => {
+    const hasQuotes = quotes.some(q => String(q.submission_id) === String(s.id));
+    return hasQuotes
+      && (s.status === 'Submitted' || s.status === 'Pending')
+      && !s.bound_at;
+  });
+
+  // 2. Drafts approaching effective date — incomplete submissions whose
+  //    effective date is within the next 14 days. Higher urgency than
+  //    "stuck drafts" because the underwriter needs lead time.
+  const draftsUrgent = subs.filter(s => {
+    if (s.status !== 'Incomplete') return false;
+    if (!s.effective_at) return false;
+    const eff = new Date(s.effective_at).getTime();
+    const daysUntil = (eff - now) / days(1);
+    return daysUntil >= 0 && daysUntil <= 14;
+  });
+
+  // 3. Stuck in underwriting — submitted/pending more than 7 calendar
+  //    days ago with no quotes back. These need a follow-up nudge.
+  const stuckInUw = subs.filter(s => {
+    if (s.status !== 'Submitted' && s.status !== 'Pending') return false;
+    if (!s.submitted_at) return false;
+    const submittedAge = (now - new Date(s.submitted_at).getTime()) / days(1);
+    if (submittedAge < 7) return false;
+    const hasQuotes = quotes.some(q => String(q.submission_id) === String(s.id));
+    return !hasQuotes;
+  });
+
+  // 4. Recently declined needing follow-up — declined in past 14 days,
+  //    broker should call the insured to discuss alternatives.
+  const recentlyDeclined = subs.filter(s => {
+    if (s.status !== 'Declined') return false;
+    const declinedAt = s.declined_at || s.modified_at;
+    if (!declinedAt) return false;
+    const age = (now - new Date(declinedAt).getTime()) / days(1);
+    return age >= 0 && age <= 14;
+  });
+
+  const items = [];
+
+  if (quotesReady.length > 0) {
+    items.push({
+      kind: 'good',
+      title: quotesReady.length === 1
+        ? '1 quote ready to review'
+        : `${quotesReady.length} quotes ready to review`,
+      detail: quotesReady.length === 1
+        ? extractInsuredName(quotesReady[0]) || `Submission #${quotesReady[0].id}`
+        : `${extractInsuredName(quotesReady[0]) || `Submission #${quotesReady[0].id}`} and ${quotesReady.length - 1} other${quotesReady.length === 2 ? '' : 's'}`,
+      ctaLabel: 'Review',
+      onClick: () => {
+        if (quotesReady.length === 1) {
+          state.view = 'submissions';
+          state.subView = quotesReady[0].id;
+          loadSubmission(quotesReady[0].id);
+        } else {
+          state.view = 'submissions';
+          state.filter.tab = 'quoted';
+          render();
+          loadView();
+        }
+      },
+    });
+  }
+
+  if (draftsUrgent.length > 0) {
+    // Sort by effective date ascending so the most urgent surfaces
+    // first in the detail line.
+    const sorted = [...draftsUrgent].sort((a, b) =>
+      new Date(a.effective_at) - new Date(b.effective_at));
+    const earliest = sorted[0];
+    const earliestEff = new Date(earliest.effective_at);
+    const daysOut = Math.round((earliestEff.getTime() - now) / days(1));
+    const earliestName = extractInsuredName(earliest) || `Submission #${earliest.id}`;
+    items.push({
+      kind: 'urgent',
+      title: draftsUrgent.length === 1
+        ? '1 draft approaching effective date'
+        : `${draftsUrgent.length} drafts approaching effective date`,
+      detail: daysOut <= 0
+        ? `${earliestName} \u00b7 effective today`
+        : daysOut === 1
+          ? `${earliestName} \u00b7 effective tomorrow`
+          : `${earliestName} \u00b7 effective in ${daysOut} days`,
+      ctaLabel: 'Finish',
+      onClick: () => {
+        if (draftsUrgent.length === 1) {
+          state.view = 'submissions';
+          state.subView = earliest.id;
+          loadSubmission(earliest.id);
+        } else {
+          state.view = 'submissions';
+          state.filter.tab = 'drafts';
+          render();
+          loadView();
+        }
+      },
+    });
+  }
+
+  if (stuckInUw.length > 0) {
+    const sorted = [...stuckInUw].sort((a, b) =>
+      new Date(a.submitted_at) - new Date(b.submitted_at));
+    const oldest = sorted[0];
+    const oldestAge = Math.round((now - new Date(oldest.submitted_at).getTime()) / days(1));
+    const oldestName = extractInsuredName(oldest) || `Submission #${oldest.id}`;
+    items.push({
+      kind: 'warn',
+      title: stuckInUw.length === 1
+        ? '1 submission stuck in underwriting'
+        : `${stuckInUw.length} submissions stuck in underwriting`,
+      detail: `${oldestName} \u00b7 submitted ${oldestAge} days ago`,
+      ctaLabel: 'View',
+      onClick: () => {
+        if (stuckInUw.length === 1) {
+          state.view = 'submissions';
+          state.subView = oldest.id;
+          loadSubmission(oldest.id);
+        } else {
+          state.view = 'submissions';
+          state.filter.tab = 'pending';
+          render();
+          loadView();
+        }
+      },
+    });
+  }
+
+  if (recentlyDeclined.length > 0) {
+    const sorted = [...recentlyDeclined].sort((a, b) =>
+      new Date(b.declined_at || b.modified_at) - new Date(a.declined_at || a.modified_at));
+    const mostRecent = sorted[0];
+    const mostRecentName = extractInsuredName(mostRecent) || `Submission #${mostRecent.id}`;
+    items.push({
+      kind: 'normal',
+      title: recentlyDeclined.length === 1
+        ? '1 recent decline needs follow-up'
+        : `${recentlyDeclined.length} recent declines need follow-up`,
+      detail: `Most recent: ${mostRecentName}`,
+      ctaLabel: 'Review',
+      onClick: () => {
+        if (recentlyDeclined.length === 1) {
+          state.view = 'submissions';
+          state.subView = mostRecent.id;
+          loadSubmission(mostRecent.id);
+        } else {
+          state.view = 'submissions';
+          state.filter.tab = 'declined';
+          render();
+          loadView();
+        }
+      },
+    });
+  }
+
+  return el('div', { className: 'action-lane' },
+    el('div', { className: 'action-lane-head' },
+      el('h2', { className: 'action-lane-title' }, 'Action needed')),
+    items.length === 0
+      ? el('div', { className: 'action-lane-empty' },
+          el('div', { className: 'action-lane-empty-icon' }, '\u2713'),
+          el('div', { className: 'action-lane-empty-text' },
+            el('div', { className: 'action-lane-empty-title' }, "You're caught up."),
+            el('div', { className: 'action-lane-empty-sub' },
+              'No items need your attention right now.')))
+      : el('div', { className: 'action-lane-items' },
+          ...items.map(item => el('div', { className: `action-lane-row action-lane-row-${item.kind}` },
+            el('div', { className: 'action-lane-row-icon' }, actionLaneIconSvg(item.kind)),
+            el('div', { className: 'action-lane-row-text' },
+              el('div', { className: 'action-lane-row-title' }, item.title),
+              item.detail
+                ? el('div', { className: 'action-lane-row-detail' }, item.detail)
+                : null),
+            el('button', {
+              className: 'btn btn-secondary btn-sm',
+              onClick: item.onClick,
+            }, item.ctaLabel)))));
+}
+
+// SVG icons for the action lane rows. One per "kind"; tinted via CSS
+// so the same SVG works in green/yellow/red contexts without four
+// hand-tuned palettes.
+function actionLaneIconSvg(kind) {
+  const stroke = 'currentColor';
+  // Map kind → icon
+  let svg;
+  if (kind === 'good') {
+    // Sparkle / "ready" indicator
+    svg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"
+        stroke="${stroke}" stroke-width="1.5" stroke-linecap="round"/>
+      <circle cx="12" cy="12" r="3" stroke="${stroke}" stroke-width="1.5"/>
+    </svg>`;
+  } else if (kind === 'urgent') {
+    // Clock — deadline pressure
+    svg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="9" stroke="${stroke}" stroke-width="1.5"/>
+      <path d="M12 7v5l3 2" stroke="${stroke}" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>`;
+  } else if (kind === 'warn') {
+    // Triangle warning — stuck / attention
+    svg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path d="M12 4l9 16H3l9-16z" stroke="${stroke}" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M12 11v4M12 17.5v.5" stroke="${stroke}" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>`;
+  } else {
+    // Default — "info" circle (used for declined follow-ups, neutral
+    // tone since this isn't urgent or celebratory)
+    svg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="9" stroke="${stroke}" stroke-width="1.5"/>
+      <path d="M12 8v5M12 16v.5" stroke="${stroke}" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>`;
+  }
+  // Wrap in a span so CSS can target the icon container for color etc.
+  const wrap = document.createElement('span');
+  wrap.className = 'action-lane-row-icon-svg';
+  wrap.innerHTML = svg;
+  return wrap;
+}
+
+// ─── Dashboard charts ────────────────────────────────────────────────
+// Pipeline volume over the last 6 months + a basic 4-stage funnel.
+// Keeps the SVGs lightweight (no chart library) since we have a small
+// number of data points. As the broker's book grows we can swap in a
+// real chart library; for now D3-style hand-rolled SVGs are easy to
+// style consistently with the rest of the app.
+function renderDashboardCharts(subs, quotes) {
+  return el('div', { className: 'dashboard-charts' },
+    renderVolumeChart(subs),
+    renderFunnelChart(subs, quotes));
+}
+
+// 6-month volume bar chart. Each bar = submissions started in that
+// calendar month. Bars colored brand blue. Y-axis is auto-scaled to
+// the max value so even small books show meaningful relative heights.
+function renderVolumeChart(subs) {
+  const now = new Date();
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({
+      key: `${d.getFullYear()}-${d.getMonth()}`,
+      label: d.toLocaleString('en-US', { month: 'short' }),
+      year: d.getFullYear(),
+      monthIndex: d.getMonth(),
+      count: 0,
+    });
+  }
+  // Bucket each submission into the month of its created_at
+  for (const s of subs) {
+    if (!s.created_at) continue;
+    const d = new Date(s.created_at);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    const bucket = months.find(m => m.key === key);
+    if (bucket) bucket.count++;
+  }
+  const maxCount = Math.max(1, ...months.map(m => m.count));
+
+  // SVG dimensions — fit cleanly inside the card padding
+  const W = 480, H = 140, padX = 24, padY = 24, padBottom = 32;
+  const barW = 32, gap = (W - padX * 2 - barW * 6) / 5;
+  const innerH = H - padY - padBottom;
+
+  const bars = months.map((m, i) => {
+    const x = padX + i * (barW + gap);
+    const h = (m.count / maxCount) * innerH;
+    const y = H - padBottom - h;
+    return `<g>
+      <rect x="${x}" y="${y}" width="${barW}" height="${h}"
+        rx="4" fill="var(--blue)" opacity="${m.count === 0 ? 0.15 : 1}"/>
+      <text x="${x + barW / 2}" y="${H - padBottom + 16}" text-anchor="middle"
+        font-size="11" fill="var(--ink-mute)" font-family="inherit">${m.label}</text>
+      ${m.count > 0
+        ? `<text x="${x + barW / 2}" y="${y - 6}" text-anchor="middle"
+            font-size="11" fill="var(--navy)" font-family="inherit"
+            font-weight="500">${m.count}</text>`
+        : ''}
+    </g>`;
+  }).join('');
+
+  const wrap = el('div', { className: 'dashboard-card chart-card' },
+    el('div', { className: 'chart-card-head' },
+      el('div', { className: 'chart-card-title' }, 'Submissions over time'),
+      el('div', { className: 'chart-card-sub' }, 'Last 6 months')));
+  const svgWrap = el('div', { className: 'chart-svg-wrap' });
+  svgWrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}"
+    xmlns="http://www.w3.org/2000/svg">${bars}</svg>`;
+  wrap.appendChild(svgWrap);
+  return wrap;
+}
+
+// 4-stage horizontal funnel: Submitted → Quoted → Bound → Active.
+// Each stage shows count + percentage of the previous stage. Helps
+// brokers spot drop-offs ("we lose 50% between submitted and quoted").
+function renderFunnelChart(subs, quotes) {
+  const now = Date.now();
+  const days365 = 365 * 24 * 60 * 60 * 1000;
+  const within = (ts) => {
+    if (!ts) return false;
+    const t = new Date(ts).getTime();
+    return Number.isFinite(t) && (now - t) <= days365;
+  };
+  // Trailing 12 months scope so the funnel reflects current
+  // performance, not a historical artifact from years ago.
+  const submitted = subs.filter(s => within(s.submitted_at) || within(s.created_at)).length;
+  const quotedSubIds = new Set(
+    quotes.filter(q => within(q.created_at)).map(q => String(q.submission_id))
+  );
+  const quoted = subs.filter(s => quotedSubIds.has(String(s.id))).length;
+  const bound = subs.filter(s => within(s.bound_at)).length;
+  // "Active" — bound and effective date not yet expired. Since we
+  // don't have explicit expiry tracking on submissions, approximate
+  // as "bound and effective within last year".
+  const active = subs.filter(s => s.bound_at && within(s.bound_at)
+    && (!s.effective_at || new Date(s.effective_at).getTime() <= now + days365)).length;
+
+  const stages = [
+    { label: 'Submitted', count: submitted },
+    { label: 'Quoted',    count: quoted },
+    { label: 'Bound',     count: bound },
+    { label: 'Active',    count: active },
+  ];
+
+  const max = Math.max(1, ...stages.map(s => s.count));
+
+  const card = el('div', { className: 'dashboard-card chart-card' },
+    el('div', { className: 'chart-card-head' },
+      el('div', { className: 'chart-card-title' }, 'Conversion funnel'),
+      el('div', { className: 'chart-card-sub' }, 'Trailing 12 months')));
+
+  const funnel = el('div', { className: 'funnel' });
+  stages.forEach((stage, i) => {
+    const pct = (stage.count / max) * 100;
+    // Conversion from previous stage (skipped on stage 0 — no prior)
+    let conv = null;
+    if (i > 0 && stages[i - 1].count > 0) {
+      conv = Math.round((stage.count / stages[i - 1].count) * 100);
+    }
+    funnel.appendChild(el('div', { className: 'funnel-row' },
+      el('div', { className: 'funnel-row-label' }, stage.label),
+      el('div', { className: 'funnel-row-bar-wrap' },
+        el('div', { className: 'funnel-row-bar', style: { width: `${pct}%` } },
+          el('span', { className: 'funnel-row-bar-count' }, String(stage.count)))),
+      el('div', { className: 'funnel-row-conv' },
+        conv == null ? '' : `${conv}%`)));
+  });
+  card.appendChild(funnel);
+  return card;
+}
 function renderPipelineStrip(total, { drafts, inUw, declined }) {
   if (total === 0) {
     // Special case — empty book. Don't render the strip; the
