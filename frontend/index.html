@@ -1634,65 +1634,72 @@
      plus a tighter form-grid. Used on the structures asset section to
      keep the 33-field form from feeling overbearing. */
   .asset-card-body.is-compact {
-    padding: 16px 18px 18px;
+    padding: 22px 22px 22px;
   }
+  /* Add breathing room between zone rows in the basic-info bucket. The
+     accordion body becomes a vertical flex stack of separate grid rows
+     (identity, address, occupancy, TIV row, financial trio, physical
+     row, construction, valuation) so each row gets its own gap. */
+  .structure-accordion-body {
+    display: flex; flex-direction: column;
+    gap: 18px;
+    padding: 4px 0 22px;
+  }
+  /* Each grid row no longer needs its own bottom margin — the parent
+     stack gap handles spacing between rows. Also bump intra-row gaps. */
   .form-grid-compact {
-    gap: 10px 22px !important;
+    gap: 14px 24px !important;
+    margin-bottom: 0 !important;
   }
-  /* 3-column row used at the top of the building basic info bucket
-     for the identity numbers (Location #, Building #, Number of
-     Buildings). Same compact rhythm as form-grid-compact, but three
-     columns instead of two. Wraps to 1-column on narrow viewports. */
+  /* 3-column row used for trio-style sections (identity numbers at
+     top of basic info; financial trio of BPP/Annual Sales/OL Limit).
+     Wraps to 1-column on narrow viewports. */
   .form-grid-trio {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 10px 22px;
-    margin-bottom: 12px;
+    gap: 14px 24px;
   }
-  .form-grid-trio .form-field { gap: 5px; }
+  .form-grid-trio .form-field { gap: 6px; }
   .form-grid-trio .form-field label {
-    font-size: 0.78rem;
-    color: var(--ink-mute);
-    font-weight: 400;
+    font-size: 0.82rem;
+    color: var(--navy);
+    font-weight: 500;
   }
   .form-grid-trio .form-field input[type="text"],
   .form-grid-trio .form-field input[type="number"],
   .form-grid-trio .form-field input[type="date"],
   .form-grid-trio .form-field select {
-    padding: 7px 10px;
-    font-size: 0.88rem;
+    padding: 9px 12px;
+    font-size: 0.9rem;
   }
   @media (max-width: 700px) {
     .form-grid-trio { grid-template-columns: 1fr; }
   }
   /* 5-col row used for the physical-attribute cluster
      (Year Built, Stories, Open Sides, Sprinklered, Ex-Wind/Hail).
-     Wraps to 2 columns on tablet and 1 on phone. */
+     Wraps to 3 columns on tablet and 1 on phone. */
   .form-grid-quintet {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    gap: 10px 18px;
-    margin-bottom: 12px;
+    gap: 14px 18px;
   }
-  .form-grid-quintet .form-field { gap: 5px; }
+  .form-grid-quintet .form-field { gap: 6px; }
   .form-grid-quintet .form-field label {
-    font-size: 0.78rem;
-    color: var(--ink-mute);
-    font-weight: 400;
-    /* Allow long booleans like "Ex-Wind/Hail?" to fit by leaving the
-       label allowed to wrap to 2 lines if it must. */
+    font-size: 0.82rem;
+    color: var(--navy);
+    font-weight: 500;
     line-height: 1.25;
   }
   .form-grid-quintet .form-field input[type="text"],
   .form-grid-quintet .form-field input[type="number"],
   .form-grid-quintet .form-field input[type="date"],
   .form-grid-quintet .form-field select {
-    padding: 7px 10px;
-    font-size: 0.88rem;
+    padding: 9px 12px;
+    font-size: 0.9rem;
   }
   /* Toggle in a quintet cell — keep it left-aligned and tight */
   .form-grid-quintet .toggle {
-    margin-top: 2px;
+    margin-top: 4px;
   }
   @media (max-width: 1100px) {
     .form-grid-quintet { grid-template-columns: repeat(3, 1fr); }
@@ -1706,59 +1713,54 @@
      brand blue so it reads as "we figured this out for you" rather
      than as data the broker is expected to type. */
   .derived-stat {
-    display: flex; flex-direction: column; gap: 5px;
+    display: flex; flex-direction: column; gap: 6px;
     padding: 0;
   }
   .derived-stat-label {
-    font-size: 0.78rem;
-    color: var(--ink-mute);
-    font-weight: 400;
+    font-size: 0.82rem;
+    color: var(--navy);
+    font-weight: 500;
   }
   .derived-stat-value {
-    font-size: 1.1rem;
+    font-size: 1.5rem;
     font-weight: 500;
     color: var(--blue);
-    line-height: 1.4;
-    letter-spacing: -0.01em;
+    line-height: 1.2;
+    letter-spacing: -0.015em;
     font-variant-numeric: tabular-nums;
-    /* Match the vertical rhythm of inputs sitting beside it — text
-       baseline lands roughly where an input's baseline would. */
-    padding: 5px 0 0;
-  }
-  .derived-stat-hint {
-    font-size: 0.7rem;
-    color: var(--mute);
-    letter-spacing: 0.005em;
+    /* Vertical alignment with the inputs sitting beside it — pulls
+       the dollar value down to land near the baseline of the inputs. */
+    padding: 4px 0 0;
   }
   .form-grid-compact .form-field {
-    gap: 5px;
+    gap: 6px;
   }
   .form-grid-compact .form-field label {
-    font-size: 0.78rem;
-    color: var(--ink-mute);
-    font-weight: 400;
+    font-size: 0.82rem;
+    color: var(--navy);
+    font-weight: 500;
   }
   .form-grid-compact .form-field input[type="text"],
   .form-grid-compact .form-field input[type="number"],
   .form-grid-compact .form-field input[type="date"],
   .form-grid-compact .form-field select {
-    padding: 7px 10px;
-    font-size: 0.88rem;
+    padding: 9px 12px;
+    font-size: 0.9rem;
   }
   .form-grid-compact .slider-wrap {
-    padding: 8px 4px 4px;
-    gap: 14px;
+    padding: 10px 4px 4px;
+    gap: 16px;
   }
   .form-grid-compact .slider-value {
-    font-size: 1.15rem;
+    font-size: 1.2rem;
   }
   .form-grid-compact .segmented-option {
-    padding: 5px 11px;
-    font-size: 0.8rem;
+    padding: 7px 14px;
+    font-size: 0.85rem;
   }
   .form-grid-compact .multiselect-pill {
-    padding: 5px 11px;
-    font-size: 0.8rem;
+    padding: 7px 14px;
+    font-size: 0.85rem;
   }
   /* Accordion sub-sections inside a structure card. Header reads as
      a quiet section divider; clicking toggles open/closed. */
@@ -7576,10 +7578,7 @@ function renderAccordionBucketBody(bucket, lockedPredicate) {
   const salesField  = tailMatch(['annual_sales']);
   const olField     = tailMatch(['ol_2and3_limit']);
 
-  // ── Zone F: construction type (full width card grid)
-  const constructionField = tailMatch(['construction_type']);
-
-  // ── Zone G: physical-attribute row (5-col)
+  // ── Zone F: physical-attribute row (5-col)
   //    Year Built, Number of Stories, Open Sides?, Sprinklered?, Ex-Wind/Hail?
   const yearField     = tailMatch(['year_built']);
   const storiesField  = tailMatch(['stories']);
@@ -7587,15 +7586,24 @@ function renderAccordionBucketBody(bucket, lockedPredicate) {
   const sprinklerF    = tailMatch(['sprinklered_status']);
   const exWindF       = tailMatch(['ex_wind_status']);
 
+  // ── Zone G: construction type (full width card grid)
+  const constructionField = tailMatch(['construction_type']);
+
+  // ── Zone H: valuation pair (2-col)
+  //    Valuation Method + Coinsurance % — broker reads these together
+  //    when assessing how the property is rated, so they belong on
+  //    one visual row rather than separated in the catch-all.
+  const valuationField = tailMatch(['valuation_method']);
+  const coinsField     = tailMatch(['coinsurance_percentage']);
+
   // Set of every field handled explicitly above — anything NOT in this
   // set is unclaimed and gets dumped into the standard 2-col grid at
-  // the bottom (catches GL Only, Roof Geometry, Valuation Method,
-  // Coinsurance %, Roof Type, etc.).
+  // the bottom (catches GL Only, Roof Geometry, Roof Type, etc.).
   const claimed = new Set([
     locField, bldgField, countField, addressField, occupancyField,
     tivField, sqftField, bppField, salesField, olField,
-    constructionField, yearField, storiesField,
-    openSidesF, sprinklerF, exWindF,
+    yearField, storiesField, openSidesF, sprinklerF, exWindF,
+    constructionField, valuationField, coinsField,
   ].filter(Boolean).map(f => f.code));
   const remainingFields = bucket.fields.filter(f => !claimed.has(f.code));
 
@@ -7637,16 +7645,28 @@ function renderAccordionBucketBody(bucket, lockedPredicate) {
       ...financialTrio.map(rf)));
   }
 
-  // Zone F: construction type full
-  if (constructionField) {
-    out.push(el('div', { className: 'form-grid form-grid-compact' }, rf(constructionField)));
-  }
-
-  // Zone G: physical-attribute row (5-col)
+  // Zone F: physical-attribute row (5-col) — sits ABOVE Construction
+  // Type. Reasoning: these short-answer fields about year/stories/safety
+  // flags act as quick preamble before the broker picks the construction
+  // class, which is the heaviest visual element in the section (a card
+  // grid). Putting the row ABOVE construction keeps the heavy element
+  // anchored at the bottom of the basic-info section.
   const physicalFields = [yearField, storiesField, openSidesF, sprinklerF, exWindF].filter(Boolean);
   if (physicalFields.length > 0) {
     out.push(el('div', { className: 'form-grid-quintet' },
       ...physicalFields.map(rf)));
+  }
+
+  // Zone G: construction type full
+  if (constructionField) {
+    out.push(el('div', { className: 'form-grid form-grid-compact' }, rf(constructionField)));
+  }
+
+  // Zone H: valuation method + coinsurance % (2-col, paired)
+  const valuationPair = [valuationField, coinsField].filter(Boolean);
+  if (valuationPair.length > 0) {
+    out.push(el('div', { className: 'form-grid form-grid-compact' },
+      ...valuationPair.map(rf)));
   }
 
   // Catch-all: any unclaimed fields drop into the standard 2-col grid
@@ -7676,22 +7696,15 @@ function renderTivSqftCostRow(tivField, sqftField, rf) {
     };
     const t = readVal(tivField);
     const s = readVal(sqftField);
-    if (t == null || s == null || t <= 0 || s <= 0) {
-      return { display: '\u2014', hint: 'Enter TIV and sq ft above' };
-    }
-    return {
-      display: `$${(t / s).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-      hint: 'TIV \u00f7 sq ft',
-    };
+    if (t == null || s == null || t <= 0 || s <= 0) return '\u2014';
+    return `$${(t / s).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
-  const initial = computeFromCurrent();
+  const initialDisplay = computeFromCurrent();
 
-  const valueEl = el('div', { className: 'derived-stat-value' }, initial.display);
-  const hintEl  = el('div', { className: 'derived-stat-hint' }, initial.hint);
+  const valueEl = el('div', { className: 'derived-stat-value' }, initialDisplay);
   const derivedCell = el('div', { className: 'derived-stat' },
     el('label', { className: 'derived-stat-label' }, 'Cost per sq ft'),
-    valueEl,
-    hintEl);
+    valueEl);
 
   const row = el('div', { className: 'form-grid-trio tiv-sqft-row' },
     rf(tivField),
@@ -7700,19 +7713,12 @@ function renderTivSqftCostRow(tivField, sqftField, rf) {
 
   // Delegated input listener — recompute on every keystroke in the row.
   // Reads the live input values directly so we don't have to wait for
-  // the auto-save debounce to land. The dirty dict isn't even required
-  // here, but we keep the read path consistent so a re-render would
-  // produce the same answer.
+  // the auto-save debounce to land. Keeps focus on the active input
+  // (no full re-render) by mutating only the derived cell's text.
   row.addEventListener('input', () => {
-    // Pull current input values fresh from the DOM. This is the most
-    // reliable source while the broker is typing; submissionDirty may
-    // not yet reflect the latest keystroke depending on event ordering.
     const inputs = row.querySelectorAll('input[type="number"], input[type="text"]');
     let tivLive = null, sqftLive = null;
     inputs.forEach(inp => {
-      // Match by the form-field's containing label text — fragile but
-      // good enough since this row contains exactly TIV and Sqft inputs.
-      // Better: tag inputs with a data attribute upstream.
       const fieldDiv = inp.closest('.form-field');
       const labelText = fieldDiv?.querySelector('label')?.textContent || '';
       const n = Number(inp.value.replace(/[^\d.-]/g, ''));
@@ -7722,10 +7728,8 @@ function renderTivSqftCostRow(tivField, sqftField, rf) {
     });
     if (tivLive != null && sqftLive != null && tivLive > 0 && sqftLive > 0) {
       valueEl.textContent = `$${(tivLive / sqftLive).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-      hintEl.textContent  = 'TIV \u00f7 sq ft';
     } else {
       valueEl.textContent = '\u2014';
-      hintEl.textContent  = 'Enter TIV and sq ft above';
     }
   });
 
