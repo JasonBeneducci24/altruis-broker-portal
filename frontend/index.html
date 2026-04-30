@@ -3457,7 +3457,7 @@ function unwrapForInput(v) {
 //
 // Auth and config still call the real backend — login still works.
 
-const SEED_STORAGE_KEY = 'altruis_seed_v8';
+const SEED_STORAGE_KEY = 'altruis_seed_v9';
 
 // Seed bootstrap. Hardcoded base data. Persisted snapshot in localStorage
 // supersedes this on subsequent loads so edits survive page reloads.
@@ -6520,18 +6520,13 @@ function submissionMainCard(s) {
         el('div', { className: 'form-pane-head' },
           el('div', { className: 'eyebrow' }, isEditing ? 'Edit' : 'Review'),
           el('h2', {}, activeSection.label),
+          // Section-level error inline; otherwise no subtitle. The count
+          // subtitle ("1 Structure · 4 of 27 fields complete") was
+          // duplicating data already visible in the section nav rail
+          // (which shows N/total per section).
           activeSection.section_error
             ? el('div', { className: 'form-pane-error' }, activeSection.section_error)
-            : el('div', { className: 'form-pane-sub' },
-                activeSection.is_empty_asset_shell
-                  ? `0 ${inferAssetNoun(activeSection, 2).toLowerCase()}`
-                  : hasAssetCards
-                    ? (isEditing
-                        ? `${displayedGroups.length} ${inferAssetNoun(activeSection, displayedGroups.length)} \u00b7 ${activeSection.completed} of ${activeSection.visible_count} fields complete`
-                        : `${displayedGroups.length} ${inferAssetNoun(activeSection, displayedGroups.length)}`)
-                    : (isEditing
-                        ? `${activeSection.completed} of ${activeSection.visible_count} fields complete`
-                        : '')),
+            : null,
           // Asset-section controls: Add button is always visible while
           // editing; Expand/Collapse only shows for 2+ assets.
           isEditing && activeSection.is_asset
@@ -7014,29 +7009,38 @@ function addStructure() {
   // Auto-assign location_number = max + 1, building_number = 1.
   // Broker can edit both. This keeps numbering monotonic and
   // predictable; if the broker has 3 buildings at one location they
-  // can change building_number after the fact.
+  // can change building_number after the fact. Defaults that match
+  // Altruis's standard self-storage program reduce broker keystrokes
+  // for the typical case (Replacement Cost / 80% coinsurance).
   const maxLoc = structs.reduce((m, s) => Math.max(m, s['app.location_number'] || 0), 0);
   const newStruct = {
     'app.location_number': maxLoc + 1,
     'app.building_number': 1,
     'app.building_occupancy': ['Self Storage'],
+    'app.valuation_method': 'Replacement Cost',
+    'app.coinsurance_percentage': '80',
   };
   structs.push(newStruct);
   persist();
 
+  // Preserve the broker's current section selection across reload —
+  // loadSubmission would otherwise pick the first incomplete section
+  // and bounce the broker back to Basic Information.
+  const stashedSection = state.activeSection;
   // Reload the active submission so the form re-derives its schema
-  // with the new structure included. We also reset the selectedSubmission
-  // so the structure card-grouping picks up the new entry.
+  // with the new structure included.
   if (sub.id === 'demo') {
     loadSubmission('demo');
   } else {
     loadSubmission(sub.id);
   }
+  state.activeSection = stashedSection;
   // Auto-expand the new entry so the broker sees the empty form
   // immediately and can start filling it.
   const newIdx = structs.length - 1;
   if (!state.expandedAssets['structures']) state.expandedAssets['structures'] = new Set();
   state.expandedAssets['structures'].add(newIdx);
+  render();
 
   toast(`Added structure ${maxLoc + 1}`, 'ok');
 }
@@ -7107,10 +7111,14 @@ function addAdditionalInsured() {
   });
   persist();
 
+  // Preserve the broker's current section selection across reload.
+  const stashedSection = state.activeSection;
   if (sub.id === 'demo') loadSubmission('demo');
   else loadSubmission(sub.id);
+  state.activeSection = stashedSection;
   if (!state.expandedAssets['additional_insureds']) state.expandedAssets['additional_insureds'] = new Set();
   state.expandedAssets['additional_insureds'].add(list.length - 1);
+  render();
   toast(`Added additional insured`, 'ok');
 }
 
@@ -7331,7 +7339,7 @@ function renderAssetCard(section, group, isEditing, displayLabelOverride, titleO
     el('div', { className: 'asset-card-stats' },
       ...summaryStats.map(f => el('div', { className: 'asset-card-stat' },
         el('div', { className: 'asset-card-stat-label' }, f.label),
-        el('div', { className: 'asset-card-stat-value' }, formatDatapointValue(f.value))))),
+        el('div', { className: 'asset-card-stat-value' }, formatByType(f, f.value))))),
     isEditing
       ? el('div', { className: 'asset-card-meta' },
           pct === 100
@@ -9119,27 +9127,77 @@ function renderFieldInput(field, value, locked = false) {
     const numVal = typeof cleanValue === 'object' && cleanValue?.amount != null
       ? cleanValue.amount : (cleanValue ?? '');
     if (locked) return lockedValueEl(formatByType(field, numVal));
-    // Use Joshu's `decimal_places` to set the input step. 0 → integers
-    // only, no decimals; 2 → cents on monetary; etc.
-    const decimals = field.decimal_places ?? (field.type === 'monetary' ? 2 : 0);
+
+    // Monetary inputs: render as a formatted text input with `$` prefix
+    // and thousands separators (e.g. $4,000,000). Storage is still a
+    // plain number — we strip non-digits before storing, so Joshu and
+    // the seed layer never see formatting characters. This trades the
+    // browser's native number-input affordances (spinner, type=number
+    // semantics) for a much more readable display, which is the right
+    // trade for insurance forms where six- and seven-figure numbers
+    // are normal and unformatted strings of digits are unreadable.
+    if (field.type === 'monetary') {
+      const decimals = field.decimal_places ?? 2;
+      const formatMoney = (raw) => {
+        if (raw === '' || raw == null) return '';
+        // Strip everything except digits and (one) decimal point
+        let s = String(raw).replace(/[^0-9.]/g, '');
+        // Keep only the first decimal point
+        const firstDot = s.indexOf('.');
+        if (firstDot >= 0) s = s.slice(0, firstDot + 1) + s.slice(firstDot + 1).replace(/\./g, '');
+        if (s === '' || s === '.') return '';
+        const n = Number(s);
+        if (!Number.isFinite(n)) return '';
+        return '$' + n.toLocaleString(undefined, {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: decimals,
+        });
+      };
+      const stripToNumber = (raw) => {
+        const s = String(raw).replace(/[^0-9.]/g, '');
+        if (s === '' || s === '.') return null;
+        const n = Number(s);
+        return Number.isFinite(n) ? n : null;
+      };
+      return el('input', {
+        type: 'text',
+        inputMode: 'decimal',
+        value: numVal === '' || numVal == null ? '' : formatMoney(numVal),
+        placeholder: '$0',
+        required: field.required || undefined,
+        // On every keystroke: strip to a clean number, push to dirty,
+        // and re-format the input's display in place. We update
+        // e.target.value directly to avoid a full re-render that would
+        // steal focus mid-typing. Cursor position lands at end after
+        // each format (acceptable UX since insurance amounts are
+        // typically typed left-to-right in full).
+        onInput: (e) => {
+          const num = stripToNumber(e.target.value);
+          onChange(num);
+          const formatted = num != null ? formatMoney(num) : '';
+          if (e.target.value !== formatted) {
+            e.target.value = formatted;
+            // Place caret at end after format
+            const len = formatted.length;
+            try { e.target.setSelectionRange(len, len); } catch (_err) {}
+          }
+        },
+      });
+    }
+
+    // Plain numeric (non-monetary). Use Joshu's `decimal_places` to set
+    // the input step. 0 → integers only, no decimals; 2 → cents on
+    // monetary; etc.
+    const decimals = field.decimal_places ?? 0;
     const step = decimals === 0 ? '1' : (1 / Math.pow(10, decimals)).toString();
-    // Most monetary fields in insurance are non-negative (premiums,
-    // limits, sublimits, building values). Negative numbers are
-    // technically valid input for general numbers (acreage adjustments,
-    // etc. are rare but possible), but for monetary it's almost always
-    // a typo. We default monetary to min=0 unless the field has options
-    // (in which case the options govern, not the range).
     const attrs = {
       type: 'number',
       value: numVal,
       step: step,
-      placeholder: field.type === 'monetary' ? '0.00' : '',
+      placeholder: '',
       required: field.required || undefined,
       onInput: (e) => onChange(e.target.value || null),
     };
-    if (field.type === 'monetary' && !field.options) {
-      attrs.min = '0';
-    }
     return el('input', attrs);
   }
 
@@ -10696,15 +10754,21 @@ async function createSubmissionAndContinue(form, rerender, extracted) {
         effective_at: form.effective_date,
         insured_name: extracted['insured.name'] || 'New submission',
         data: {
-          // Default these three coverages to "added" for every new
-          // quote — Altruis includes TRIA, Equipment Breakdown, and
-          // Cyber as standard offerings, so brokers shouldn't have to
-          // re-toggle them on every submission. They can still flip
-          // them off in the form if a particular insured doesn't want
-          // a coverage, but the default state matches our program.
+          // Altruis program defaults — these reduce keystrokes for the
+          // typical self-storage submission. Brokers can change any of
+          // them in the form, but the starting point matches what we
+          // most commonly bind. Anything in `extracted` (from document
+          // pre-fill) wins over these defaults so we don't clobber the
+          // broker's auto-filled values.
           'app.tria_status': true,
           'app.equipment_breakdown_status': true,
           'app.cyber_status': true,
+          'app.GL_limits': '$1,000,000 / $2,000,000 / $2,000,000',
+          'app.SDLL_limit': '$100,000',
+          'app.CGLL_limit': '$100,000',
+          'app.med_pay_limit': '$10,000',
+          'app.EB_sublimit': '$25,000',
+          'app.cyber_limit': '$50,000',
           ...(extracted || {}),
           'policy.effective_date': form.effective_date,
         },
