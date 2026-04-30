@@ -4080,6 +4080,13 @@ const APP_SCHEMA = {
 
   // Basic Information
   basic_information: [
+    // The insured's name lives at the submission level — it's also the
+    // page title. Putting it here as a regular form field gives the
+    // broker a discoverable place to enter or correct it. The page
+    // header reads from the same data field, so typing in this input
+    // updates the title in real time.
+    { code: 'insured.name', label: 'Insured Name', type: 'text', required: true,
+      fullwidth: true },
     { code: 'app.effective_date', label: 'Effective Date', type: 'date', required: true },
     { code: 'app.named_insured_structure', label: 'Named Insured Structure', type: 'text', required: true,
       widget: 'segmented',
@@ -6884,14 +6891,14 @@ function buildingDisplayIndex(locationGroup, assetGroup, indexInLocation) {
 function emptyAssetIconSvg(section) {
   const stroke = 'currentColor';
   if (section?.code === 'additional_insureds') {
-    // Document/certificate stack — evokes ACORD-style certificate of
-    // insurance, which is what an AI list functionally is.
+    // User profile circle — head + shoulders. Reads as "people" which
+    // matches the broker's mental model: AIs are entities (mortgagees,
+    // lienholders, management companies) added by name to the policy.
     return `<svg width="22" height="22" viewBox="0 0 24 24" fill="none"
       xmlns="http://www.w3.org/2000/svg">
-      <path d="M7 4h7l4 4v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"
-        stroke="${stroke}" stroke-width="1.5" stroke-linejoin="round"/>
-      <path d="M14 4v4h4" stroke="${stroke}" stroke-width="1.5" stroke-linejoin="round"/>
-      <path d="M9 12h6M9 15h6M9 18h4" stroke="${stroke}" stroke-width="1.5" stroke-linecap="round"/>
+      <circle cx="12" cy="8" r="3.5" stroke="${stroke}" stroke-width="1.5"/>
+      <path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6" stroke="${stroke}"
+        stroke-width="1.5" stroke-linecap="round"/>
     </svg>`;
   }
   // Default: simple property/building outline. Used by structures and
@@ -9714,6 +9721,19 @@ async function saveDirtyData() {
       state.demoSubmission.data = state.demoSubmission.data || {};
       applyDirty(state.demoSubmission.data, dirty);
       state.demoSubmission.modified_at = new Date().toISOString();
+      // Mirror insured.name onto the column-level insured_name field so
+      // the page header title updates immediately. The seed PUT handler
+      // does the same thing for non-demo submissions; we do it inline
+      // here since the demo submission lives only in state. We also
+      // mirror onto state.selectedSubmission since it was spread off
+      // demoSubmission at load time and the shallow copy doesn't
+      // re-pull top-level fields automatically.
+      if (dirty['insured.name']) {
+        state.demoSubmission.insured_name = dirty['insured.name'];
+        if (state.selectedSubmission) {
+          state.selectedSubmission.insured_name = dirty['insured.name'];
+        }
+      }
     }
     if (state.submissionForm) {
       for (const f of state.submissionForm.fields) {
