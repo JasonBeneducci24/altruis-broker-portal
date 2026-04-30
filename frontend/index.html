@@ -1227,7 +1227,7 @@
     padding: 14px 16px; border-bottom: 1px solid var(--line);
   }
   td {
-    padding: 16px; border-bottom: 1px solid var(--line-soft);
+    padding: 14px 16px; border-bottom: 1px solid var(--line-soft);
     vertical-align: middle;
   }
   tbody tr { transition: background 120ms; }
@@ -1245,12 +1245,12 @@
   .submissions-table {
     table-layout: fixed;  /* respect colgroup widths */
   }
-  .submissions-table .col-insured  { width: auto; }
-  .submissions-table .col-id       { width: 96px; }
-  .submissions-table .col-flow     { width: 130px; }
+  .submissions-table .col-insured   { width: auto; }
+  .submissions-table .col-id        { width: 100px; }
+  .submissions-table .col-flow      { width: 110px; }
   .submissions-table .col-effective { width: 130px; }
-  .submissions-table .col-status   { width: 120px; }
-  .submissions-table .col-updated  { width: 180px; }
+  .submissions-table .col-status    { width: 160px; }
+  .submissions-table .col-updated   { width: 200px; }
 
   .submissions-table .cell-nowrap {
     white-space: nowrap;
@@ -1266,9 +1266,35 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .submissions-table .cell-updated {
+  .submissions-table th:first-child,
+  .submissions-table td:first-child {
+    padding-left: 24px;
+  }
+  .submissions-table th:last-child,
+  .submissions-table td:last-child {
+    padding-right: 24px;
+  }
+  /* Updated column — right-aligned so the timestamps form a clean
+     trailing edge against the table's right border. Without this,
+     they leave an awkward gutter of whitespace on the right. The
+     header arrow (when sort is active) needs to live inside the
+     right-aligned flow, not pop out beyond it. */
+  .submissions-table .cell-updated,
+  .submissions-table th.col-updated-th {
+    text-align: right;
     font-size: 0.85rem;
     color: var(--ink-mute, var(--mute));
+    font-variant-numeric: tabular-nums;
+  }
+  .submissions-table th.col-updated-th .th-label,
+  .submissions-table th.col-updated-th .th-arrow {
+    display: inline;
+  }
+  /* Tabular-id column — narrow, monospaced for column alignment */
+  .submissions-table .tabular-id {
+    color: var(--ink-mute);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.88rem;
   }
 
   /* Sortable column headers in the submissions table. The whole th is
@@ -6388,7 +6414,7 @@ function submissionsTable(items) {
       sortableHeader('flow', 'Flow'),
       sortableHeader('effective', 'Effective'),
       sortableHeader('status', 'Status'),
-      sortableHeader('updated', 'Updated'))),
+      sortableHeader('updated', 'Updated', 'col-updated-th'))),
     el('tbody', {}, ...items.map(s => el('tr', {
       className: 'clickable',
       onClick: () => { state.subView = s.id; loadSubmission(s.id); }
@@ -6408,12 +6434,12 @@ function submissionsTable(items) {
 // to default sort. The active column shows a small directional arrow
 // next to its label; inactive columns show a subtle paired-arrow hint
 // on hover so the broker knows the column is sortable.
-function sortableHeader(column, label) {
+function sortableHeader(column, label, extraClass = '') {
   const isActive = state.filter.sortColumn === column;
   const dir = isActive ? state.filter.sortDir : null;
   const arrow = dir === 'asc' ? '\u2191' : dir === 'desc' ? '\u2193' : '';
   return el('th', {
-    className: `sortable ${isActive ? `sort-${dir}` : ''}`,
+    className: `sortable ${isActive ? `sort-${dir}` : ''} ${extraClass}`,
     onClick: () => {
       // Click cycle: not active → asc; asc → desc; desc → reset to
       // default sort (effective ascending). Cycling back to a default
