@@ -1685,22 +1685,249 @@ class HttpJoshuClient(JoshuClientBase):
     # ------------------------------------------------------------------
 
     async def login(self, email: str, password: str) -> tuple[str, BrokerUser]:
-        # The Joshu API v3 reference doesn't document a password-auth
-        # endpoint in the sections reviewed. Email/password login is
-        # referenced but not detailed — likely a separate auth subsystem.
-        # Until we know the login URL, the portal uses a single shared API
-        # token; there is no per-broker login against Joshu.
-        raise _not_ready("login (Joshu password-auth endpoint not yet documented)")
+        """Email/password login against Joshu's auth subsystem.
+
+        Joshu's auth lives at ``/api/auth/v1/*`` — a separate URL prefix
+        from the insurance API at ``/api/insurance/v3/*``. The login
+        endpoint accepts an email/password JSON body and returns a
+        bearer access_token (JWT, HS256) with a 7-day expiry.
+
+        Confirmed shapes (Apr 30 2026, captured from Joshu UI traffic):
+          Request:
+            POST /api/auth/v1/password/login
+            Content-Type: application/json
+            { "email": "...", "password": "..." }
+          Response (201):
+            { "access_token": "<jwt>",
+              "token_type": "Bearer",
+              "expires_in": 604800 }
+
+        The returned JWT becomes the bearer token used for every
+        subsequent request — including writes, which the long-lived
+        API token cannot perform (verified by direct Joshu probe:
+        Token-auth POST /policies returned 401 'Invalid API token'
+        even when the same token reads succeed).
+
+        We do NOT cache the JWT — the caller (auth router) is
+        responsible for stuffing it into the broker's signed-cookie
+        session. JWTs are private credentials; logging them anywhere
+        would defeat the whole point of the cookie.
+        """
+        # The /api/auth/v1/login endpoint sits OUTSIDE the insurance
+        # /v3 namespace, so we can't use self._post (which prefixes
+        # with API_PREFIX and runs all the test/container guardrails
+        # designed for /v3). We use a direct httpx call instead.
+        # No container / test param needed — auth doesn't have a
+        # container concept; the issued JWT carries no scope claim
+        # and instead resolves container per-request from the user's
+        # current UI selection on Joshu's side. Either Test or
+        # Production writes are possible with the same JWT; the
+        # routing happens via the request body (`{"container":"Test"}`).
+        url = f"{self.base_url}/api/auth/v1/password/login"
+        body = {"email": email, "password": password}
+        log.info("LOGIN: POST /api/auth/v1/password/login email=%s", email)
+        try:
+            resp = await self._client.post(
+                url,
+                json=body,
+                headers={
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                },
+            )
+        except httpx.HTTPError as e:
+            log.warning("LOGIN: transport error: %s", e)
+            from fastapi import HTTPException
+            raise HTTPException(503, f"Could not reach Joshu auth: {e}")
+
+        if resp.status_code in (400, 401, 403):
+            # Invalid credentials. Surface a clean 401 to the caller —
+            # don't echo Joshu's body (it might leak whether the email
+            # exists vs. whether the password was wrong).
+            log.info("LOGIN: rejected for email=%s status=%d", email, resp.status_code)
+            from fastapi import HTTPException
+            raise HTTPException(401, "Invalid email or password")
+        if not resp.is_success:
+            preview = (resp.text or "")[:200]
+            log.warning(
+                "LOGIN: unexpected status from Joshu auth · status=%d body=%s",
+                resp.status_code, preview,
+            )
+            from fastapi import HTTPException
+            raise HTTPException(
+                resp.status_code,
+                f"Joshu auth returned {resp.status_code}",
+            )
+
+        try:
+            data = resp.json()
+        except ValueError:
+            log.error("LOGIN: response was not JSON: %s", resp.text[:200])
+            from fastapi import HTTPException
+            raise HTTPException(502, "Joshu auth returned a non-JSON response")
+
+        access_token = data.get("access_token")
+        if not access_token:
+            log.error("LOGIN: response had no access_token. keys=%s", list(data.keys()))
+            from fastapi import HTTPException
+            raise HTTPException(502, "Joshu auth response missing access_token")
+
+        # Try to fetch the real user record via /me. If it fails, fall
+        # back to a synthesized user — login still succeeds, the UI
+        # just gets less detail. We don't want a /me hiccup to block
+        # an otherwise-successful login.
+        try:
+            user = await self.whoami(access_token)
+        except Exception as e:
+            log.warning("LOGIN: whoami failed after login, synthesizing user: %s", e)
+            user = BrokerUser(
+                id=0,
+                email=email,
+                name=email.split("@")[0].replace(".", " ").title(),
+                store_id=None,
+                store_name="Altruis Group",
+                role="Broker",
+            )
+
+        log.info("LOGIN OK: email=%s expires_in=%s", email, data.get("expires_in"))
+        return access_token, user
 
     async def whoami(self, token: str) -> BrokerUser:
-        # Stub — Joshu docs don't expose /me in the sampled sections.
-        # When we learn how to fetch the user attached to a token, implement
-        # here. For now return a synthetic user so the UI renders.
-        return BrokerUser(
-            id=0, email="api-token-user@altruis", name="API Token User",
-            store_id=None, store_name="Altruis Group",
-            role="Portal (via API key)",
+        """Fetch the logged-in user's record from Joshu's auth subsystem.
+
+        Endpoint: GET /api/auth/v1/me  (NOT under /api/insurance/v3).
+        Auth: Bearer <jwt> — must be a real JWT, not the API token.
+
+        The exact response shape was not captured during the auth
+        spec investigation (DevTools failed to preserve the response
+        body), so this implementation is defensive: it walks a small
+        set of candidate field names for each piece of broker info,
+        and synthesizes anything missing from the bearer token's JWT
+        sub claim. We never throw — a partial user record is fine
+        for UI rendering.
+
+        If the token is the API_TOKEN_SENTINEL (read-only fallback
+        path) or empty, return a synthetic user without making the
+        upstream call. The /me endpoint requires a real JWT and the
+        API token would fail with a 401 'Access token decode error'.
+        """
+        from app.session import API_TOKEN_SENTINEL
+
+        if not token or token == API_TOKEN_SENTINEL:
+            return BrokerUser(
+                id=0, email="api-token-user@altruis",
+                name="API Token User",
+                store_id=None, store_name="Altruis Group",
+                role="Portal (via API key)",
+            )
+
+        url = f"{self.base_url}/api/auth/v1/me"
+        try:
+            resp = await self._client.get(
+                url,
+                headers={
+                    "Accept": "application/json",
+                    "Authorization": f"Bearer {token}",
+                },
+            )
+        except httpx.HTTPError as e:
+            log.warning("WHOAMI: transport error: %s", e)
+            return self._synthesize_user_from_jwt(token)
+
+        if not resp.is_success:
+            log.info(
+                "WHOAMI: non-success status=%d body=%s",
+                resp.status_code, (resp.text or "")[:120],
+            )
+            return self._synthesize_user_from_jwt(token)
+
+        try:
+            data = resp.json()
+        except ValueError:
+            log.warning("WHOAMI: response was not JSON")
+            return self._synthesize_user_from_jwt(token)
+
+        # Walk candidate field names defensively. Joshu's wider API
+        # uses snake_case, so we prefer that, but fall back to a few
+        # variants in case /me's shape diverges.
+        if not isinstance(data, dict):
+            return self._synthesize_user_from_jwt(token)
+
+        email = (
+            data.get("email")
+            or data.get("user_email")
+            or data.get("username")
+            or "unknown@altruis"
         )
+        # Some auth subsystems return a UUID for the user id; keep the
+        # raw value as a string in `extra` and use 0 for the int field
+        # if we can't coerce. BrokerUser.id is `int` per the schema.
+        raw_id = data.get("id") or data.get("user_id") or data.get("sub")
+        try:
+            user_id = int(raw_id) if raw_id is not None else 0
+        except (TypeError, ValueError):
+            user_id = 0
+        name = (
+            data.get("name")
+            or data.get("display_name")
+            or data.get("full_name")
+            or (str(email).split("@")[0].replace(".", " ").title() if email else "User")
+        )
+        store_id = data.get("store_id") or data.get("brokerage_id") or data.get("office_id")
+        try:
+            store_id = int(store_id) if store_id is not None else None
+        except (TypeError, ValueError):
+            store_id = None
+        store_name = (
+            data.get("store_name")
+            or data.get("brokerage_name")
+            or data.get("office_name")
+            or "Altruis Group"
+        )
+        role = data.get("role") or data.get("user_role") or "Broker"
+
+        return BrokerUser(
+            id=user_id, email=email, name=name,
+            store_id=store_id, store_name=store_name, role=role,
+        )
+
+    def _synthesize_user_from_jwt(self, token: str) -> BrokerUser:
+        """Last-resort user record built from the JWT payload alone.
+
+        Joshu's JWT carries `sub` (user UUID) and `src` ('Email'). It
+        does NOT carry an email or name claim — those would have to
+        come from /me. So we return a minimally-populated user that
+        lets the UI render without crashing, and let the caller log
+        that /me was unavailable.
+
+        This function is best-effort. It never throws. Errors decoding
+        the JWT result in a fully-synthetic user with id=0.
+        """
+        try:
+            import base64
+            import json
+            parts = token.split(".")
+            if len(parts) != 3:
+                raise ValueError("not a JWT")
+            payload_b64 = parts[1]
+            # Pad to multiple of 4 for base64
+            payload_b64 += "=" * ((4 - len(payload_b64) % 4) % 4)
+            payload = json.loads(base64.urlsafe_b64decode(payload_b64))
+            sub = payload.get("sub", "")
+            return BrokerUser(
+                id=0,  # JWT sub is a UUID; can't coerce to int
+                email=f"user-{sub[:8]}@altruis" if sub else "unknown@altruis",
+                name="Broker",
+                store_id=None,
+                store_name="Altruis Group",
+                role="Broker",
+            )
+        except Exception as e:
+            log.debug("Could not decode JWT for synthesized user: %s", e)
+            return BrokerUser(
+                id=0, email="unknown@altruis", name="Broker",
+                store_id=None, store_name="Altruis Group", role="Broker",
+            )
 
     # ------------------------------------------------------------------
     # Products

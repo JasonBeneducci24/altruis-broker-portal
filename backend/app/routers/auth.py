@@ -49,32 +49,37 @@ async def login(
             "environment": settings.joshu_environment,
         }
 
-    # Non-mock (test/production): Joshu password-auth not yet available.
-    # For now, any email can "sign in" — the portal will use the configured
-    # API token for all Joshu calls. This is a deliberate temporary stopgap;
-    # track per-broker login as a follow-up once Joshu's login URL is known.
-    if not settings.joshu_api_token:
+    # Non-mock (test/production): real per-broker login against
+    # Joshu's auth subsystem at /api/auth/v1/password/login.
+    #
+    # The HTTP client now implements a real login() — it POSTs the
+    # email/password to Joshu, parses the access_token JWT from the
+    # 201 response, and returns (jwt, user). The JWT becomes the
+    # session's bearer token for all subsequent broker requests
+    # (reads AND writes).
+    #
+    # The previous API_TOKEN_SENTINEL fallback path is gone. The
+    # long-lived API token cannot perform writes against Joshu
+    # (verified by direct probe: 401 'Invalid API token' on POST
+    # /policies even with a valid Token-auth header), so the
+    # sentinel session would be unable to support the create flow.
+    # Real per-broker JWTs are required.
+    if not settings.joshu_base_url:
         raise HTTPException(
             503,
-            "Portal is not configured: JOSHU_API_TOKEN is missing. "
+            "Portal is not configured: JOSHU_BASE_URL is missing. "
             "Contact your administrator.",
         )
 
-    # Synthesize a broker user from the email (until we can fetch real
-    # user records from Joshu)
-    user = {
-        "id": 0,
-        "email": req.email,
-        "name": req.email.split("@")[0].replace(".", " ").title(),
-        "store_id": None,
-        "store_name": "Altruis Group",
-        "role": "Broker (API token session)",
-    }
+    token, user = await client.login(req.email, req.password)
     set_session(
-        response, token=API_TOKEN_SENTINEL, user_id=0,
-        email=req.email, store_id=None,
+        response, token=token, user_id=user.id,
+        email=user.email, store_id=user.store_id,
     )
-    return {"user": user, "environment": settings.joshu_environment}
+    return {
+        "user": user.model_dump(mode="json"),
+        "environment": settings.joshu_environment,
+    }
 
 
 @router.post("/logout")
