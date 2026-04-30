@@ -1329,19 +1329,29 @@
     box-shadow: var(--shadow-xs); margin-bottom: 20px;
   }
   .form-progress {
-    padding: 20px 28px; border-bottom: 1px solid var(--line-soft);
-    background: var(--paper-warm);
+    padding: 14px 28px;
+    border-bottom: 1px solid var(--line);
+    background: transparent;
   }
   .form-progress-labels {
-    display: flex; align-items: baseline; justify-content: space-between;
-    margin-bottom: 10px; gap: 16px; flex-wrap: wrap;
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 8px; gap: 16px; flex-wrap: wrap;
   }
-  .form-progress-title { font-size: 1.05rem; font-weight: 600; color: var(--ink); }
-  .form-progress-count { font-size: 0.82rem; color: var(--ink-mute); }
+  .form-progress-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+  .form-progress-count {
+    font-size: 0.85rem; color: var(--ink-mute);
+    font-variant-numeric: tabular-nums;
+  }
   .form-progress-pct { color: var(--blue); font-weight: 500; }
   .form-progress-pct.done { color: var(--ok); }
   .form-progress-bar {
-    height: 4px; background: var(--line); border-radius: 2px; overflow: hidden;
+    height: 3px; background: var(--line); border-radius: 1.5px; overflow: hidden;
   }
   .form-progress-fill {
     height: 100%; background: var(--blue);
@@ -6231,7 +6241,7 @@ function submissionDetailView() {
   return el('div', {},
     el('div', { className: 'page-header page-header-with-pill' },
       el('div', { className: 'page-header-titleblock' },
-        el('div', { className: 'eyebrow' }, `Submission · #${s.id} · ${s.flow || 'New'}`),
+        el('div', { className: 'eyebrow' }, `Submission #${s.id}`),
         el('div', { className: 'page-header-titlerow' },
           el('h1', {}, insuredName),
           statusPill(s)),
@@ -6248,8 +6258,6 @@ function submissionDetailView() {
           : null,
         el('button', { className: 'btn btn-secondary',
           onClick: () => { state.subView = null; render(); loadView(); } }, '← Back'))),
-
-    submissionOverviewBar(s),
 
     submissionMainCard(s),
 
@@ -6274,22 +6282,30 @@ function statusPill(s) {
   return el('span', { className: `status-pill ${cls}` }, label);
 }
 
-// Metadata line under the page title: "New policy · effective Apr 9 · last
-// edited 2 min ago" — replaces the old card-style banner with a quieter
-// inline subhead. For Declined submissions, replaces the metadata line
-// with the carrier's decline reason so the broker sees it inline.
+// Metadata line under the page title — quiet inline subhead with the
+// submission's key context. Status-specific so it doesn't say
+// contradictory things (e.g. "submitted Mar 12" on a draft that's been
+// reopened). For Declined submissions, replaces the line with the
+// carrier's decline reason inline.
 function statusMetaLine(s) {
-  const parts = [];
   if (s.status === 'Declined' && s.decline_reason) {
     return el('div', { className: 'page-header-meta page-header-meta-declined' },
       s.decline_reason);
   }
+  const parts = [];
   parts.push(s.flow ? `${s.flow} policy` : 'New policy');
   if (s.effective_at) parts.push(`effective ${fmtDate(s.effective_at)}`);
-  if (s.bound_at) parts.push(`bound ${fmtDate(s.bound_at)}`);
-  else if (s.submitted_at) parts.push(`submitted ${fmtDate(s.submitted_at)}`);
-  else if (s.created_at) parts.push(`started ${fmtDate(s.created_at)}`);
-  if (s.modified_at && s.status === 'Incomplete') parts.push(`last edited ${fmtRelativeTime(s.modified_at)}`);
+  if (s.bound_at) {
+    parts.push(`bound ${fmtDate(s.bound_at)}`);
+  } else if (s.status === 'Incomplete') {
+    // Drafts: skip submitted_at (a reopened draft technically still
+    // has a submitted_at value, but showing "submitted Mar 12" on a
+    // page that says DRAFT is contradictory). Show last-edited time
+    // instead — that's what the broker actually wants to know.
+    if (s.modified_at) parts.push(`last edited ${fmtRelativeTime(s.modified_at)}`);
+  } else if (s.submitted_at) {
+    parts.push(`submitted ${fmtDate(s.submitted_at)}`);
+  }
   return el('div', { className: 'page-header-meta' },
     parts.map((p, i) => i === 0 ? p : ` · ${p}`).join(''));
 }
@@ -6366,7 +6382,7 @@ function submissionMainCard(s) {
     isEditing
       ? el('div', { className: 'form-progress' },
           el('div', { className: 'form-progress-labels' },
-            el('div', { className: 'form-progress-title' }, 'Complete the submission'),
+            el('div', { className: 'form-progress-title' }, 'Submission progress'),
             el('div', { className: 'form-progress-count' },
               pct === 100
                 ? el('span', { className: 'form-progress-pct done' }, 'Ready to submit')
@@ -10366,8 +10382,19 @@ async function createSubmissionAndContinue(form, rerender, extracted) {
         status: 'Incomplete', flow: 'New',
         effective_at: form.effective_date,
         insured_name: extracted['insured.name'] || 'New submission',
-        data: { ...(extracted || {}),
-          'policy.effective_date': form.effective_date },
+        data: {
+          // Default these three coverages to "added" for every new
+          // quote — Altruis includes TRIA, Equipment Breakdown, and
+          // Cyber as standard offerings, so brokers shouldn't have to
+          // re-toggle them on every submission. They can still flip
+          // them off in the form if a particular insured doesn't want
+          // a coverage, but the default state matches our program.
+          'app.tria_status': true,
+          'app.equipment_breakdown_status': true,
+          'app.cyber_status': true,
+          ...(extracted || {}),
+          'policy.effective_date': form.effective_date,
+        },
         _demo: true,
       };
       state.demoSubmission = demoSub;
