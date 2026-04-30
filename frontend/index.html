@@ -5750,18 +5750,11 @@ function dashboardView() {
   const quotes = state.quotes.items || [];
   const policies = state.policies.items || [];
 
-  // ── Greeting (compact: no subgreeting; the page itself shows what
-  //    the pipeline looks like) ───────────────────────────────────────
+  // ── Greeting ──────────────────────────────────────────────────────
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const firstName = (state.user.name || state.user.email || 'Broker').split(' ')[0]
     .replace(/\d+$/, '');  // strip trailing digits ("Jasonbeneducci2" → "Jasonbeneducci")
-
-  // Total count for the pipeline strip — used in a few places below
-  const total = subs.length;
-  const drafts = subs.filter(s => s.status === 'Incomplete').length;
-  const inUw = subs.filter(s => s.status === 'Submitted' || s.status === 'Pending').length;
-  const declined = subs.filter(s => s.status === 'Declined').length;
 
   return el('div', { className: 'dashboard' },
     // Compact header — greeting on left, search on right.
@@ -5781,12 +5774,7 @@ function dashboardView() {
     // is the single most workflow-critical addition to the dashboard.
     renderActionLane(subs, quotes),
 
-    // Pipeline strip (existing) — total + composition. Kept because it
-    // gives "shape of the book at a glance" which the KPIs above don't.
-    renderPipelineStrip(total, { drafts, inUw, declined }),
-
-    // Tier 3 — Charts. Volume over time + funnel. Placeholders for now;
-    // they'll come alive with more historical data over time.
+    // Tier 3 — Charts. Volume over time + funnel.
     renderDashboardCharts(subs, quotes),
 
     // Recent activity (existing) — chronological feed of what happened.
