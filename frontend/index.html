@@ -6433,9 +6433,18 @@ function submissionMainCard(s) {
   }
 
   // Use the sections array from the normalizer — it's already in display order
-  // and has completion counts. Filter out sections with no visible fields.
-  const sections = (form.sections || []).filter(sec =>
-    sec.visible_count > 0 || (sec.field_count > 0 && sec.condition_met !== false));
+  // and has completion counts. Show a section in the nav when it has any
+  // visible fields, OR when it's an asset section whose condition is met
+  // (so the broker can see and use the "+ Add" empty state for an asset
+  // section that just turned on, like Additional Insureds the moment they
+  // toggle the flag in Basic Information).
+  const sections = (form.sections || []).filter(sec => {
+    if (sec.condition_met === false) return false;
+    if (sec.visible_count > 0) return true;
+    if (sec.field_count > 0) return true;
+    if (sec.is_asset) return true;
+    return false;
+  });
 
   // Pick active section (fall back to first if current isn't valid)
   const activeSection = sections.find(s => s.code === state.activeSection) || sections[0];
@@ -9550,8 +9559,25 @@ function abbreviateSliderLabel(label) {
 
 // Autosave: debounce-save dirty fields every 1.5s
 let _autoSaveTimer = null;
+// Field codes that drive section-level visibility (a toggle here makes
+// an entire section appear or disappear). When any of these is dirty,
+// we save immediately instead of waiting on the 1.5s debounce — that
+// way the broker sees the new section in the rail without waiting.
+const SECTION_TRIGGER_FIELDS = new Set([
+  'app.additional_insured_status',
+]);
+
 function scheduleAutoSave() {
   clearTimeout(_autoSaveTimer);
+  // Immediate save when a section-level trigger is in the dirty set,
+  // so conditional sections appear / disappear with no perceptible
+  // delay after the broker toggles the switch.
+  const dirtyKeys = Object.keys(state.submissionDirty || {});
+  const hasTrigger = dirtyKeys.some(k => SECTION_TRIGGER_FIELDS.has(k));
+  if (hasTrigger) {
+    saveDirtyData();
+    return;
+  }
   _autoSaveTimer = setTimeout(saveDirtyData, 1500);
 }
 
@@ -9604,6 +9630,27 @@ async function saveDirtyData() {
         if (f.code in dirty) f.value = dirty[f.code];
       }
     }
+    // Regenerate the form schema after every save so conditional
+    // section visibility reflects the broker's latest toggles. This
+    // is what makes the Additional Insureds section appear when the
+    // broker flips app.additional_insured_status to true (or vanish
+    // when they flip it back). Cheap to do — schema generation is
+    // pure data over a small object.
+    if (state.demoSubmission) {
+      state.submissionForm = seedFormSchemaForSubmission(state.demoSubmission);
+      // If the active section just disappeared (e.g. broker toggled
+      // additional_insureds OFF while on that section), redirect to
+      // basic_information so the form pane doesn't render empty.
+      const sections = state.submissionForm?.sections || [];
+      const stillVisible = sections.some(sec => sec.code === state.activeSection
+        && (sec.is_asset || sec.visible_count > 0)
+        && (sec.condition_met !== false));
+      if (!stillVisible) {
+        const firstWithFields = sections.find(sec => sec.condition_met !== false
+          && (sec.is_asset || sec.visible_count > 0));
+        state.activeSection = firstWithFields?.code || sections[0]?.code || null;
+      }
+    }
     state.submissionDirty = {};
     state.submissionSaving = 'saved';
     state.showRequiredHighlight = false;
@@ -9625,6 +9672,30 @@ async function saveDirtyData() {
     if (state.submissionForm) {
       for (const f of state.submissionForm.fields) {
         if (f.code in dirty) f.value = dirty[f.code];
+      }
+    }
+    // Regenerate the form schema after every save so conditional
+    // section visibility reflects the broker's latest toggles. Same
+    // reasoning as the demo path above; here we read fresh from the
+    // seed database since the seed-PUT handler has already merged the
+    // dirty values into sub.data, and state.selectedSubmission is a
+    // shallow snapshot from before the save landed.
+    if (state.selectedSubmission) {
+      const db = seedDb();
+      const fresh = db.submissions.find(s2 => String(s2.id) === String(s.id));
+      if (fresh) {
+        state.selectedSubmission = { ...fresh, quotes: state.selectedSubmission.quotes || [] };
+        state.submissionForm = seedFormSchemaForSubmission(fresh);
+        // Redirect away from any section that just became invisible.
+        const sections = state.submissionForm?.sections || [];
+        const stillVisible = sections.some(sec => sec.code === state.activeSection
+          && (sec.is_asset || sec.visible_count > 0)
+          && (sec.condition_met !== false));
+        if (!stillVisible) {
+          const firstWithFields = sections.find(sec => sec.condition_met !== false
+            && (sec.is_asset || sec.visible_count > 0));
+          state.activeSection = firstWithFields?.code || sections[0]?.code || null;
+        }
       }
     }
     state.submissionDirty = {};
