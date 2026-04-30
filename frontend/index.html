@@ -1665,6 +1665,71 @@
   @media (max-width: 700px) {
     .form-grid-trio { grid-template-columns: 1fr; }
   }
+  /* 5-col row used for the physical-attribute cluster
+     (Year Built, Stories, Open Sides, Sprinklered, Ex-Wind/Hail).
+     Wraps to 2 columns on tablet and 1 on phone. */
+  .form-grid-quintet {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px 18px;
+    margin-bottom: 12px;
+  }
+  .form-grid-quintet .form-field { gap: 5px; }
+  .form-grid-quintet .form-field label {
+    font-size: 0.78rem;
+    color: var(--ink-mute);
+    font-weight: 400;
+    /* Allow long booleans like "Ex-Wind/Hail?" to fit by leaving the
+       label allowed to wrap to 2 lines if it must. */
+    line-height: 1.25;
+  }
+  .form-grid-quintet .form-field input[type="text"],
+  .form-grid-quintet .form-field input[type="number"],
+  .form-grid-quintet .form-field input[type="date"],
+  .form-grid-quintet .form-field select {
+    padding: 7px 10px;
+    font-size: 0.88rem;
+  }
+  /* Toggle in a quintet cell — keep it left-aligned and tight */
+  .form-grid-quintet .toggle {
+    margin-top: 2px;
+  }
+  @media (max-width: 1100px) {
+    .form-grid-quintet { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 700px) {
+    .form-grid-quintet { grid-template-columns: 1fr; }
+  }
+
+  /* Derived-stat cell — used for read-only computed values like Cost
+     per Square Foot. Renders inline with regular form fields but in
+     brand blue so it reads as "we figured this out for you" rather
+     than as data the broker is expected to type. */
+  .derived-stat {
+    display: flex; flex-direction: column; gap: 5px;
+    padding: 0;
+  }
+  .derived-stat-label {
+    font-size: 0.78rem;
+    color: var(--ink-mute);
+    font-weight: 400;
+  }
+  .derived-stat-value {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--blue);
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+    /* Match the vertical rhythm of inputs sitting beside it — text
+       baseline lands roughly where an input's baseline would. */
+    padding: 5px 0 0;
+  }
+  .derived-stat-hint {
+    font-size: 0.7rem;
+    color: var(--mute);
+    letter-spacing: 0.005em;
+  }
   .form-grid-compact .form-field {
     gap: 5px;
   }
@@ -7479,35 +7544,192 @@ function renderAccordionBucketBody(bucket, lockedPredicate) {
       }))];
   }
 
-  // Pull the three identity-number fields out by code-tail. Order is
-  // intentional left-to-right: Location → Building → Number of Buildings.
+  // The basic-info bucket has a custom layout — fields are grouped into
+  // named zones that match the broker's mental model rather than the
+  // schema's flat field order. We pull each zone's fields out by code-tail
+  // and render them in dedicated grid containers, then sweep up any
+  // unclaimed fields into a final standard 2-col grid at the bottom.
   const tailMatch = (codes) => bucket.fields.find(f => {
     const tail = (f.original_code || f.code || '').toLowerCase().split('.').pop();
     return codes.includes(tail);
   });
+
+  // ── Zone A: identity row (3-col)
+  //    Location#, Building#, Number of Buildings
   const locField    = tailMatch(['location_number']);
   const bldgField   = tailMatch(['building_number']);
   const countField  = tailMatch(['building_count']);
-  const identityFields = [locField, bldgField, countField].filter(Boolean);
-  const identitySet = new Set(identityFields.map(f => f.code));
-  const remainingFields = bucket.fields.filter(f => !identitySet.has(f.code));
+
+  // ── Zone B: address (full width)
+  const addressField = tailMatch(['location_address']);
+
+  // ── Zone C: occupancy (full width pills)
+  const occupancyField = tailMatch(['building_occupancy']);
+
+  // ── Zone D: TIV + Sqft + derived Cost per SF (3-col, last is computed)
+  const tivField  = tailMatch(['building_value']);
+  const sqftField = tailMatch(['square_footage']);
+
+  // ── Zone E: financial trio (3-col)
+  //    Business Personal Property, Annual Sales, Ordinance and Law 2&3 Limit
+  const bppField    = tailMatch(['bpp_limit']);
+  const salesField  = tailMatch(['annual_sales']);
+  const olField     = tailMatch(['ol_2and3_limit']);
+
+  // ── Zone F: construction type (full width card grid)
+  const constructionField = tailMatch(['construction_type']);
+
+  // ── Zone G: physical-attribute row (5-col)
+  //    Year Built, Number of Stories, Open Sides?, Sprinklered?, Ex-Wind/Hail?
+  const yearField     = tailMatch(['year_built']);
+  const storiesField  = tailMatch(['stories']);
+  const openSidesF    = tailMatch(['open_sided_status']);
+  const sprinklerF    = tailMatch(['sprinklered_status']);
+  const exWindF       = tailMatch(['ex_wind_status']);
+
+  // Set of every field handled explicitly above — anything NOT in this
+  // set is unclaimed and gets dumped into the standard 2-col grid at
+  // the bottom (catches GL Only, Roof Geometry, Valuation Method,
+  // Coinsurance %, Roof Type, etc.).
+  const claimed = new Set([
+    locField, bldgField, countField, addressField, occupancyField,
+    tivField, sqftField, bppField, salesField, olField,
+    constructionField, yearField, storiesField,
+    openSidesF, sprinklerF, exWindF,
+  ].filter(Boolean).map(f => f.code));
+  const remainingFields = bucket.fields.filter(f => !claimed.has(f.code));
+
+  // Helper for rendering a field with the locked-predicate dance
+  const rf = (f) => {
+    if (!f) return null;
+    const locked = lockedPredicate(f);
+    return renderFormField(f, !locked);
+  };
 
   const out = [];
+
+  // Zone A: identity 3-col
+  const identityFields = [locField, bldgField, countField].filter(Boolean);
   if (identityFields.length > 0) {
     out.push(el('div', { className: 'form-grid-trio' },
-      ...identityFields.map(f => {
-        const locked = lockedPredicate(f);
-        return renderFormField(f, !locked);
-      })));
+      ...identityFields.map(rf)));
   }
+
+  // Zone B: address full
+  if (addressField) {
+    out.push(el('div', { className: 'form-grid form-grid-compact' }, rf(addressField)));
+  }
+
+  // Zone C: occupancy full
+  if (occupancyField) {
+    out.push(el('div', { className: 'form-grid form-grid-compact' }, rf(occupancyField)));
+  }
+
+  // Zone D: TIV + Sqft + derived Cost/SF (custom 3-col)
+  if (tivField || sqftField) {
+    out.push(renderTivSqftCostRow(tivField, sqftField, rf));
+  }
+
+  // Zone E: financial trio (3-col) — BPP, Annual Sales, OL 2&3 Limit
+  const financialTrio = [bppField, salesField, olField].filter(Boolean);
+  if (financialTrio.length > 0) {
+    out.push(el('div', { className: 'form-grid-trio' },
+      ...financialTrio.map(rf)));
+  }
+
+  // Zone F: construction type full
+  if (constructionField) {
+    out.push(el('div', { className: 'form-grid form-grid-compact' }, rf(constructionField)));
+  }
+
+  // Zone G: physical-attribute row (5-col)
+  const physicalFields = [yearField, storiesField, openSidesF, sprinklerF, exWindF].filter(Boolean);
+  if (physicalFields.length > 0) {
+    out.push(el('div', { className: 'form-grid-quintet' },
+      ...physicalFields.map(rf)));
+  }
+
+  // Catch-all: any unclaimed fields drop into the standard 2-col grid
   if (remainingFields.length > 0) {
     out.push(el('div', { className: 'form-grid form-grid-compact' },
-      ...remainingFields.map(f => {
-        const locked = lockedPredicate(f);
-        return renderFormField(f, !locked);
-      })));
+      ...remainingFields.map(rf)));
   }
+
   return out;
+}
+
+// Render the TIV + Square Footage + derived Cost-per-Square-Foot row.
+// The cost-per-sf cell isn't an input — it's a computed read-only stat
+// shown in brand blue. To keep it live as the broker types (without
+// triggering full re-renders that would steal input focus), we tag
+// the TIV and Sqft inputs by code and refresh just the derived cell's
+// text content from a single delegated input listener attached to the
+// row container. Recomputation is cheap and stays scoped to one DOM node.
+function renderTivSqftCostRow(tivField, sqftField, rf) {
+  const computeFromCurrent = () => {
+    const readVal = (f) => {
+      if (!f) return null;
+      const dirty = state.submissionDirty[f.code];
+      const val = dirty !== undefined ? dirty : unwrapForInput(f.value);
+      const n = Number(val);
+      return Number.isFinite(n) ? n : null;
+    };
+    const t = readVal(tivField);
+    const s = readVal(sqftField);
+    if (t == null || s == null || t <= 0 || s <= 0) {
+      return { display: '\u2014', hint: 'Enter TIV and sq ft above' };
+    }
+    return {
+      display: `$${(t / s).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      hint: 'TIV \u00f7 sq ft',
+    };
+  };
+  const initial = computeFromCurrent();
+
+  const valueEl = el('div', { className: 'derived-stat-value' }, initial.display);
+  const hintEl  = el('div', { className: 'derived-stat-hint' }, initial.hint);
+  const derivedCell = el('div', { className: 'derived-stat' },
+    el('label', { className: 'derived-stat-label' }, 'Cost per sq ft'),
+    valueEl,
+    hintEl);
+
+  const row = el('div', { className: 'form-grid-trio tiv-sqft-row' },
+    rf(tivField),
+    rf(sqftField),
+    derivedCell);
+
+  // Delegated input listener — recompute on every keystroke in the row.
+  // Reads the live input values directly so we don't have to wait for
+  // the auto-save debounce to land. The dirty dict isn't even required
+  // here, but we keep the read path consistent so a re-render would
+  // produce the same answer.
+  row.addEventListener('input', () => {
+    // Pull current input values fresh from the DOM. This is the most
+    // reliable source while the broker is typing; submissionDirty may
+    // not yet reflect the latest keystroke depending on event ordering.
+    const inputs = row.querySelectorAll('input[type="number"], input[type="text"]');
+    let tivLive = null, sqftLive = null;
+    inputs.forEach(inp => {
+      // Match by the form-field's containing label text — fragile but
+      // good enough since this row contains exactly TIV and Sqft inputs.
+      // Better: tag inputs with a data attribute upstream.
+      const fieldDiv = inp.closest('.form-field');
+      const labelText = fieldDiv?.querySelector('label')?.textContent || '';
+      const n = Number(inp.value.replace(/[^\d.-]/g, ''));
+      if (!Number.isFinite(n)) return;
+      if (/tiv|building value/i.test(labelText)) tivLive = n;
+      else if (/square footage|sq.?ft/i.test(labelText)) sqftLive = n;
+    });
+    if (tivLive != null && sqftLive != null && tivLive > 0 && sqftLive > 0) {
+      valueEl.textContent = `$${(tivLive / sqftLive).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      hintEl.textContent  = 'TIV \u00f7 sq ft';
+    } else {
+      valueEl.textContent = '\u2014';
+      hintEl.textContent  = 'Enter TIV and sq ft above';
+    }
+  });
+
+  return row;
 }
 
 // ──────────────────────────────────────────────────────────────
